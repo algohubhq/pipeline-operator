@@ -1,0 +1,7 @@
+apiVersion: algo.run/v1alpha1
+kind: Endpoint
+metadata:
+  name: example-endpoint
+spec:
+  # Add fields here
+  size: 3
