@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"algo-runner-go/swagger"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -10,9 +12,21 @@ import (
 // EndpointSpec defines the desired state of Endpoint
 // +k8s:openapi-gen=true
 type EndpointSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	EndpointOwnerUserName string `json:"endpointOwnerUserName,omitempty"`
+
+	EndpointName string `json:"endpointName,omitempty"`
+
+	PipelineOwnerUserName string `json:"pipelineOwnerUserName,omitempty"`
+
+	PipelineName string `json:"pipelineName,omitempty"`
+
+	PipelineVersionTag string `json:"pipelineVersionTag,omitempty"`
+
+	AlgoConfigs []swagger.AlgoConfig `json:"algoConfigs,omitempty"`
+
+	TopicConfigs []swagger.TopicConfigModel `json:"topicConfigs,omitempty"`
+
+	Pipes []swagger.PipeModel `json:"pipes,omitempty"`
 }
 
 // EndpointStatus defines the observed state of Endpoint
