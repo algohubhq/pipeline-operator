@@ -1,7 +1,7 @@
 package v1alpha1
 
 import (
-	"algo-runner-go/swagger"
+	"endpoint-operator/pkg/apis/algo/v1alpha1/swagger"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -12,6 +12,22 @@ import (
 // EndpointSpec defines the desired state of Endpoint
 // +k8s:openapi-gen=true
 type EndpointSpec struct {
+	AlgoRunnerURL     string `json:"algoRunnerUrl,omitempty"`
+	AlgoRunnerVersion string `json:"algoRunnerVersion,omitempty"`
+	InCluster         bool   `json:"inCluster,omitempty"`
+	Namespace         string `json:"namespace,omitempty"`
+	ImagePullPolicy   string `json:"imagePullPolicy,omitempty"`
+
+	LogTopic     string `json:"logTopic,omitempty"`
+	CommandTopic string `json:"commandTopic,omitempty"`
+
+	LivenessInitialDelaySeconds  int32 `json:"livenessInitialDelaySeconds,omitempty"`
+	LivenessTimeoutSeconds       int32 `json:"livenessTimeoutSeconds,omitempty"`
+	LivenessPeriodSeconds        int32 `json:"livenessPeriodSeconds,omitempty"`
+	ReadinessInitialDelaySeconds int32 `json:"readinessInitialDelaySeconds,omitempty"`
+	ReadinessTimeoutSeconds      int32 `json:"readinessTimeoutSeconds,omitempty"`
+	ReadinessPeriodSeconds       int32 `json:"readinessPeriodSeconds,omitempty"`
+
 	EndpointOwnerUserName string `json:"endpointOwnerUserName,omitempty"`
 
 	EndpointName string `json:"endpointName,omitempty"`
