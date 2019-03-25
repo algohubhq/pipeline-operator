@@ -3,11 +3,11 @@ package endpoint
 import (
 	"context"
 	"encoding/json"
-	"endpoint-operator/pkg/apis/algo/v1alpha1/swagger"
 	"fmt"
 	"strconv"
 	"strings"
 
+	"endpoint-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -59,8 +59,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
+	// Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner Endpoint
+	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &algov1alpha1.Endpoint{},
+	})
+	if err != nil {
+		return err
+	}
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &algov1alpha1.Endpoint{},
@@ -108,7 +115,9 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	// Reconcile all algo deployments
-	if result, err := r.reconcileAlgos(instance, request); err != nil {
+	if err := r.reconcileAlgos(instance, request); err != nil {
+
+		// TODO: Depending on the error, determine if it should be requeued
 		return reconcile.Result{}, err
 	}
 
@@ -117,10 +126,10 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 }
 
 // reconcileAlgos creates or updates all algos for the endpoint
-func (r *ReconcileEndpoint) reconcileAlgos(cr *algov1alpha1.Endpoint, request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileEndpoint) reconcileAlgos(cr *algov1alpha1.Endpoint, request reconcile.Request) error {
 
 	// Iterate the AlgoConfigs
-	for _, algoConfig := range cr.Spec.AlgoConfigs {
+	for _, algoConfig := range cr.Spec.EndpointConfig.AlgoConfigs {
 
 		if !algoConfig.Applied {
 
@@ -163,7 +172,7 @@ func (r *ReconcileEndpoint) reconcileAlgos(cr *algov1alpha1.Endpoint, request re
 			// Generate the k8s deployment for the algoconfig
 			algoDeployment, err := createDeploymentSpec(cr, name, labels, &algoConfig, &runnerConfig, !deploymentExists)
 			if err != nil {
-				return reconcile.Result{}, err
+				return err
 				// orchLog.logOrch("Failed", fmt.Sprintf("Failed to create algo deployment for [%s/%s:%s]\nError: %s",
 				// 	algoConfig.AlgoOwnerUserName,
 				// 	algoConfig.AlgoName,
@@ -173,7 +182,7 @@ func (r *ReconcileEndpoint) reconcileAlgos(cr *algov1alpha1.Endpoint, request re
 
 			// Set Endpoint instance as the owner and controller
 			if err := controllerutil.SetControllerReference(cr, algoDeployment, r.scheme); err != nil {
-				return reconcile.Result{}, err
+				return err
 			}
 
 			if !deploymentExists {
@@ -191,7 +200,7 @@ func (r *ReconcileEndpoint) reconcileAlgos(cr *algov1alpha1.Endpoint, request re
 
 	}
 
-	return reconcile.Result{}, nil
+	return nil
 
 }
 
@@ -253,15 +262,15 @@ func (r *ReconcileEndpoint) updateDeployment(deployment *appsv1.Deployment) erro
 
 }
 
-func createRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec, algoConfig *swagger.AlgoConfig) swagger.RunnerConfig {
+func createRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec, algoConfig *v1alpha1.AlgoConfig) v1alpha1.RunnerConfig {
 
-	runnerConfig := swagger.RunnerConfig{
-		EndpointOwnerUserName: endpointSpec.EndpointOwnerUserName,
-		EndpointName:          endpointSpec.EndpointName,
-		PipelineOwnerUserName: endpointSpec.PipelineOwnerUserName,
-		PipelineName:          endpointSpec.PipelineName,
-		Pipes:                 endpointSpec.Pipes,
-		TopicConfigs:          endpointSpec.TopicConfigs,
+	runnerConfig := v1alpha1.RunnerConfig{
+		EndpointOwnerUserName: endpointSpec.EndpointConfig.EndpointOwnerUserName,
+		EndpointName:          endpointSpec.EndpointConfig.EndpointName,
+		PipelineOwnerUserName: endpointSpec.EndpointConfig.PipelineOwnerUserName,
+		PipelineName:          endpointSpec.EndpointConfig.PipelineName,
+		Pipes:                 endpointSpec.EndpointConfig.Pipes,
+		TopicConfigs:          endpointSpec.EndpointConfig.TopicConfigs,
 		AlgoOwnerUserName:     algoConfig.AlgoOwnerUserName,
 		AlgoName:              algoConfig.AlgoName,
 		AlgoVersionTag:        algoConfig.AlgoVersionTag,
@@ -280,11 +289,15 @@ func createRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec, algoConfig *swa
 
 }
 
-func createDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[string]string, algoConfig *swagger.AlgoConfig, runnerConfig *swagger.RunnerConfig, update bool) (*appsv1.Deployment, error) {
+func createDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[string]string, algoConfig *v1alpha1.AlgoConfig, runnerConfig *v1alpha1.RunnerConfig, update bool) (*appsv1.Deployment, error) {
 
-	// LEFT OFF HERE
 	// Set the image name
-	if algoConfig.ImageRepository
+	var imageFullName string
+	if algoConfig.ImageTag == "" || algoConfig.ImageTag == "latest" {
+		imageFullName = fmt.Sprintf("%s:latest", algoConfig.ImageRepository)
+	} else {
+		imageFullName = fmt.Sprintf("%s:%s", algoConfig.ImageRepository, algoConfig.ImageTag)
+	}
 
 	// Configure the readiness and liveness
 	handler := corev1.Handler{
@@ -329,7 +342,7 @@ func createDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 		imagePullPolicy = corev1.PullAlways
 	}
 
-	envVars := createEnvVars(runnerConfig, algoConfig)
+	envVars := createEnvVars(cr, runnerConfig, algoConfig)
 
 	// If this is an update, need to set the existing deployment name
 	var nameMeta metav1.ObjectMeta
@@ -383,7 +396,7 @@ func createDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 					Containers: []corev1.Container{
 						{
 							Name:            name,
-							Image:           algoConfig.ImageRepository,
+							Image:           imageFullName,
 							Command:         []string{"/algo-runner/algo-runner"},
 							Env:             envVars,
 							Resources:       *resources,
@@ -437,22 +450,22 @@ func createDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 
 }
 
-func createEnvVars(runnerConfig *swagger.RunnerConfig, algoConfig *swagger.AlgoConfig) []corev1.EnvVar {
+func createEnvVars(cr *algov1alpha1.Endpoint, runnerConfig *v1alpha1.RunnerConfig, algoConfig *v1alpha1.AlgoConfig) []corev1.EnvVar {
 
 	// Create the base log message
-	orchLog := logMessage{
-		LogMessageType: "Orchestrator",
-		Status:         "Started",
-	}
+	// orchLog := logMessage{
+	// 	LogMessageType: "Orchestrator",
+	// 	Status:         "Started",
+	// }
 
 	envVars := []corev1.EnvVar{}
 
 	// serialize the runner config to json string
 	runnerConfigBytes, err := json.Marshal(runnerConfig)
 	if err != nil {
-		orchLog.logOrch("Failed", fmt.Sprintf("Failed deserializing runner config [%+v]\nError: %s",
-			runnerConfig,
-			err))
+		// orchLog.logOrch("Failed", fmt.Sprintf("Failed deserializing runner config [%+v]\nError: %s",
+		// 	runnerConfig,
+		// 	err))
 	}
 
 	// Append the algo instance name
@@ -474,13 +487,13 @@ func createEnvVars(runnerConfig *swagger.RunnerConfig, algoConfig *swagger.AlgoC
 	// Append the required kafka servers
 	envVars = append(envVars, corev1.EnvVar{
 		Name:  "KAFKA-SERVERS",
-		Value: *kafkaBrokers,
+		Value: cr.Spec.KafkaBrokers,
 	})
 
 	// Append the log topic
 	envVars = append(envVars, corev1.EnvVar{
 		Name:  "LOG-TOPIC",
-		Value: config.Settings.LogTopic,
+		Value: cr.Spec.LogTopic,
 	})
 
 	// for k, v := range algoConfig.EnvVars {
@@ -496,7 +509,6 @@ func createEnvVars(runnerConfig *swagger.RunnerConfig, algoConfig *swagger.AlgoC
 func createSelector(constraints []string) map[string]string {
 	selector := make(map[string]string)
 
-	log.Println(constraints)
 	if len(constraints) > 0 {
 		for _, constraint := range constraints {
 			parts := strings.Split(constraint, "=")
@@ -510,7 +522,7 @@ func createSelector(constraints []string) map[string]string {
 	return selector
 }
 
-func createResources(algoConfig *swagger.AlgoConfig) (*corev1.ResourceRequirements, error) {
+func createResources(algoConfig *v1alpha1.AlgoConfig) (*corev1.ResourceRequirements, error) {
 	resources := &corev1.ResourceRequirements{
 		Limits:   corev1.ResourceList{},
 		Requests: corev1.ResourceList{},

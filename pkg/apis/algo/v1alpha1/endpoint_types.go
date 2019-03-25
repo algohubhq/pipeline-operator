@@ -1,8 +1,6 @@
 package v1alpha1
 
 import (
-	"endpoint-operator/pkg/apis/algo/v1alpha1/swagger"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -18,6 +16,7 @@ type EndpointSpec struct {
 	Namespace         string `json:"namespace,omitempty"`
 	ImagePullPolicy   string `json:"imagePullPolicy,omitempty"`
 
+	KafkaBrokers string `json:"kafkaBrokers,omitempty"`
 	LogTopic     string `json:"logTopic,omitempty"`
 	CommandTopic string `json:"commandTopic,omitempty"`
 
@@ -28,21 +27,7 @@ type EndpointSpec struct {
 	ReadinessTimeoutSeconds      int32 `json:"readinessTimeoutSeconds,omitempty"`
 	ReadinessPeriodSeconds       int32 `json:"readinessPeriodSeconds,omitempty"`
 
-	EndpointOwnerUserName string `json:"endpointOwnerUserName,omitempty"`
-
-	EndpointName string `json:"endpointName,omitempty"`
-
-	PipelineOwnerUserName string `json:"pipelineOwnerUserName,omitempty"`
-
-	PipelineName string `json:"pipelineName,omitempty"`
-
-	PipelineVersionTag string `json:"pipelineVersionTag,omitempty"`
-
-	AlgoConfigs []swagger.AlgoConfig `json:"algoConfigs,omitempty"`
-
-	TopicConfigs []swagger.TopicConfigModel `json:"topicConfigs,omitempty"`
-
-	Pipes []swagger.PipeModel `json:"pipes,omitempty"`
+	EndpointConfig EndpointDeployCmd `json:"endpointConfig,omitempty"`
 }
 
 // EndpointStatus defines the observed state of Endpoint
