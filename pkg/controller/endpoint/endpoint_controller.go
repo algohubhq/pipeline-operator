@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 
 	"endpoint-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
@@ -110,6 +113,8 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 		reqLogger.Info("Error reading the Endpoint Instance object - requeuing the request")
 		return reconcile.Result{}, err
 	}
+
+	// TODO: Create / update the kafka topics
 
 	// Reconcile all algo deployments
 	reqLogger.Info("Reconciling Algos")
@@ -246,6 +251,146 @@ func (r *ReconcileEndpoint) updateDeployment(deployment *appsv1.Deployment) erro
 	log.Info("Updated deployment")
 
 	return nil
+
+}
+
+func createTopics(endpointSpec *algov1alpha1.EndpointSpec) {
+
+	a, err := kafka.NewAdminClient(&kafka.ConfigMap{
+		"bootstrap.servers": *kafkaBrokers,
+	})
+	if err != nil {
+		orchLog.logOrch("Failed", fmt.Sprintf("Failed to create Admin client: %s\n", err))
+	}
+
+	// Contexts are used to abort or limit the amount of time
+	// the Admin call blocks waiting for a result.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create topics on cluster.
+	// Set Admin options to wait for the operation to finish (or at most 60s)
+	maxDur, err := time.ParseDuration("60s")
+	if err != nil {
+		orchLog.logOrch("Failed", fmt.Sprintf("Failed to time.ParseDuration(60s): %s\n", err))
+	}
+
+	var topicSpecifications []kafka.TopicSpecification
+
+	for _, topicConfig := range deployCmd.TopicConfigs {
+
+		// Replace the endpoint username and name in the topic string
+		topicName := strings.ToLower(strings.Replace(topicConfig.TopicName, "{endpointownerusername}", deployCmd.EndpointOwnerUserName, -1))
+		topicName = strings.ToLower(strings.Replace(topicName, "{endpointname}", deployCmd.EndpointName, -1))
+
+		topicPartitions := 1
+		if topicConfig.TopicAutoPartition {
+			// Set the topic partitions based on the max destination instance count
+			for _, pipe := range deployCmd.Pipes {
+
+				switch pipeType := pipe.PipeType; pipeType {
+				case "Algo":
+
+					// Match the Source Algo Pipe
+					if pipe.SourceAlgoOwnerName == topicConfig.AlgoOwnerName &&
+						pipe.SourceAlgoName == topicConfig.AlgoName &&
+						pipe.SourceAlgoIndex == topicConfig.AlgoIndex &&
+						pipe.SourceAlgoOutputName == topicConfig.AlgoOutputName {
+
+						// Find the destination Algo
+						for _, algoConfig := range deployCmd.AlgoConfigs {
+
+							if algoConfig.AlgoOwnerUserName == pipe.DestAlgoOwnerName &&
+								algoConfig.AlgoName == pipe.DestAlgoName &&
+								algoConfig.AlgoIndex == pipe.DestAlgoIndex {
+								topicPartitions = max(int(algoConfig.MinInstances), topicPartitions)
+								topicPartitions = max(int(algoConfig.Instances), topicPartitions)
+							}
+
+						}
+
+					}
+
+				case "DataSource":
+
+					// Match the Data Source Pipe
+					if pipe.PipelineDataSourceName == topicConfig.PipelineDataSourceName &&
+						pipe.PipelineDataSourceIndex == topicConfig.PipelineDataSourceIndex {
+
+						// Find the destination Algo
+						for _, algoConfig := range deployCmd.AlgoConfigs {
+
+							if algoConfig.AlgoOwnerUserName == pipe.DestAlgoOwnerName &&
+								algoConfig.AlgoName == pipe.DestAlgoName &&
+								algoConfig.AlgoIndex == pipe.DestAlgoIndex {
+								topicPartitions = max(int(algoConfig.MinInstances), topicPartitions)
+								topicPartitions = max(int(algoConfig.Instances), topicPartitions)
+							}
+
+						}
+
+					}
+
+				case "EndpointConnector":
+
+					// Match the Endpoint Connector Pipe
+					if pipe.PipelineEndpointConnectorOutputName == topicConfig.EndpointConnectorOutputName {
+
+						// Find the destination Algo
+						for _, algoConfig := range deployCmd.AlgoConfigs {
+
+							if algoConfig.AlgoOwnerUserName == pipe.DestAlgoOwnerName &&
+								algoConfig.AlgoName == pipe.DestAlgoName &&
+								algoConfig.AlgoIndex == pipe.DestAlgoIndex {
+								topicPartitions = max(int(algoConfig.MinInstances), topicPartitions)
+								topicPartitions = max(int(algoConfig.Instances), topicPartitions)
+							}
+
+						}
+
+					}
+
+				}
+
+			}
+
+		} else {
+			if topicConfig.TopicPartitions > 0 {
+				topicPartitions = int(topicConfig.TopicPartitions)
+			}
+		}
+
+		params := make(map[string]string)
+		for _, topicParam := range topicConfig.TopicParams {
+			params[topicParam.Name] = topicParam.Value
+		}
+
+		topicSpec := kafka.TopicSpecification{
+			Topic:             topicName,
+			NumPartitions:     topicPartitions,
+			ReplicationFactor: int(topicConfig.TopicReplicationFactor),
+			Config:            params,
+		}
+
+		topicSpecifications = append(topicSpecifications, topicSpec)
+
+	}
+
+	_, topicErr := a.CreateTopics(
+		ctx,
+		topicSpecifications,
+		// Admin options
+		kafka.SetAdminOperationTimeout(maxDur))
+	if topicErr != nil {
+		orchLog.logOrch("Failed", fmt.Sprintf("Failed to create topic: %v\n", err))
+	}
+
+	// Print results
+	// for _, result := range results {
+	// 	fmt.Printf("%s\n", result)
+	// }
+
+	a.Close()
 
 }
 
