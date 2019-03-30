@@ -29,11 +29,6 @@ import (
 
 var log = logf.Log.WithName("controller_endpoint")
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
-
 // Add creates a new Endpoint Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -108,15 +103,20 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			reqLogger.Info("Endpoint resource not found. Ignoring since object must be deleted.")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
+		reqLogger.Info("Error reading the Endpoint Instance object - requeuing the request")
 		return reconcile.Result{}, err
 	}
 
 	// Reconcile all algo deployments
-	if err := r.reconcileAlgos(instance, request); err != nil {
+	reqLogger.Info("Reconciling Algos")
+	err = r.reconcileAlgos(instance, request)
 
+	if err != nil {
+		reqLogger.Error(err, "Error in AlgoConfig reconcile loop.")
 		// TODO: Depending on the error, determine if it should be requeued
 		return reconcile.Result{}, err
 	}
@@ -131,70 +131,69 @@ func (r *ReconcileEndpoint) reconcileAlgos(cr *algov1alpha1.Endpoint, request re
 	// Iterate the AlgoConfigs
 	for _, algoConfig := range cr.Spec.EndpointConfig.AlgoConfigs {
 
-		if !algoConfig.Applied {
+		algoLogger := log.WithValues("AlgoOwner", algoConfig.AlgoOwnerUserName, "AlgoName", algoConfig.AlgoName, "AlgoVersionTag", algoConfig.AlgoVersionTag, "Index", algoConfig.AlgoIndex)
+		algoLogger.Info("Reconciling Algo")
 
-			// Truncate the name of the deployment / pod just in case
-			name := strings.TrimRight(short(algoConfig.AlgoName, 20), "-")
+		// Truncate the name of the deployment / pod just in case
+		name := strings.TrimRight(short(algoConfig.AlgoName, 20), "-")
 
-			// Generate the runnerconfig
-			runnerConfig := createRunnerConfig(&cr.Spec, &algoConfig)
+		// Generate the runnerconfig
+		runnerConfig := createRunnerConfig(&cr.Spec, &algoConfig)
 
-			// orchLog.Key = fmt.Sprintf("%s/%s", runnerConfig.EndpointOwnerUserName, runnerConfig.EndpointName)
-			// orchLog.OrchestratorLogData.AlgoOwnerUserName = algoConfig.AlgoOwnerUserName
-			// orchLog.OrchestratorLogData.AlgoName = algoConfig.AlgoName
+		labels := map[string]string{
+			"system":        "algorun",
+			"tier":          "algo",
+			"endpointowner": runnerConfig.EndpointOwnerUserName,
+			"endpoint":      runnerConfig.EndpointName,
+			"pipeline":      runnerConfig.PipelineName,
+			"algoowner":     algoConfig.AlgoOwnerUserName,
+			"algo":          algoConfig.AlgoName,
+			"algoversion":   algoConfig.AlgoVersionTag,
+			"algoindex":     strconv.Itoa(int(algoConfig.AlgoIndex)),
+			"env":           "production",
+		}
 
-			labels := map[string]string{
-				"system":        "algorun",
-				"tier":          "algo",
-				"endpointowner": runnerConfig.EndpointOwnerUserName,
-				"endpoint":      runnerConfig.EndpointName,
-				"pipeline":      runnerConfig.PipelineName,
-				"algoowner":     algoConfig.AlgoOwnerUserName,
-				"algo":          algoConfig.AlgoName,
-				"algoversion":   algoConfig.AlgoVersionTag,
-				"algoindex":     strconv.Itoa(int(algoConfig.AlgoIndex)),
-				"env":           "production",
-			}
+		// Check to make sure the algo isn't already created
+		listOptions := &client.ListOptions{}
+		listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s, algoowner=%s, algo=%s, algoversion=%s, algoindex=%v",
+			runnerConfig.EndpointOwnerUserName,
+			runnerConfig.EndpointName,
+			algoConfig.AlgoOwnerUserName,
+			algoConfig.AlgoName,
+			algoConfig.AlgoVersionTag,
+			algoConfig.AlgoIndex))
+		listOptions.InNamespace(request.NamespacedName.Namespace)
 
-			// Check to make sure the algo isn't already created
-			listOptions := &client.ListOptions{}
-			listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s, algoowner=%s, algo=%s, algoversion=%s, algoindex=%v",
-				runnerConfig.EndpointOwnerUserName,
-				runnerConfig.EndpointName,
-				algoConfig.AlgoOwnerUserName,
-				algoConfig.AlgoName,
-				algoConfig.AlgoVersionTag,
-				algoConfig.AlgoIndex))
-			listOptions.InNamespace(request.NamespacedName.Namespace)
+		deploymentExists := r.checkForDeployment(listOptions)
 
-			deploymentExists := r.checkForDeployment(listOptions)
+		// Generate the k8s deployment for the algoconfig
+		algoDeployment, err := createDeploymentSpec(cr, name, labels, &algoConfig, &runnerConfig, deploymentExists)
+		if err != nil {
+			algoLogger.Error(err, "Failed to create algo deployment spec")
+			return err
+		}
 
-			// Generate the k8s deployment for the algoconfig
-			algoDeployment, err := createDeploymentSpec(cr, name, labels, &algoConfig, &runnerConfig, !deploymentExists)
+		// Set Endpoint instance as the owner and controller
+		if err := controllerutil.SetControllerReference(cr, algoDeployment, r.scheme); err != nil {
+			return err
+		}
+
+		if !deploymentExists {
+			err := r.createDeployment(algoDeployment)
 			if err != nil {
-				return err
-				// orchLog.logOrch("Failed", fmt.Sprintf("Failed to create algo deployment for [%s/%s:%s]\nError: %s",
-				// 	algoConfig.AlgoOwnerUserName,
-				// 	algoConfig.AlgoName,
-				// 	algoConfig.AlgoVersionTag,
-				// 	err))
-			}
-
-			// Set Endpoint instance as the owner and controller
-			if err := controllerutil.SetControllerReference(cr, algoDeployment, r.scheme); err != nil {
+				algoLogger.Error(err, "Failed to create algo deployment")
 				return err
 			}
-
-			if !deploymentExists {
-				r.createDeployment(algoDeployment)
-			} else {
-				r.updateDeployment(algoDeployment)
+		} else {
+			err := r.updateDeployment(algoDeployment)
+			if err != nil {
+				algoLogger.Error(err, "Failed to update algo deployment")
+				return err
 			}
+		}
 
-			// TODO: Setup the horizontal pod autoscaler
-			if algoConfig.AutoScale {
-
-			}
+		// TODO: Setup the horizontal pod autoscaler
+		if algoConfig.AutoScale {
 
 		}
 
@@ -216,26 +215,20 @@ func (r *ReconcileEndpoint) checkForDeployment(listOptions *client.ListOptions) 
 		return false
 	}
 
-	return true
+	return len(deploymentList.Items) > 0
 
 }
 
 func (r *ReconcileEndpoint) createDeployment(deployment *appsv1.Deployment) error {
 
-	// existingSecrets, err := getSecrets(clientset, functionNamespace, request.Secrets)
-	// if err != nil {
-	// 	// TODO: log the error
-	// 	return
-	// }
-
 	if err := r.client.Create(context.TODO(), deployment); err != nil {
-		// orchLog.logOrch("Failed", fmt.Sprintf("Failed creating the algo deployment [%s]\nError: %s",
-		// 	deployment,
-		// 	err))
+		log.WithValues("Data", deployment.Labels)
+		log.Error(err, "Failed creating the algo deployment")
 		return err
 	}
 
-	log.Info("Created deployment - " + deployment.GetName())
+	log.WithValues("Name", deployment.GetName())
+	log.Info("Created deployment")
 
 	return nil
 
@@ -243,20 +236,14 @@ func (r *ReconcileEndpoint) createDeployment(deployment *appsv1.Deployment) erro
 
 func (r *ReconcileEndpoint) updateDeployment(deployment *appsv1.Deployment) error {
 
-	// existingSecrets, err := getSecrets(clientset, functionNamespace, request.Secrets)
-	// if err != nil {
-	// 	// TODO: log the error
-	// 	return
-	// }
-
 	if err := r.client.Update(context.TODO(), deployment); err != nil {
-		// orchLog.logOrch("Failed", fmt.Sprintf("Failed updating the algo deployment [%s]\nError: %s",
-		// 	deployment,
-		// 	err))
+		log.WithValues("Data", deployment.Labels)
+		log.Error(err, "Failed updating the algo deployment")
 		return err
 	}
 
-	log.Info("Updated deployment - " + deployment.GetName())
+	log.WithValues("Name", deployment.GetName())
+	log.Info("Updated deployment")
 
 	return nil
 
@@ -348,12 +335,14 @@ func createDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 	var nameMeta metav1.ObjectMeta
 	if update {
 		nameMeta = metav1.ObjectMeta{
-			Name:   algoConfig.DeploymentName,
-			Labels: labels,
+			Namespace: cr.Namespace,
+			Name:      algoConfig.DeploymentName,
+			Labels:    labels,
 			// Annotations: annotations,
 		}
 	} else {
 		nameMeta = metav1.ObjectMeta{
+			Namespace:    cr.Namespace,
 			GenerateName: name,
 			Labels:       labels,
 			// Annotations: annotations,
@@ -452,20 +441,13 @@ func createDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 
 func createEnvVars(cr *algov1alpha1.Endpoint, runnerConfig *v1alpha1.RunnerConfig, algoConfig *v1alpha1.AlgoConfig) []corev1.EnvVar {
 
-	// Create the base log message
-	// orchLog := logMessage{
-	// 	LogMessageType: "Orchestrator",
-	// 	Status:         "Started",
-	// }
-
 	envVars := []corev1.EnvVar{}
 
 	// serialize the runner config to json string
 	runnerConfigBytes, err := json.Marshal(runnerConfig)
 	if err != nil {
-		// orchLog.logOrch("Failed", fmt.Sprintf("Failed deserializing runner config [%+v]\nError: %s",
-		// 	runnerConfig,
-		// 	err))
+		log.WithValues("Data", runnerConfig)
+		log.Error(err, "Failed deserializing runner config")
 	}
 
 	// Append the algo instance name
