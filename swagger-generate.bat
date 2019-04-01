@@ -19,14 +19,6 @@ xcopy %cd%\algorun-go-client\algo_config.go %cd%\pkg\apis\algo\v1alpha1\types\ /
 xcopy %cd%\algorun-go-client\orchestrator_command.go %cd%\pkg\apis\algo\v1alpha1\types\ /Y /R
 xcopy %cd%\algorun-go-client\endpoint_deploy_cmd.go %cd%\pkg\apis\algo\v1alpha1\types\ /Y /R
 xcopy %cd%\algorun-go-client\endpoint_stop_cmd.go %cd%\pkg\apis\algo\v1alpha1\types\ /Y /R
-xcopy %cd%\algorun-go-client\log_message.go %cd%\pkg\apis\algo\v1alpha1\types\ /Y /R
-xcopy %cd%\algorun-go-client\runner_log_data.go %cd%\pkg\apis\algo\v1alpha1\types\ /Y /R
-xcopy %cd%\algorun-go-client\server_log_data.go %cd%\pkg\apis\algo\v1alpha1\types\ /Y /R
-xcopy %cd%\algorun-go-client\algo_log_data.go %cd%\pkg\apis\algo\v1alpha1\types\ /Y /R
-xcopy %cd%\algorun-go-client\orchestrator_log_data.go %cd%\pkg\apis\algo\v1alpha1\types\ /Y /R
-xcopy %cd%\algorun-go-client\endpoint_log_data.go %cd%\pkg\apis\algo\v1alpha1\types\ /Y /R
-xcopy %cd%\algorun-go-client\deployment_log_data.go %cd%\pkg\apis\algo\v1alpha1\types\ /Y /R
-xcopy %cd%\algorun-go-client\instance_log_data.go %cd%\pkg\apis\algo\v1alpha1\types\ /Y /R
 
 rd /s /q %cd%\algorun-go-client
 

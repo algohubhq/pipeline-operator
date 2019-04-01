@@ -126,7 +126,67 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
+	// Update status if needed
+	pods := r.getPods(cr)
+	deployments := r.getDeployments(cr)
+
+	// TODO: Get the overall endpoint State
+	
+	if !reflect.DeepEqual(pods, instance.Status.Pods) || 
+		!reflect.DeepEqual(deployments, instance.Status.Deployments) {
+
+		instance.Status.Pods = pods
+		instance.Status.Deployments = deployments
+		err := r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Endpoint status.")
+			return reconcile.Result{}, err
+		}
+	}
+
 	return reconcile.Result{}, nil
+
+}
+
+func (r *ReconcileEndpoint) getDeployments(cr *algov1alpha1.Endpoint) ([]*appsv1.Deployment, error) {
+
+	// Watch all algo deployments
+	listOptions := &client.ListOptions{}
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s",
+		cr.Spec.EndpointConfig.EndpointOwnerUserName,
+		cr.Spec.EndpointConfig.EndpointName)
+	listOptions.InNamespace(request.NamespacedName.Namespace)
+
+	deploymentList := &appsv1.DeploymentList{}
+	ctx := context.TODO()
+	err := r.client.List(ctx, listOptions, deploymentList)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return deploymentList, nil
+
+}
+
+func (r *ReconcileEndpoint) getPods(cr *algov1alpha1.Endpoint) ([]*corev1.Pod, error) {
+
+	// Watch all algo deployments
+	listOptions := &client.ListOptions{}
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s",
+		cr.Spec.EndpointConfig.EndpointOwnerUserName,
+		cr.Spec.EndpointConfig.EndpointName)
+	listOptions.InNamespace(request.NamespacedName.Namespace)
+
+	podList := &corev1.PodList{}
+	ctx := context.TODO()
+	err := r.client.List(ctx, listOptions, podList)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return podList, nil
 
 }
 

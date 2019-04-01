@@ -20,14 +20,6 @@ cp ./algorun-go-client/algo_config.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/orchestrator_command.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/endpoint_deploy_cmd.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/endpoint_stop_cmd.go ./pkg/apis/algo/v1alpha1/
-cp ./algorun-go-client/log_message.go ./pkg/apis/algo/v1alpha1/
-cp ./algorun-go-client/runner_log_data.go ./pkg/apis/algo/v1alpha1/
-cp ./algorun-go-client/server_log_data.go ./pkg/apis/algo/v1alpha1/
-cp ./algorun-go-client/algo_log_data.go ./pkg/apis/algo/v1alpha1/
-cp ./algorun-go-client/orchestrator_log_data.go ./pkg/apis/algo/v1alpha1/
-cp ./algorun-go-client/endpoint_log_data.go ./pkg/apis/algo/v1alpha1/
-cp ./algorun-go-client/deployment_log_data.go ./pkg/apis/algo/v1alpha1/
-cp ./algorun-go-client/instance_log_data.go ./pkg/apis/algo/v1alpha1/
 
 find ./pkg/apis/algo/v1alpha1/ -name '*.go' -exec sed -i '' 's/package swagger/package v1alpha1/g' {} \;
 
