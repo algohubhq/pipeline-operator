@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -127,16 +128,25 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	// Update status if needed
-	pods := r.getPods(cr)
-	deployments := r.getDeployments(cr)
+	pods, err := r.getPods(instance, request)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get pod list to determine the status.")
+		return reconcile.Result{}, err
+	}
+
+	deployments, err := r.getDeployments(instance, request)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get deployment list to determine the status.")
+		return reconcile.Result{}, err
+	}
 
 	// TODO: Get the overall endpoint State
-	
-	if !reflect.DeepEqual(pods, instance.Status.Pods) || 
+
+	if !reflect.DeepEqual(pods, instance.Status.Pods) ||
 		!reflect.DeepEqual(deployments, instance.Status.Deployments) {
 
-		instance.Status.Pods = pods
-		instance.Status.Deployments = deployments
+		instance.Status.Pods = *pods
+		instance.Status.Deployments = *deployments
 		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Endpoint status.")
@@ -148,13 +158,13 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 
 }
 
-func (r *ReconcileEndpoint) getDeployments(cr *algov1alpha1.Endpoint) ([]*appsv1.Deployment, error) {
+func (r *ReconcileEndpoint) getDeployments(cr *algov1alpha1.Endpoint, request reconcile.Request) (*appsv1.DeploymentList, error) {
 
 	// Watch all algo deployments
 	listOptions := &client.ListOptions{}
 	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s",
 		cr.Spec.EndpointConfig.EndpointOwnerUserName,
-		cr.Spec.EndpointConfig.EndpointName)
+		cr.Spec.EndpointConfig.EndpointName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
 
 	deploymentList := &appsv1.DeploymentList{}
@@ -169,13 +179,13 @@ func (r *ReconcileEndpoint) getDeployments(cr *algov1alpha1.Endpoint) ([]*appsv1
 
 }
 
-func (r *ReconcileEndpoint) getPods(cr *algov1alpha1.Endpoint) ([]*corev1.Pod, error) {
+func (r *ReconcileEndpoint) getPods(cr *algov1alpha1.Endpoint, request reconcile.Request) (*corev1.PodList, error) {
 
 	// Watch all algo deployments
 	listOptions := &client.ListOptions{}
 	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s",
 		cr.Spec.EndpointConfig.EndpointOwnerUserName,
-		cr.Spec.EndpointConfig.EndpointName)
+		cr.Spec.EndpointConfig.EndpointName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
 
 	podList := &corev1.PodList{}
@@ -187,6 +197,23 @@ func (r *ReconcileEndpoint) getPods(cr *algov1alpha1.Endpoint) ([]*corev1.Pod, e
 	}
 
 	return podList, nil
+
+}
+
+func calculateStatus(cr *algov1alpha1.Endpoint, deployments []*appsv1.Deployment) (string, error) {
+
+	// SET Status = COALESCE(
+	// 	(SELECT
+	// 	  CASE WHEN (COUNT(ad.Id) > 0 AND COUNT(ad.Id) = e.AlgoCount) THEN 'Started'
+	// 	  WHEN (COUNT(ad.Id) > 0 AND COUNT(ad.Id) < e.AlgoCount) THEN 'Updating'
+	// 	  ELSE 'Stopped' END AS Status
+	// 	  FROM (SELECT Id, AlgoCount FROM endpoint) AS e
+	// 	  LEFT JOIN algo_deployment ad ON e.Id = ad.EndpointId
+	// 	  WHERE e.Id = @EndpointId
+	// 	  GROUP BY e.Id), Status)
+	// 	  WHERE Id = @EndpointId";
+
+	return "Stopped", nil
 
 }
 

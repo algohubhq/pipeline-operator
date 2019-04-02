@@ -35,9 +35,9 @@ type EndpointSpec struct {
 // EndpointStatus defines the observed state of Endpoint
 // +k8s:openapi-gen=true
 type EndpointStatus struct {
-	State       string              `json:"status,omitempty"`
-	Pods        []corev1.Pod        `json:"pods,omitempty"`
-	Deployments []appsv1.Deployment `json:"deployments,omitempty"`
+	State       string                `json:"status,omitempty"`
+	Pods        corev1.PodList        `json:"pods,omitempty"`
+	Deployments appsv1.DeploymentList `json:"deployments,omitempty"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
