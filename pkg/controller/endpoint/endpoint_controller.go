@@ -209,16 +209,28 @@ func (r *ReconcileEndpoint) getPods(cr *algov1alpha1.Endpoint, request reconcile
 
 func calculateStatus(cr *algov1alpha1.Endpoint, deployments *appsv1.DeploymentList) (string, error) {
 
+	var unreadyDeployments int
 	algoCount := len(cr.Spec.EndpointConfig.AlgoConfigs)
 	deploymentCount := len(deployments.Items)
 
-	if deploymentCount > 0 && deploymentCount == algoCount {
-		return "Started", nil
-	} else if deploymentCount > 0 && deploymentCount < algoCount {
-		return "Updating", nil
-	} else {
-		return "Stopped", nil
+	// iterate the deployments for any unready
+	if deploymentCount > 0 {
+		for _, deployment := range deployments.Items {
+			if deployment.Status.ReadyReplicas < (deployment.Status.AvailableReplicas + deployment.Status.UnavailableReplicas) {
+				unreadyDeployments++
+			}
+		}
+
+		if unreadyDeployments > 0 {
+			return "Updating", nil
+		} else if deploymentCount == algoCount {
+			return "Started", nil
+		} else if deploymentCount < algoCount {
+			return "Updating", nil
+		}
 	}
+
+	return "Stopped", nil
 
 }
 
