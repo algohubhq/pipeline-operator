@@ -435,29 +435,28 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 		}
 
 		// check to see if topic already exists
-		u := &unstructured.Unstructured{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: topicName, Namespace: request.NamespacedName.Namespace}, u)
-
-		t := &unstructured.Unstructured{}
-		t.Object = map[string]interface{}{
-			"name":      topicName,
-			"namespace": request.NamespacedName.Namespace,
-			"spec": map[string]interface{}{
-				"partitions": topicPartitions,
-				"replicas":   int(topicConfig.TopicReplicationFactor),
-				"config":     params,
-			},
-		}
-		t.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "kafka.strimzi.io",
-			Kind:    "KafkaTopic",
-			Version: "v1alpha1",
-		})
+		existingTopic := &unstructured.Unstructured{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: topicName, Namespace: request.NamespacedName.Namespace}, existingTopic)
 
 		if err != nil && errors.IsNotFound(err) {
 			// Create the topic
 			// Using a unstructured object to submit a strimzi topic creation.
-			err := r.client.Create(context.TODO(), t)
+			newTopic := &unstructured.Unstructured{}
+			newTopic.Object = map[string]interface{}{
+				"name":      topicName,
+				"namespace": request.NamespacedName.Namespace,
+				"spec": map[string]interface{}{
+					"partitions": topicPartitions,
+					"replicas":   int(topicConfig.TopicReplicationFactor),
+					"config":     params,
+				},
+			}
+			newTopic.SetGroupVersionKind(schema.GroupVersionKind{
+				Group:   "kafka.strimzi.io",
+				Kind:    "KafkaTopic",
+				Version: "v1alpha1",
+			})
+			err := r.client.Create(context.TODO(), newTopic)
 			if err != nil {
 				log.Error(err, "Failed creating topic")
 			}
@@ -465,10 +464,39 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 			log.Error(err, "Failed to check if Kafka topic exists.")
 		} else {
 			// Update the topic if changed
-			// TODO: Check that the partition count did not go down (kafka doesn't support)
+			// Check that the partition count did not go down (kafka doesn't support)
+			spec, ok := existingTopic.Object["spec"].(map[string]interface{})
+			if ok {
+				partitionsCurrent, ok := spec["partitions"].(int)
+				if ok {
+					if partitionsCurrent > topicPartitions {
+						log.WithValues("PartitionsCurrent", partitionsCurrent)
+						log.WithValues("PartitionsNew", topicPartitions)
+						log.Error(err, "Partition count cannot be decreased. Keeping current partition count.")
+						topicPartitions = partitionsCurrent
+					}
+				}
+			}
 
-			if !reflect.DeepEqual(u, t) {
-				err := r.client.Update(context.TODO(), t)
+			// Using a unstructured object to submit a strimzi topic creation.
+			newTopic := &unstructured.Unstructured{}
+			newTopic.Object = map[string]interface{}{
+				"name":      topicName,
+				"namespace": request.NamespacedName.Namespace,
+				"spec": map[string]interface{}{
+					"partitions": topicPartitions,
+					"replicas":   int(topicConfig.TopicReplicationFactor),
+					"config":     params,
+				},
+			}
+			newTopic.SetGroupVersionKind(schema.GroupVersionKind{
+				Group:   "kafka.strimzi.io",
+				Kind:    "KafkaTopic",
+				Version: "v1alpha1",
+			})
+
+			if !reflect.DeepEqual(existingTopic, newTopic) {
+				err := r.client.Update(context.TODO(), newTopic)
 				if err != nil {
 					log.Error(err, "Failed updating topic")
 				}
