@@ -141,14 +141,20 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
-	// TODO: Get the overall endpoint State
-
+	// Update the status
 	if !reflect.DeepEqual(pods, instance.Status.Pods) ||
 		!reflect.DeepEqual(deployments, instance.Status.Deployments) {
 
+		state, err := calculateStatus(instance, deployments)
+		if err != nil {
+			reqLogger.Error(err, "Failed to calculate Endpoint status.")
+		}
+
+		instance.Status.State = state
+
 		instance.Status.Pods = *pods
 		instance.Status.Deployments = *deployments
-		err := r.client.Status().Update(context.TODO(), instance)
+		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Endpoint status.")
 			return reconcile.Result{}, err
@@ -201,20 +207,18 @@ func (r *ReconcileEndpoint) getPods(cr *algov1alpha1.Endpoint, request reconcile
 
 }
 
-func calculateStatus(cr *algov1alpha1.Endpoint, deployments []*appsv1.Deployment) (string, error) {
+func calculateStatus(cr *algov1alpha1.Endpoint, deployments *appsv1.DeploymentList) (string, error) {
 
-	// SET Status = COALESCE(
-	// 	(SELECT
-	// 	  CASE WHEN (COUNT(ad.Id) > 0 AND COUNT(ad.Id) = e.AlgoCount) THEN 'Started'
-	// 	  WHEN (COUNT(ad.Id) > 0 AND COUNT(ad.Id) < e.AlgoCount) THEN 'Updating'
-	// 	  ELSE 'Stopped' END AS Status
-	// 	  FROM (SELECT Id, AlgoCount FROM endpoint) AS e
-	// 	  LEFT JOIN algo_deployment ad ON e.Id = ad.EndpointId
-	// 	  WHERE e.Id = @EndpointId
-	// 	  GROUP BY e.Id), Status)
-	// 	  WHERE Id = @EndpointId";
+	algoCount := len(cr.Spec.EndpointConfig.AlgoConfigs)
+	deploymentCount := len(deployments.Items)
 
-	return "Stopped", nil
+	if deploymentCount > 0 && deploymentCount == algoCount {
+		return "Started", nil
+	} else if deploymentCount > 0 && deploymentCount < algoCount {
+		return "Updating", nil
+	} else {
+		return "Stopped", nil
+	}
 
 }
 
