@@ -7,9 +7,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 
 	"endpoint-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
@@ -19,7 +16,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -115,7 +114,8 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
-	// TODO: Create / update the kafka topics
+	// Create / update the kafka topics
+	r.createTopics(&instance.Spec)
 
 	// Reconcile all algo deployments
 	reqLogger.Info("Reconciling Algos")
@@ -341,39 +341,18 @@ func (r *ReconcileEndpoint) updateDeployment(deployment *appsv1.Deployment) erro
 
 }
 
-func createTopics(endpointSpec *algov1alpha1.EndpointSpec) {
+func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec) {
 
-	a, err := kafka.NewAdminClient(&kafka.ConfigMap{
-		"bootstrap.servers": *kafkaBrokers,
-	})
-	if err != nil {
-		orchLog.logOrch("Failed", fmt.Sprintf("Failed to create Admin client: %s\n", err))
-	}
-
-	// Contexts are used to abort or limit the amount of time
-	// the Admin call blocks waiting for a result.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Create topics on cluster.
-	// Set Admin options to wait for the operation to finish (or at most 60s)
-	maxDur, err := time.ParseDuration("60s")
-	if err != nil {
-		orchLog.logOrch("Failed", fmt.Sprintf("Failed to time.ParseDuration(60s): %s\n", err))
-	}
-
-	var topicSpecifications []kafka.TopicSpecification
-
-	for _, topicConfig := range deployCmd.TopicConfigs {
+	for _, topicConfig := range endpointSpec.EndpointConfig.TopicConfigs {
 
 		// Replace the endpoint username and name in the topic string
-		topicName := strings.ToLower(strings.Replace(topicConfig.TopicName, "{endpointownerusername}", deployCmd.EndpointOwnerUserName, -1))
-		topicName = strings.ToLower(strings.Replace(topicName, "{endpointname}", deployCmd.EndpointName, -1))
+		topicName := strings.ToLower(strings.Replace(topicConfig.TopicName, "{endpointownerusername}", endpointSpec.EndpointConfig.EndpointOwnerUserName, -1))
+		topicName = strings.ToLower(strings.Replace(topicName, "{endpointname}", endpointSpec.EndpointConfig.EndpointName, -1))
 
 		topicPartitions := 1
 		if topicConfig.TopicAutoPartition {
 			// Set the topic partitions based on the max destination instance count
-			for _, pipe := range deployCmd.Pipes {
+			for _, pipe := range endpointSpec.EndpointConfig.Pipes {
 
 				switch pipeType := pipe.PipeType; pipeType {
 				case "Algo":
@@ -385,7 +364,7 @@ func createTopics(endpointSpec *algov1alpha1.EndpointSpec) {
 						pipe.SourceAlgoOutputName == topicConfig.AlgoOutputName {
 
 						// Find the destination Algo
-						for _, algoConfig := range deployCmd.AlgoConfigs {
+						for _, algoConfig := range endpointSpec.EndpointConfig.AlgoConfigs {
 
 							if algoConfig.AlgoOwnerUserName == pipe.DestAlgoOwnerName &&
 								algoConfig.AlgoName == pipe.DestAlgoName &&
@@ -405,7 +384,7 @@ func createTopics(endpointSpec *algov1alpha1.EndpointSpec) {
 						pipe.PipelineDataSourceIndex == topicConfig.PipelineDataSourceIndex {
 
 						// Find the destination Algo
-						for _, algoConfig := range deployCmd.AlgoConfigs {
+						for _, algoConfig := range endpointSpec.EndpointConfig.AlgoConfigs {
 
 							if algoConfig.AlgoOwnerUserName == pipe.DestAlgoOwnerName &&
 								algoConfig.AlgoName == pipe.DestAlgoName &&
@@ -424,7 +403,7 @@ func createTopics(endpointSpec *algov1alpha1.EndpointSpec) {
 					if pipe.PipelineEndpointConnectorOutputName == topicConfig.EndpointConnectorOutputName {
 
 						// Find the destination Algo
-						for _, algoConfig := range deployCmd.AlgoConfigs {
+						for _, algoConfig := range endpointSpec.EndpointConfig.AlgoConfigs {
 
 							if algoConfig.AlgoOwnerUserName == pipe.DestAlgoOwnerName &&
 								algoConfig.AlgoName == pipe.DestAlgoName &&
@@ -452,32 +431,29 @@ func createTopics(endpointSpec *algov1alpha1.EndpointSpec) {
 			params[topicParam.Name] = topicParam.Value
 		}
 
-		topicSpec := kafka.TopicSpecification{
-			Topic:             topicName,
-			NumPartitions:     topicPartitions,
-			ReplicationFactor: int(topicConfig.TopicReplicationFactor),
-			Config:            params,
+		// Using a unstructured object to submit a strimzi topic creation.
+		u := &unstructured.Unstructured{}
+		u.Object = map[string]interface{}{
+			"name":      topicName,
+			"namespace": "namespace",
+			"spec": map[string]interface{}{
+				"partitions": topicPartitions,
+				"replicas":   int(topicConfig.TopicReplicationFactor),
+				"config":     params,
+			},
+		}
+		u.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "kafka.strimzi.io",
+			Kind:    "KafkaTopic",
+			Version: "v1alpha1",
+		})
+		err := r.client.Create(context.TODO(), u)
+		if err != nil {
+			log.WithValues("Topic", topicName)
+			log.Error(err, "Failed creating topic")
 		}
 
-		topicSpecifications = append(topicSpecifications, topicSpec)
-
 	}
-
-	_, topicErr := a.CreateTopics(
-		ctx,
-		topicSpecifications,
-		// Admin options
-		kafka.SetAdminOperationTimeout(maxDur))
-	if topicErr != nil {
-		orchLog.logOrch("Failed", fmt.Sprintf("Failed to create topic: %v\n", err))
-	}
-
-	// Print results
-	// for _, result := range results {
-	// 	fmt.Printf("%s\n", result)
-	// }
-
-	a.Close()
 
 }
 
