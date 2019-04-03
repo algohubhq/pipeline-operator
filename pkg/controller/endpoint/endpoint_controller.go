@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -349,6 +350,8 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 		topicName := strings.ToLower(strings.Replace(topicConfig.TopicName, "{endpointownerusername}", endpointSpec.EndpointConfig.EndpointOwnerUserName, -1))
 		topicName = strings.ToLower(strings.Replace(topicName, "{endpointname}", endpointSpec.EndpointConfig.EndpointName, -1))
 
+		log.WithValues("Topic", topicName)
+
 		topicPartitions := 1
 		if topicConfig.TopicAutoPartition {
 			// Set the topic partitions based on the max destination instance count
@@ -431,9 +434,12 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 			params[topicParam.Name] = topicParam.Value
 		}
 
-		// Using a unstructured object to submit a strimzi topic creation.
+		// check to see if topic already exists
 		u := &unstructured.Unstructured{}
-		u.Object = map[string]interface{}{
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: topicName, Namespace: request.NamespacedName.Namespace}, u)
+
+		t := &unstructured.Unstructured{}
+		t.Object = map[string]interface{}{
 			"name":      topicName,
 			"namespace": request.NamespacedName.Namespace,
 			"spec": map[string]interface{}{
@@ -442,15 +448,32 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 				"config":     params,
 			},
 		}
-		u.SetGroupVersionKind(schema.GroupVersionKind{
+		t.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "kafka.strimzi.io",
 			Kind:    "KafkaTopic",
 			Version: "v1alpha1",
 		})
-		err := r.client.Create(context.TODO(), u)
-		if err != nil {
-			log.WithValues("Topic", topicName)
-			log.Error(err, "Failed creating topic")
+
+		if err != nil && errors.IsNotFound(err) {
+			// Create the topic
+			// Using a unstructured object to submit a strimzi topic creation.
+			err := r.client.Create(context.TODO(), t)
+			if err != nil {
+				log.Error(err, "Failed creating topic")
+			}
+		} else if err != nil {
+			log.Error(err, "Failed to check if Kafka topic exists.")
+		} else {
+			// Update the topic if changed
+			// TODO: Check that the partition count did not go down (kafka doesn't support)
+
+			if !reflect.DeepEqual(u, t) {
+				err := r.client.Update(context.TODO(), t)
+				if err != nil {
+					log.Error(err, "Failed updating topic")
+				}
+			}
+
 		}
 
 	}
