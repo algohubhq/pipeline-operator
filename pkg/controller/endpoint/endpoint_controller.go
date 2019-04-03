@@ -115,7 +115,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	// Create / update the kafka topics
-	r.createTopics(&instance.Spec)
+	r.createTopics(&instance.Spec, request)
 
 	// Reconcile all algo deployments
 	reqLogger.Info("Reconciling Algos")
@@ -341,7 +341,7 @@ func (r *ReconcileEndpoint) updateDeployment(deployment *appsv1.Deployment) erro
 
 }
 
-func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec) {
+func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec, request reconcile.Request) {
 
 	for _, topicConfig := range endpointSpec.EndpointConfig.TopicConfigs {
 
@@ -435,7 +435,7 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 		u := &unstructured.Unstructured{}
 		u.Object = map[string]interface{}{
 			"name":      topicName,
-			"namespace": "namespace",
+			"namespace": request.NamespacedName.Namespace,
 			"spec": map[string]interface{}{
 				"partitions": topicPartitions,
 				"replicas":   int(topicConfig.TopicReplicationFactor),
