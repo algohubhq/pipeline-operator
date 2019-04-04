@@ -50,12 +50,6 @@
   version = "v0.1.0"
 
 [[projects]]
-  name = "github.com/confluentinc/confluent-kafka-go"
-  packages = ["kafka"]
-  revision = "ecccefd9ca31c656bd33471dc0d9293fcf3de99b"
-  version = "v1.0.0"
-
-[[projects]]
   name = "github.com/coreos/prometheus-operator"
   packages = ["pkg/apis/monitoring","pkg/apis/monitoring/v1","pkg/client/versioned/scheme","pkg/client/versioned/typed/monitoring/v1"]
   revision = "72ec4b9b16ef11700724dc71fec77112536eed40"
@@ -484,6 +478,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c1d1a7ef741a93309232e8cf3d05bc63a087b98d346b7e1bb101e1d5f87f14f2"
+  inputs-digest = "c67241775f9fecf607f21a3ce4eae95c7faf5ab760b4c55e4e139de2a5deda27"
   solver-name = "gps-cdcl"
   solver-version = 1
