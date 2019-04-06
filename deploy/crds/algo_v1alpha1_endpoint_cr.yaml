@@ -2,6 +2,7 @@ apiVersion: algo.run/v1alpha1
 kind: Endpoint
 metadata:
   name: example-endpoint
+  namespace: algorun
 spec:
   endpointConfig:
     endpointOwnerUserName: admin
@@ -22,7 +23,6 @@ spec:
         name: --transform
         value: resize
         description: Type of transform to perform. --transform=[resize]
-        dataType: {}
         options: []
       inputs:
       - name: Image
@@ -68,7 +68,6 @@ spec:
         name: transform
         value: ToUpper
         description: Type of transform to perform. --transform=[ToLower,ToUpper]
-        dataType: {}
         options: []
       inputs:
       - name: Text
@@ -86,6 +85,7 @@ spec:
       outputs:
       - name: Transformed-Text
         description: Text result from the transform type
+        outputDeliveryType: HttpResponse
         mediaType:
           title: Any Text
           name: text/any
@@ -113,7 +113,6 @@ spec:
         name: --transform
         value: resize
         description: Type of transform to perform. --transform=[resize]
-        dataType: {}
         options: []
       inputs:
       - name: Image
@@ -158,7 +157,6 @@ spec:
         name: --transform
         value: resize
         description: Type of transform to perform. --transform=[resize]
-        dataType: {}
         options: []
       inputs:
       - name: Image
@@ -203,7 +201,6 @@ spec:
         name: --transform
         value: resize
         description: Type of transform to perform. --transform=[resize]
-        dataType: {}
         options: []
       inputs:
       - name: Image
@@ -248,11 +245,11 @@ spec:
         name: --transform
         value: ToUpper
         description: Type of transform to perform. --transform=[ToLower,ToUpper]
-        dataType: {}
         options: []
       inputs:
       - name: Text
         description: Text to transform
+        inputDeliveryType: StdIn
         isRequired: true
         mediaTypes:
         - title: Any Text
@@ -262,6 +259,7 @@ spec:
       outputs:
       - name: Transformed-Text
         description: Text result from the transform type
+        outputDeliveryType: StdOut
         mediaType:
           title: Any Text
           name: text/any
@@ -290,7 +288,6 @@ spec:
         name: transform
         value: ToUpper
         description: Type of transform to perform. --transform=[ToLower,ToUpper]
-        dataType: {}
         options: []
       inputs:
       - name: Text
@@ -308,6 +305,7 @@ spec:
       outputs:
       - name: Transformed-Text
         description: Text result from the transform type
+        outputDeliveryType: HttpResponse
         mediaType:
           title: Any Text
           name: text/any
@@ -335,11 +333,11 @@ spec:
         name: --transform
         value: resize
         description: Type of transform to perform. --transform=[resize]
-        dataType: {}
         options: []
       inputs:
       - name: Image
         description: Image to transform
+        inputDeliveryType: StdIn
         isRequired: true
         mediaTypes:
         - title: Any Image
@@ -349,6 +347,7 @@ spec:
       outputs:
       - name: Transformed-Image
         description: Image result from the transform type
+        outputDeliveryType: StdOut
         mediaType:
           title: Any Image
           name: image/any
@@ -377,7 +376,6 @@ spec:
         name: --transform
         value: resize
         description: Type of transform to perform. --transform=[resize]
-        dataType: {}
         options: []
       inputs:
       - name: Image
@@ -395,6 +393,7 @@ spec:
       outputs:
       - name: Transformed-Image
         description: Image result from the transform type
+        outputDeliveryType: HttpResponse
         mediaType:
           title: Any Image
           name: image/any
@@ -422,11 +421,11 @@ spec:
         name: --transform
         value: ToUpper
         description: Type of transform to perform. --transform=[ToLower,ToUpper]
-        dataType: {}
         options: []
       inputs:
       - name: Text
         description: Text to transform
+        inputDeliveryType: StdIn
         isRequired: true
         mediaTypes:
         - title: Any Text
@@ -436,6 +435,7 @@ spec:
       outputs:
       - name: Transformed-Text
         description: Text result from the transform type
+        outputDeliveryType: StdOut
         mediaType:
           title: Any Text
           name: text/any
@@ -463,11 +463,11 @@ spec:
         name: --transform
         value: resize
         description: Type of transform to perform. --transform=[resize]
-        dataType: {}
         options: []
       inputs:
       - name: Image
         description: Image to transform
+        inputDeliveryType: StdIn
         isRequired: true
         mediaTypes:
         - title: Any Image
@@ -477,6 +477,7 @@ spec:
       outputs:
       - name: Transformed-Image
         description: Image result from the transform type
+        outputDeliveryType: StdOut
         mediaType:
           title: Any Image
           name: image/any
@@ -504,7 +505,6 @@ spec:
         name: --transform
         value: resize
         description: Type of transform to perform. --transform=[resize]
-        dataType: {}
         options: []
       inputs:
       - name: Image
@@ -549,7 +549,6 @@ spec:
         name: --transform
         value: resize
         description: Type of transform to perform. --transform=[resize]
-        dataType: {}
         options: []
       inputs:
       - name: Image
@@ -595,7 +594,6 @@ spec:
         name: --transform
         value: resize
         description: Type of transform to perform. --transform=[resize]
-        dataType: {}
         options: []
       inputs:
       - name: Image
@@ -613,6 +611,7 @@ spec:
       outputs:
       - name: Transformed-Image
         description: Image result from the transform type
+        outputDeliveryType: HttpResponse
         mediaType:
           title: Any Image
           name: image/any

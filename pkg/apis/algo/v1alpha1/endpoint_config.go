@@ -10,7 +10,8 @@
 
 package v1alpha1
 
-type EndpointDeployCmd struct {
+type EndpointConfig struct {
+
 	EndpointOwnerUserName string `json:"endpointOwnerUserName,omitempty"`
 
 	EndpointName string `json:"endpointName,omitempty"`

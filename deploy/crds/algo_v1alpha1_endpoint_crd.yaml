@@ -357,6 +357,81 @@ spec:
               type: integer
           type: object
         status:
+          properties:
+            algoDeploymentStatuses:
+              items:
+                properties:
+                  algoIndex:
+                    format: int32
+                    type: integer
+                  algoName:
+                    type: string
+                  algoOwnerName:
+                    type: string
+                  algoVersionTag:
+                    type: string
+                  available:
+                    format: int32
+                    type: integer
+                  createdTimestamp:
+                    type: string
+                  current:
+                    format: int32
+                    type: integer
+                  desired:
+                    format: int32
+                    type: integer
+                  endpointName:
+                    type: string
+                  endpointOwnerUserName:
+                    type: string
+                  name:
+                    type: string
+                  ready:
+                    format: int32
+                    type: integer
+                  upToDate:
+                    format: int32
+                    type: integer
+                type: object
+              type: array
+            algoPodStatuses:
+              items:
+                properties:
+                  algoIndex:
+                    format: int32
+                    type: integer
+                  algoName:
+                    type: string
+                  algoOwnerName:
+                    type: string
+                  algoVersionTag:
+                    type: string
+                  containerStatuses:
+                    items:
+                      type: object
+                    type: array
+                  createdTimestamp:
+                    type: string
+                  endpointName:
+                    type: string
+                  endpointOwnerUserName:
+                    type: string
+                  ip:
+                    type: string
+                  name:
+                    type: string
+                  node:
+                    type: string
+                  restarts:
+                    format: int32
+                    type: integer
+                  status:
+                    type: string
+                type: object
+              type: array
+            status:
+              type: string
           type: object
   version: v1alpha1
   versions:

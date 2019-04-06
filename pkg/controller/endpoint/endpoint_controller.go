@@ -116,7 +116,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	// Create / update the kafka topics
-	r.createTopics(&instance.Spec, request)
+	r.createTopics(instance, request)
 
 	// Reconcile all algo deployments
 	reqLogger.Info("Reconciling Algos")
@@ -128,32 +128,17 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
-	// Update status if needed
-	pods, err := r.getPods(instance, request)
+	endpointStatus, err := r.getStatus(instance, request)
 	if err != nil {
-		reqLogger.Error(err, "Failed to get pod list to determine the status.")
-		return reconcile.Result{}, err
-	}
-
-	deployments, err := r.getDeployments(instance, request)
-	if err != nil {
-		reqLogger.Error(err, "Failed to get deployment list to determine the status.")
+		reqLogger.Error(err, "Failed to get Endpoint status.")
 		return reconcile.Result{}, err
 	}
 
 	// Update the status
-	if !reflect.DeepEqual(pods, instance.Status.Pods) ||
-		!reflect.DeepEqual(deployments, instance.Status.Deployments) {
+	if !reflect.DeepEqual(endpointStatus, instance.Status) {
 
-		state, err := calculateStatus(instance, deployments)
-		if err != nil {
-			reqLogger.Error(err, "Failed to calculate Endpoint status.")
-		}
+		instance.Status = *endpointStatus
 
-		instance.Status.State = state
-
-		instance.Status.Pods = *pods
-		instance.Status.Deployments = *deployments
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Endpoint status.")
@@ -165,7 +150,42 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 
 }
 
-func (r *ReconcileEndpoint) getDeployments(cr *algov1alpha1.Endpoint, request reconcile.Request) (*appsv1.DeploymentList, error) {
+func (r *ReconcileEndpoint) getStatus(cr *algov1alpha1.Endpoint, request reconcile.Request) (*algov1alpha1.EndpointStatus, error) {
+
+	endpointStatus := algov1alpha1.EndpointStatus{}
+
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger.Info("Getting status")
+
+	deploymentStatuses, err := r.getDeploymentStatuses(cr, request)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get deployment statuses.")
+		return nil, err
+	}
+
+	endpointStatus.AlgoDeploymentStatuses = *deploymentStatuses
+
+	// Calculate endpoint status
+	endpointStatusString, err := calculateStatus(cr, deploymentStatuses)
+	if err != nil {
+		reqLogger.Error(err, "Failed to calculate Endpoint status.")
+	}
+
+	endpointStatus.Status = endpointStatusString
+
+	podStatuses, err := r.getPodStatuses(cr, request)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get pod statuses.")
+		return nil, err
+	}
+
+	endpointStatus.AlgoPodStatuses = *podStatuses
+
+	return &endpointStatus, nil
+
+}
+
+func (r *ReconcileEndpoint) getDeploymentStatuses(cr *algov1alpha1.Endpoint, request reconcile.Request) (*[]algov1alpha1.AlgoDeploymentStatus, error) {
 
 	// Watch all algo deployments
 	listOptions := &client.ListOptions{}
@@ -179,16 +199,41 @@ func (r *ReconcileEndpoint) getDeployments(cr *algov1alpha1.Endpoint, request re
 	err := r.client.List(ctx, listOptions, deploymentList)
 
 	if err != nil {
+		log.Error(err, "Failed getting deployment list to determine status")
 		return nil, err
 	}
 
-	return deploymentList, nil
+	deploymentStatuses := make([]algov1alpha1.AlgoDeploymentStatus, 0)
+
+	for _, deployment := range deploymentList.Items {
+		index, _ := strconv.Atoi(deployment.Labels["algoindex"])
+
+		// Create the deployment data
+		deploymentStatus := algov1alpha1.AlgoDeploymentStatus{
+			EndpointOwnerUserName: deployment.Labels["endpointowner"],
+			EndpointName:          deployment.Labels["endpoint"],
+			AlgoOwnerName:         deployment.Labels["algoowner"],
+			AlgoName:              deployment.Labels["algo"],
+			AlgoVersionTag:        deployment.Labels["algoversion"],
+			AlgoIndex:             int32(index),
+			Name:                  deployment.GetName(),
+			Desired:               deployment.Status.AvailableReplicas + deployment.Status.UnavailableReplicas,
+			Current:               deployment.Status.Replicas,
+			UpToDate:              deployment.Status.UpdatedReplicas,
+			Available:             deployment.Status.AvailableReplicas,
+			CreatedTimestamp:      deployment.CreationTimestamp.String(),
+		}
+
+		deploymentStatuses = append(deploymentStatuses, deploymentStatus)
+	}
+
+	return &deploymentStatuses, nil
 
 }
 
-func (r *ReconcileEndpoint) getPods(cr *algov1alpha1.Endpoint, request reconcile.Request) (*corev1.PodList, error) {
+func (r *ReconcileEndpoint) getPodStatuses(cr *algov1alpha1.Endpoint, request reconcile.Request) (*[]algov1alpha1.AlgoPodStatus, error) {
 
-	// Watch all algo deployments
+	// Get all algo pods for this endpoint
 	listOptions := &client.ListOptions{}
 	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s",
 		cr.Spec.EndpointConfig.EndpointOwnerUserName,
@@ -200,23 +245,63 @@ func (r *ReconcileEndpoint) getPods(cr *algov1alpha1.Endpoint, request reconcile
 	err := r.client.List(ctx, listOptions, podList)
 
 	if err != nil {
+		log.Error(err, "Failed getting pod list to determine status")
 		return nil, err
 	}
 
-	return podList, nil
+	podStatuses := make([]algov1alpha1.AlgoPodStatus, 0)
+
+	for _, pod := range podList.Items {
+
+		var podStatus string
+		var restarts int32
+
+		if pod.Status.Phase == "Pending" {
+			podStatus = "Pending"
+		} else if pod.Status.ContainerStatuses[0].State.Terminated != nil {
+			podStatus = pod.Status.ContainerStatuses[0].State.Terminated.Reason
+		} else if pod.Status.ContainerStatuses[0].State.Waiting != nil {
+			podStatus = pod.Status.ContainerStatuses[0].State.Waiting.Reason
+		} else if pod.Status.ContainerStatuses[0].State.Running != nil {
+			podStatus = "Running"
+		}
+
+		index, _ := strconv.Atoi(pod.Labels["algoindex"])
+		// Create the pod status data
+		algoPodStatus := algov1alpha1.AlgoPodStatus{
+			EndpointOwnerUserName: pod.Labels["endpointowner"],
+			EndpointName:          pod.Labels["endpoint"],
+			AlgoOwnerName:         pod.Labels["algoowner"],
+			AlgoName:              pod.Labels["algo"],
+			AlgoVersionTag:        pod.Labels["algoversion"],
+			AlgoIndex:             int32(index),
+			Name:                  pod.GetName(),
+			Status:                podStatus,
+			Restarts:              restarts,
+			CreatedTimestamp:      pod.CreationTimestamp.String(),
+			Ip:                    pod.Status.PodIP,
+			Node:                  pod.Spec.NodeName,
+			ContainerStatuses:     pod.Status.ContainerStatuses,
+		}
+
+		podStatuses = append(podStatuses, algoPodStatus)
+
+	}
+
+	return &podStatuses, nil
 
 }
 
-func calculateStatus(cr *algov1alpha1.Endpoint, deployments *appsv1.DeploymentList) (string, error) {
+func calculateStatus(cr *algov1alpha1.Endpoint, deploymentStatuses *[]algov1alpha1.AlgoDeploymentStatus) (string, error) {
 
 	var unreadyDeployments int
 	algoCount := len(cr.Spec.EndpointConfig.AlgoConfigs)
-	deploymentCount := len(deployments.Items)
+	deploymentCount := len(*deploymentStatuses)
 
 	// iterate the deployments for any unready
 	if deploymentCount > 0 {
-		for _, deployment := range deployments.Items {
-			if deployment.Status.ReadyReplicas < (deployment.Status.AvailableReplicas + deployment.Status.UnavailableReplicas) {
+		for _, deployment := range *deploymentStatuses {
+			if deployment.Ready < deployment.Desired {
 				unreadyDeployments++
 			}
 		}
@@ -273,10 +358,14 @@ func (r *ReconcileEndpoint) reconcileAlgos(cr *algov1alpha1.Endpoint, request re
 			algoConfig.AlgoIndex))
 		listOptions.InNamespace(request.NamespacedName.Namespace)
 
-		deploymentExists := r.checkForDeployment(listOptions)
+		existingDeployment, err := r.checkForDeployment(listOptions)
+
+		if existingDeployment != nil {
+			algoConfig.DeploymentName = existingDeployment.GetName()
+		}
 
 		// Generate the k8s deployment for the algoconfig
-		algoDeployment, err := createDeploymentSpec(cr, name, labels, &algoConfig, &runnerConfig, deploymentExists)
+		algoDeployment, err := createDeploymentSpec(cr, name, labels, &algoConfig, &runnerConfig, existingDeployment != nil)
 		if err != nil {
 			algoLogger.Error(err, "Failed to create algo deployment spec")
 			return err
@@ -287,7 +376,7 @@ func (r *ReconcileEndpoint) reconcileAlgos(cr *algov1alpha1.Endpoint, request re
 			return err
 		}
 
-		if !deploymentExists {
+		if existingDeployment == nil {
 			err := r.createDeployment(algoDeployment)
 			if err != nil {
 				algoLogger.Error(err, "Failed to create algo deployment")
@@ -312,19 +401,23 @@ func (r *ReconcileEndpoint) reconcileAlgos(cr *algov1alpha1.Endpoint, request re
 
 }
 
-func (r *ReconcileEndpoint) checkForDeployment(listOptions *client.ListOptions) bool {
+func (r *ReconcileEndpoint) checkForDeployment(listOptions *client.ListOptions) (*appsv1.Deployment, error) {
 
 	deploymentList := &appsv1.DeploymentList{}
 	ctx := context.TODO()
 	err := r.client.List(ctx, listOptions, deploymentList)
 
 	if err != nil && errors.IsNotFound(err) {
-		return false
+		return nil, nil
 	} else if err != nil {
-		return false
+		return nil, err
 	}
 
-	return len(deploymentList.Items) > 0
+	if len(deploymentList.Items) > 0 {
+		return &deploymentList.Items[0], nil
+	}
+
+	return nil, nil
 
 }
 
@@ -358,8 +451,9 @@ func (r *ReconcileEndpoint) updateDeployment(deployment *appsv1.Deployment) erro
 
 }
 
-func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec, request reconcile.Request) {
+func (r *ReconcileEndpoint) createTopics(cr *algov1alpha1.Endpoint, request reconcile.Request) {
 
+	endpointSpec := cr.Spec
 	for _, topicConfig := range endpointSpec.EndpointConfig.TopicConfigs {
 
 		// Replace the endpoint username and name in the topic string
@@ -368,7 +462,7 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 
 		log.WithValues("Topic", topicName)
 
-		topicPartitions := 1
+		var topicPartitions int64 = 1
 		if topicConfig.TopicAutoPartition {
 			// Set the topic partitions based on the max destination instance count
 			for _, pipe := range endpointSpec.EndpointConfig.Pipes {
@@ -388,8 +482,8 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 							if algoConfig.AlgoOwnerUserName == pipe.DestAlgoOwnerName &&
 								algoConfig.AlgoName == pipe.DestAlgoName &&
 								algoConfig.AlgoIndex == pipe.DestAlgoIndex {
-								topicPartitions = max(int(algoConfig.MinInstances), topicPartitions)
-								topicPartitions = max(int(algoConfig.Instances), topicPartitions)
+								topicPartitions = max(int64(algoConfig.MinInstances), topicPartitions)
+								topicPartitions = max(int64(algoConfig.Instances), topicPartitions)
 							}
 
 						}
@@ -408,8 +502,8 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 							if algoConfig.AlgoOwnerUserName == pipe.DestAlgoOwnerName &&
 								algoConfig.AlgoName == pipe.DestAlgoName &&
 								algoConfig.AlgoIndex == pipe.DestAlgoIndex {
-								topicPartitions = max(int(algoConfig.MinInstances), topicPartitions)
-								topicPartitions = max(int(algoConfig.Instances), topicPartitions)
+								topicPartitions = max(int64(algoConfig.MinInstances), topicPartitions)
+								topicPartitions = max(int64(algoConfig.Instances), topicPartitions)
 							}
 
 						}
@@ -427,8 +521,8 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 							if algoConfig.AlgoOwnerUserName == pipe.DestAlgoOwnerName &&
 								algoConfig.AlgoName == pipe.DestAlgoName &&
 								algoConfig.AlgoIndex == pipe.DestAlgoIndex {
-								topicPartitions = max(int(algoConfig.MinInstances), topicPartitions)
-								topicPartitions = max(int(algoConfig.Instances), topicPartitions)
+								topicPartitions = max(int64(algoConfig.MinInstances), topicPartitions)
+								topicPartitions = max(int64(algoConfig.Instances), topicPartitions)
 							}
 
 						}
@@ -441,7 +535,7 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 
 		} else {
 			if topicConfig.TopicPartitions > 0 {
-				topicPartitions = int(topicConfig.TopicPartitions)
+				topicPartitions = int64(topicConfig.TopicPartitions)
 			}
 		}
 
@@ -452,6 +546,11 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 
 		// check to see if topic already exists
 		existingTopic := &unstructured.Unstructured{}
+		existingTopic.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "kafka.strimzi.io",
+			Kind:    "KafkaTopic",
+			Version: "v1alpha1",
+		})
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: topicName, Namespace: request.NamespacedName.Namespace}, existingTopic)
 
 		if err != nil && errors.IsNotFound(err) {
@@ -467,11 +566,19 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 					"config":     params,
 				},
 			}
+			newTopic.SetName(topicName)
+			newTopic.SetNamespace(request.NamespacedName.Namespace)
 			newTopic.SetGroupVersionKind(schema.GroupVersionKind{
 				Group:   "kafka.strimzi.io",
 				Kind:    "KafkaTopic",
 				Version: "v1alpha1",
 			})
+
+			// Set Endpoint instance as the owner and controller
+			if err := controllerutil.SetControllerReference(cr, newTopic, r.scheme); err != nil {
+				log.Error(err, "Failed setting the topic controller owner")
+			}
+
 			err := r.client.Create(context.TODO(), newTopic)
 			if err != nil {
 				log.Error(err, "Failed creating topic")
@@ -481,9 +588,13 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 		} else {
 			// Update the topic if changed
 			// Check that the partition count did not go down (kafka doesn't support)
+			var partitionsCurrent, replicasCurrent int64
+			var paramsCurrent map[string]string
 			spec, ok := existingTopic.Object["spec"].(map[string]interface{})
 			if ok {
-				partitionsCurrent, ok := spec["partitions"].(int)
+				replicasCurrent, ok = spec["replicas"].(int64)
+				paramsCurrent, ok = spec["config"].(map[string]string)
+				partitionsCurrent, ok = spec["partitions"].(int64)
 				if ok {
 					if partitionsCurrent > topicPartitions {
 						log.WithValues("PartitionsCurrent", partitionsCurrent)
@@ -494,28 +605,25 @@ func (r *ReconcileEndpoint) createTopics(endpointSpec *algov1alpha1.EndpointSpec
 				}
 			}
 
-			// Using a unstructured object to submit a strimzi topic creation.
-			newTopic := &unstructured.Unstructured{}
-			newTopic.Object = map[string]interface{}{
-				"name":      topicName,
-				"namespace": request.NamespacedName.Namespace,
-				"spec": map[string]interface{}{
-					"partitions": topicPartitions,
-					"replicas":   int(topicConfig.TopicReplicationFactor),
-					"config":     params,
-				},
-			}
-			newTopic.SetGroupVersionKind(schema.GroupVersionKind{
-				Group:   "kafka.strimzi.io",
-				Kind:    "KafkaTopic",
-				Version: "v1alpha1",
-			})
+			if partitionsCurrent != topicPartitions ||
+				replicasCurrent != int64(topicConfig.TopicReplicationFactor) ||
+				(len(paramsCurrent) != len(params) &&
+					!reflect.DeepEqual(paramsCurrent, params)) {
 
-			if !reflect.DeepEqual(existingTopic, newTopic) {
-				err := r.client.Update(context.TODO(), newTopic)
+				fmt.Printf("%v", paramsCurrent)
+				// !reflect.DeepEqual(paramsCurrent, params)
+				// Update the existing spec
+				spec["partitions"] = topicPartitions
+				spec["replicas"] = int64(topicConfig.TopicReplicationFactor)
+				spec["config"] = params
+
+				existingTopic.Object["spec"] = spec
+
+				err := r.client.Update(context.TODO(), existingTopic)
 				if err != nil {
 					log.Error(err, "Failed updating topic")
 				}
+
 			}
 
 		}
@@ -831,7 +939,7 @@ func createResources(algoConfig *v1alpha1.AlgoConfig) (*corev1.ResourceRequireme
 	return resources, nil
 }
 
-func max(x, y int) int {
+func max(x, y int64) int64 {
 	if x < y {
 		return y
 	}
