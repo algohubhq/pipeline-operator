@@ -1,7 +1,7 @@
 apiVersion: algo.run/v1alpha1
 kind: Endpoint
 metadata:
-  name: example-endpoint
+  name: admin-test-endpoint-1
   namespace: algorun
 spec:
   endpointConfig:

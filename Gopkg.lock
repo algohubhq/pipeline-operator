@@ -116,6 +116,12 @@
   version = "v0.18.0"
 
 [[projects]]
+  name = "github.com/go-test/deep"
+  packages = ["."]
+  revision = "6592d9cc0a499ad2d5f574fde80a2b5c5cc3b4f5"
+  version = "v1.0.1"
+
+[[projects]]
   name = "github.com/gobuffalo/envy"
   packages = ["."]
   revision = "fa0dfdc10b5366ce365b7d9d1755a03e4e797bc5"
@@ -478,6 +484,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c67241775f9fecf607f21a3ce4eae95c7faf5ab760b4c55e4e139de2a5deda27"
+  inputs-digest = "d9c869f7d5f0b291063f078fd0a20c54a96563f5f35596ebbad29df6134c4eb7"
   solver-name = "gps-cdcl"
   solver-version = 1

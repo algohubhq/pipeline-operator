@@ -12,10 +12,6 @@ package v1alpha1
 
 type AlgoDeploymentStatus struct {
 
-	EndpointOwnerUserName string `json:"endpointOwnerUserName,omitempty"`
-
-	EndpointName string `json:"endpointName,omitempty"`
-
 	AlgoOwnerName string `json:"algoOwnerName,omitempty"`
 
 	AlgoName string `json:"algoName,omitempty"`

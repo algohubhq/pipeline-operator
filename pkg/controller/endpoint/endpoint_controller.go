@@ -1,12 +1,18 @@
 package endpoint
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/go-test/deep"
 
 	"endpoint-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
@@ -90,8 +96,6 @@ type ReconcileEndpoint struct {
 
 // Reconcile reads that state of the cluster for a Endpoint object and makes changes based on the state read
 // and what is in the Endpoint.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
@@ -134,9 +138,71 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
-	// Update the status
-	if !reflect.DeepEqual(endpointStatus, instance.Status) {
+	statusChanged := false
 
+	if instance.Status.Status != endpointStatus.Status {
+		instance.Status.Status = endpointStatus.Status
+		statusChanged = true
+
+		url := "https://localhost:5043/api/v1/notify/endpointstatuschanged"
+
+		notifMessage := v1alpha1.NotifMessage{
+			MessageTimestamp: time.Now(),
+			NotifLevel:       "Info",
+			LogMessageType:   "Endpoint",
+			EndpointStatusMessage: &v1alpha1.EndpointStatusMessage{
+				EndpointOwnerUserName: instance.Spec.EndpointConfig.EndpointOwnerUserName,
+				EndpointName:          instance.Spec.EndpointConfig.EndpointName,
+				Status:                instance.Status.Status,
+			},
+		}
+
+		jsonValue, _ := json.Marshal(notifMessage)
+		req, err := http.NewRequest("POST", url, bytes.NewReader(jsonValue))
+		req.Header.Set("Content-Type", "application/json")
+
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client := &http.Client{Transport: tr}
+		resp, err := client.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		defer resp.Body.Close()
+	}
+
+	// Iterate the existing deployment statuses and update if changed
+	for _, deplStatus := range instance.Status.AlgoDeploymentStatuses {
+		for _, newDeplStatus := range endpointStatus.AlgoDeploymentStatuses {
+			if newDeplStatus.Name == deplStatus.Name {
+
+				if diff := deep.Equal(deplStatus, newDeplStatus); diff != nil {
+					deplStatus = newDeplStatus
+					statusChanged = true
+					reqLogger.Info("Differences", "Differences", diff)
+				}
+
+			}
+		}
+	}
+
+	// Iterate the existing pod statuses and update if changed
+	for _, podStatus := range instance.Status.AlgoPodStatuses {
+		for _, newPodStatus := range endpointStatus.AlgoPodStatuses {
+			if newPodStatus.Name == podStatus.Name {
+
+				if diff := deep.Equal(podStatus, newPodStatus); diff != nil {
+					podStatus = newPodStatus
+					statusChanged = true
+					reqLogger.Info("Differences", "Differences", diff)
+				}
+
+			}
+		}
+	}
+
+	if statusChanged {
 		instance.Status = *endpointStatus
 
 		err = r.client.Status().Update(context.TODO(), instance)
@@ -152,7 +218,10 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 
 func (r *ReconcileEndpoint) getStatus(cr *algov1alpha1.Endpoint, request reconcile.Request) (*algov1alpha1.EndpointStatus, error) {
 
-	endpointStatus := algov1alpha1.EndpointStatus{}
+	endpointStatus := algov1alpha1.EndpointStatus{
+		EndpointOwnerUserName: cr.Spec.EndpointConfig.EndpointOwnerUserName,
+		EndpointName:          cr.Spec.EndpointConfig.EndpointName,
+	}
 
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Getting status")
@@ -163,10 +232,10 @@ func (r *ReconcileEndpoint) getStatus(cr *algov1alpha1.Endpoint, request reconci
 		return nil, err
 	}
 
-	endpointStatus.AlgoDeploymentStatuses = *deploymentStatuses
+	endpointStatus.AlgoDeploymentStatuses = deploymentStatuses
 
 	// Calculate endpoint status
-	endpointStatusString, err := calculateStatus(cr, deploymentStatuses)
+	endpointStatusString, err := calculateStatus(cr, &deploymentStatuses)
 	if err != nil {
 		reqLogger.Error(err, "Failed to calculate Endpoint status.")
 	}
@@ -179,13 +248,13 @@ func (r *ReconcileEndpoint) getStatus(cr *algov1alpha1.Endpoint, request reconci
 		return nil, err
 	}
 
-	endpointStatus.AlgoPodStatuses = *podStatuses
+	endpointStatus.AlgoPodStatuses = podStatuses
 
 	return &endpointStatus, nil
 
 }
 
-func (r *ReconcileEndpoint) getDeploymentStatuses(cr *algov1alpha1.Endpoint, request reconcile.Request) (*[]algov1alpha1.AlgoDeploymentStatus, error) {
+func (r *ReconcileEndpoint) getDeploymentStatuses(cr *algov1alpha1.Endpoint, request reconcile.Request) ([]algov1alpha1.AlgoDeploymentStatus, error) {
 
 	// Watch all algo deployments
 	listOptions := &client.ListOptions{}
@@ -210,28 +279,26 @@ func (r *ReconcileEndpoint) getDeploymentStatuses(cr *algov1alpha1.Endpoint, req
 
 		// Create the deployment data
 		deploymentStatus := algov1alpha1.AlgoDeploymentStatus{
-			EndpointOwnerUserName: deployment.Labels["endpointowner"],
-			EndpointName:          deployment.Labels["endpoint"],
-			AlgoOwnerName:         deployment.Labels["algoowner"],
-			AlgoName:              deployment.Labels["algo"],
-			AlgoVersionTag:        deployment.Labels["algoversion"],
-			AlgoIndex:             int32(index),
-			Name:                  deployment.GetName(),
-			Desired:               deployment.Status.AvailableReplicas + deployment.Status.UnavailableReplicas,
-			Current:               deployment.Status.Replicas,
-			UpToDate:              deployment.Status.UpdatedReplicas,
-			Available:             deployment.Status.AvailableReplicas,
-			CreatedTimestamp:      deployment.CreationTimestamp.String(),
+			AlgoOwnerName:    deployment.Labels["algoowner"],
+			AlgoName:         deployment.Labels["algo"],
+			AlgoVersionTag:   deployment.Labels["algoversion"],
+			AlgoIndex:        int32(index),
+			Name:             deployment.GetName(),
+			Desired:          deployment.Status.AvailableReplicas + deployment.Status.UnavailableReplicas,
+			Current:          deployment.Status.Replicas,
+			UpToDate:         deployment.Status.UpdatedReplicas,
+			Available:        deployment.Status.AvailableReplicas,
+			CreatedTimestamp: deployment.CreationTimestamp.String(),
 		}
 
 		deploymentStatuses = append(deploymentStatuses, deploymentStatus)
 	}
 
-	return &deploymentStatuses, nil
+	return deploymentStatuses, nil
 
 }
 
-func (r *ReconcileEndpoint) getPodStatuses(cr *algov1alpha1.Endpoint, request reconcile.Request) (*[]algov1alpha1.AlgoPodStatus, error) {
+func (r *ReconcileEndpoint) getPodStatuses(cr *algov1alpha1.Endpoint, request reconcile.Request) ([]algov1alpha1.AlgoPodStatus, error) {
 
 	// Get all algo pods for this endpoint
 	listOptions := &client.ListOptions{}
@@ -269,26 +336,24 @@ func (r *ReconcileEndpoint) getPodStatuses(cr *algov1alpha1.Endpoint, request re
 		index, _ := strconv.Atoi(pod.Labels["algoindex"])
 		// Create the pod status data
 		algoPodStatus := algov1alpha1.AlgoPodStatus{
-			EndpointOwnerUserName: pod.Labels["endpointowner"],
-			EndpointName:          pod.Labels["endpoint"],
-			AlgoOwnerName:         pod.Labels["algoowner"],
-			AlgoName:              pod.Labels["algo"],
-			AlgoVersionTag:        pod.Labels["algoversion"],
-			AlgoIndex:             int32(index),
-			Name:                  pod.GetName(),
-			Status:                podStatus,
-			Restarts:              restarts,
-			CreatedTimestamp:      pod.CreationTimestamp.String(),
-			Ip:                    pod.Status.PodIP,
-			Node:                  pod.Spec.NodeName,
-			ContainerStatuses:     pod.Status.ContainerStatuses,
+			AlgoOwnerName:     pod.Labels["algoowner"],
+			AlgoName:          pod.Labels["algo"],
+			AlgoVersionTag:    pod.Labels["algoversion"],
+			AlgoIndex:         int32(index),
+			Name:              pod.GetName(),
+			Status:            podStatus,
+			Restarts:          restarts,
+			CreatedTimestamp:  pod.CreationTimestamp.String(),
+			Ip:                pod.Status.PodIP,
+			Node:              pod.Spec.NodeName,
+			ContainerStatuses: append([]corev1.ContainerStatus(nil), pod.Status.ContainerStatuses...),
 		}
 
 		podStatuses = append(podStatuses, algoPodStatus)
 
 	}
 
-	return &podStatuses, nil
+	return podStatuses, nil
 
 }
 

@@ -10,11 +10,11 @@ import (
 // EndpointSpec defines the desired state of Endpoint
 // +k8s:openapi-gen=true
 type EndpointSpec struct {
-	AlgoRunnerURL     string `json:"algoRunnerUrl,omitempty"`
-	AlgoRunnerVersion string `json:"algoRunnerVersion,omitempty"`
-	InCluster         bool   `json:"inCluster,omitempty"`
-	Namespace         string `json:"namespace,omitempty"`
-	ImagePullPolicy   string `json:"imagePullPolicy,omitempty"`
+	AlgoRunnerImage    string `json:"algoRunnerUrl,omitempty"`
+	AlgoRunnerImageTag string `json:"algoRunnerVersion,omitempty"`
+	InCluster          bool   `json:"inCluster,omitempty"`
+	Namespace          string `json:"namespace,omitempty"`
+	ImagePullPolicy    string `json:"imagePullPolicy,omitempty"`
 
 	KafkaBrokers string `json:"kafkaBrokers,omitempty"`
 	LogTopic     string `json:"logTopic,omitempty"`
@@ -33,6 +33,8 @@ type EndpointSpec struct {
 // EndpointStatus defines the observed state of Endpoint
 // +k8s:openapi-gen=true
 type EndpointStatus struct {
+	EndpointOwnerUserName  string                 `json:"endpointOwnerUserName,omitempty"`
+	EndpointName           string                 `json:"endpointName,omitempty"`
 	Status                 string                 `json:"status,omitempty"`
 	AlgoDeploymentStatuses []AlgoDeploymentStatus `json:"algoDeploymentStatuses,omitempty"`
 	AlgoPodStatuses        []AlgoPodStatus        `json:"algoPodStatuses,omitempty"`

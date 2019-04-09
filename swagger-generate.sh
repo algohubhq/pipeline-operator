@@ -9,6 +9,10 @@ cp ./algorun-go-client/runner_config.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/algo_deployment_status.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/algo_pod_status.go ./pkg/apis/algo/v1alpha1/
 
+cp ./algorun-go-client/notif_message.go ./pkg/apis/algo/v1alpha1/
+cp ./algorun-go-client/endpoint_status_message.go ./pkg/apis/algo/v1alpha1/
+cp ./algorun-go-client/log_entry_model.go ./pkg/apis/algo/v1alpha1/
+
 cp ./algorun-go-client/algo_param_model.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/topic_config_model.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/topic_param_model.go ./pkg/apis/algo/v1alpha1/

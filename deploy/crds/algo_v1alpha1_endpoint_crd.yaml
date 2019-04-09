@@ -29,9 +29,9 @@ spec:
           type: object
         spec:
           properties:
-            algoRunnerUrl:
+            algoRunnerImage:
               type: string
-            algoRunnerVersion:
+            algoRunnerImageTag:
               type: string
             commandTopic:
               type: string
