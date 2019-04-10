@@ -144,8 +144,6 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 		instance.Status.Status = endpointStatus.Status
 		statusChanged = true
 
-		url := "https://localhost:5043/api/v1/notify/endpointstatuschanged"
-
 		notifMessage := v1alpha1.NotifMessage{
 			MessageTimestamp: time.Now(),
 			NotifLevel:       "Info",
@@ -157,19 +155,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 			},
 		}
 
-		jsonValue, _ := json.Marshal(notifMessage)
-		req, err := http.NewRequest("POST", url, bytes.NewReader(jsonValue))
-		req.Header.Set("Content-Type", "application/json")
-
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		client := &http.Client{Transport: tr}
-		resp, err := client.Do(req)
-		if err != nil {
-			panic(err)
-		}
-		defer resp.Body.Close()
+		notify(notifMessage)
 	}
 
 	// Iterate the existing deployment statuses and update if changed
@@ -180,7 +166,19 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 				if diff := deep.Equal(deplStatus, newDeplStatus); diff != nil {
 					deplStatus = newDeplStatus
 					statusChanged = true
-					reqLogger.Info("Differences", "Differences", diff)
+					// reqLogger.Info("Differences", "Differences", diff)
+					notifMessage := v1alpha1.NotifMessage{
+						MessageTimestamp: time.Now(),
+						NotifLevel:       "Info",
+						LogMessageType:   "Deployment",
+						EndpointStatusMessage: &v1alpha1.EndpointStatusMessage{
+							EndpointOwnerUserName: instance.Spec.EndpointConfig.EndpointOwnerUserName,
+							EndpointName:          instance.Spec.EndpointConfig.EndpointName,
+							Status:                instance.Status.Status,
+						},
+					}
+
+					notify(notifMessage)
 				}
 
 			}
@@ -195,7 +193,19 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 				if diff := deep.Equal(podStatus, newPodStatus); diff != nil {
 					podStatus = newPodStatus
 					statusChanged = true
-					reqLogger.Info("Differences", "Differences", diff)
+					// reqLogger.Info("Differences", "Differences", diff)
+					notifMessage := v1alpha1.NotifMessage{
+						MessageTimestamp: time.Now(),
+						NotifLevel:       "Info",
+						LogMessageType:   "Pod",
+						EndpointStatusMessage: &v1alpha1.EndpointStatusMessage{
+							EndpointOwnerUserName: instance.Spec.EndpointConfig.EndpointOwnerUserName,
+							EndpointName:          instance.Spec.EndpointConfig.EndpointName,
+							Status:                instance.Status.Status,
+						},
+					}
+
+					notify(notifMessage)
 				}
 
 			}
@@ -1002,6 +1012,36 @@ func createResources(algoConfig *v1alpha1.AlgoConfig) (*corev1.ResourceRequireme
 	}
 
 	return resources, nil
+}
+
+func notify(notifMessage v1alpha1.NotifMessage) {
+
+	var url string
+	switch msgType := notifMessage.LogMessageType; msgType {
+	case "Endpoint":
+		url = "https://localhost:5043/api/v1/notify/endpointstatuschanged"
+	case "Deployment":
+		url = "https://localhost:5043/api/v1/notify/endpointdeploymentchanged"
+	case "Pod":
+		url = "https://localhost:5043/api/v1/notify/endpointpodchanged"
+	default:
+		url = "https://localhost:5043/api/v1/notify/endpointstatuschanged"
+	}
+
+	jsonValue, _ := json.Marshal(notifMessage)
+	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonValue))
+	req.Header.Set("Content-Type", "application/json")
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
 }
 
 func max(x, y int64) int64 {
