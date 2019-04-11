@@ -112,6 +112,13 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
 			reqLogger.Info("Endpoint resource not found. Ignoring since object must be deleted.")
+			// Sending a notification that an endpoint was deleted. Just not sure which one!
+			notifMessage := v1alpha1.NotifMessage{
+				MessageTimestamp: time.Now(),
+				NotifLevel:       "Info",
+				LogMessageType:   "EndpointDeleted",
+			}
+			notify(notifMessage)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -147,7 +154,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 		notifMessage := v1alpha1.NotifMessage{
 			MessageTimestamp: time.Now(),
 			NotifLevel:       "Info",
-			LogMessageType:   "Endpoint",
+			LogMessageType:   "EndpointStatus",
 			EndpointStatusMessage: &v1alpha1.EndpointStatusMessage{
 				EndpointOwnerUserName: instance.Spec.EndpointConfig.EndpointOwnerUserName,
 				EndpointName:          instance.Spec.EndpointConfig.EndpointName,
@@ -170,7 +177,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 					notifMessage := v1alpha1.NotifMessage{
 						MessageTimestamp: time.Now(),
 						NotifLevel:       "Info",
-						LogMessageType:   "Deployment",
+						LogMessageType:   "EndpointDeployment",
 						EndpointStatusMessage: &v1alpha1.EndpointStatusMessage{
 							EndpointOwnerUserName: instance.Spec.EndpointConfig.EndpointOwnerUserName,
 							EndpointName:          instance.Spec.EndpointConfig.EndpointName,
@@ -197,7 +204,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 					notifMessage := v1alpha1.NotifMessage{
 						MessageTimestamp: time.Now(),
 						NotifLevel:       "Info",
-						LogMessageType:   "Pod",
+						LogMessageType:   "EndpointPod",
 						EndpointStatusMessage: &v1alpha1.EndpointStatusMessage{
 							EndpointOwnerUserName: instance.Spec.EndpointConfig.EndpointOwnerUserName,
 							EndpointName:          instance.Spec.EndpointConfig.EndpointName,
@@ -1018,12 +1025,14 @@ func notify(notifMessage v1alpha1.NotifMessage) {
 
 	var url string
 	switch msgType := notifMessage.LogMessageType; msgType {
-	case "Endpoint":
+	case "EndpointStatus":
 		url = "https://localhost:5043/api/v1/notify/endpointstatuschanged"
-	case "Deployment":
+	case "EndpointDeployment":
 		url = "https://localhost:5043/api/v1/notify/endpointdeploymentchanged"
-	case "Pod":
+	case "EndpointPod":
 		url = "https://localhost:5043/api/v1/notify/endpointpodchanged"
+	case "EndpointDeleted":
+		url = "https://localhost:5043/api/v1/notify/endpointdeleted"
 	default:
 		url = "https://localhost:5043/api/v1/notify/endpointstatuschanged"
 	}
