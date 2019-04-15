@@ -63,4 +63,20 @@ type AlgoConfig struct {
 	MaxInstances int32 `json:"maxInstances,omitempty"`
 
 	AutoScaleCPUPercent int32 `json:"autoScaleCPUPercent,omitempty"`
+
+	AlgoRunnerImage string `json:"algoRunnerImage,omitempty"`
+
+	AlgoRunnerImageTag string `json:"algoRunnerImageTag,omitempty"`
+
+	LivenessInitialDelaySeconds int32 `json:"livenessInitialDelaySeconds,omitempty"`
+
+	LivenessTimeoutSeconds int32 `json:"livenessTimeoutSeconds,omitempty"`
+
+	LivenessPeriodSeconds int32 `json:"livenessPeriodSeconds,omitempty"`
+
+	ReadinessInitialDelaySeconds int32 `json:"readinessInitialDelaySeconds,omitempty"`
+
+	ReadinessTimeoutSeconds int32 `json:"readinessTimeoutSeconds,omitempty"`
+
+	ReadinessPeriodSeconds int32 `json:"readinessPeriodSeconds,omitempty"`
 }

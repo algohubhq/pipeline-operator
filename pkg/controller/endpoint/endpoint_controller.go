@@ -744,11 +744,35 @@ func createRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec, algoConfig *v1a
 func createDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[string]string, algoConfig *v1alpha1.AlgoConfig, runnerConfig *v1alpha1.RunnerConfig, update bool) (*appsv1.Deployment, error) {
 
 	// Set the image name
-	var imageFullName string
+	var imageName string
 	if algoConfig.ImageTag == "" || algoConfig.ImageTag == "latest" {
-		imageFullName = fmt.Sprintf("%s:latest", algoConfig.ImageRepository)
+		imageName = fmt.Sprintf("%s:latest", algoConfig.ImageRepository)
 	} else {
-		imageFullName = fmt.Sprintf("%s:%s", algoConfig.ImageRepository, algoConfig.ImageTag)
+		imageName = fmt.Sprintf("%s:%s", algoConfig.ImageRepository, algoConfig.ImageTag)
+	}
+
+	// Set the algo-runner-sidecar name
+	var sidecarImageName string
+	if algoConfig.AlgoRunnerImage == "" {
+		sidecarImageName = "algohub/algo-runner:latest"
+	} else {
+		if algoConfig.AlgoRunnerImageTag == "" || algoConfig.AlgoRunnerImageTag == "latest" {
+			sidecarImageName = fmt.Sprintf("%s:latest", algoConfig.ImageRepository)
+		} else {
+			sidecarImageName = fmt.Sprintf("%s:%s", algoConfig.AlgoRunnerImage, algoConfig.AlgoRunnerImageTag)
+		}
+	}
+
+	var imagePullPolicy corev1.PullPolicy
+	switch cr.Spec.ImagePullPolicy {
+	case "Never":
+		imagePullPolicy = corev1.PullNever
+	case "PullAlways":
+		imagePullPolicy = corev1.PullAlways
+	case "IfNotPresent":
+		imagePullPolicy = corev1.PullIfNotPresent
+	default:
+		imagePullPolicy = corev1.PullIfNotPresent
 	}
 
 	// Configure the readiness and liveness
@@ -758,25 +782,124 @@ func createDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 			Port: intstr.FromInt(10080),
 		},
 	}
-
-	readinessProbe := &corev1.Probe{
-		Handler:             handler,
-		InitialDelaySeconds: cr.Spec.ReadinessInitialDelaySeconds,
-		TimeoutSeconds:      cr.Spec.ReadinessTimeoutSeconds,
-		PeriodSeconds:       cr.Spec.ReadinessPeriodSeconds,
-		SuccessThreshold:    1,
-		FailureThreshold:    3,
+	// Set resonable probe defaults if blank
+	if algoConfig.ReadinessInitialDelaySeconds == 0 {
+		algoConfig.ReadinessInitialDelaySeconds = 5
 	}
-	livenessProbe := &corev1.Probe{
-		Handler:             handler,
-		InitialDelaySeconds: cr.Spec.LivenessInitialDelaySeconds,
-		TimeoutSeconds:      cr.Spec.LivenessTimeoutSeconds,
-		PeriodSeconds:       cr.Spec.LivenessPeriodSeconds,
-		SuccessThreshold:    1,
-		FailureThreshold:    3,
+	if algoConfig.ReadinessTimeoutSeconds == 0 {
+		algoConfig.ReadinessTimeoutSeconds = 10
+	}
+	if algoConfig.ReadinessPeriodSeconds == 0 {
+		algoConfig.ReadinessPeriodSeconds = 20
+	}
+	if algoConfig.LivenessInitialDelaySeconds == 0 {
+		algoConfig.LivenessInitialDelaySeconds = 5
+	}
+	if algoConfig.LivenessTimeoutSeconds == 0 {
+		algoConfig.LivenessTimeoutSeconds = 10
+	}
+	if algoConfig.LivenessPeriodSeconds == 0 {
+		algoConfig.LivenessPeriodSeconds = 20
 	}
 
-	// nodeSelector := createSelector(request.Constraints)
+	// If serverless, then we will copy the algo-runner binary into the algo container using an init container
+	// If not serverless, then execute algo-runner within the sidecar
+	var initContainers []corev1.Container
+	var containers []corev1.Container
+	var algoCommand []string
+	var algoArgs []string
+	var algoEnvVars []corev1.EnvVar
+	var sidecarEnvVars []corev1.EnvVar
+	var algoReadinessProbe *corev1.Probe
+	var algoLivenessProbe *corev1.Probe
+	var sidecarReadinessProbe *corev1.Probe
+	var sidecarLivenessProbe *corev1.Probe
+	if algoConfig.ServerType == "Serverless" {
+
+		algoCommand = []string{"/algo-runner/algo-runner"}
+
+		initCommand := []string{"/bin/sh", "-c"}
+		initArgs := []string{
+			"cp /algo-runner/algo-runner /algo-runner-dest/algo-runner && " +
+				"chmod +x /algo-runner-dest/algo-runner",
+		}
+
+		algoEnvVars = createEnvVars(cr, runnerConfig, algoConfig)
+
+		initContainer := corev1.Container{
+			Name:            "algo-runner-init",
+			Image:           sidecarImageName,
+			Command:         initCommand,
+			Args:            initArgs,
+			ImagePullPolicy: imagePullPolicy,
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "algo-runner-volume",
+					MountPath: "/algo-runner-dest",
+				},
+			},
+		}
+		initContainers = append(initContainers, initContainer)
+
+		algoReadinessProbe = &corev1.Probe{
+			Handler:             handler,
+			InitialDelaySeconds: algoConfig.ReadinessInitialDelaySeconds,
+			TimeoutSeconds:      algoConfig.ReadinessTimeoutSeconds,
+			PeriodSeconds:       algoConfig.ReadinessPeriodSeconds,
+			SuccessThreshold:    1,
+			FailureThreshold:    3,
+		}
+
+		algoLivenessProbe = &corev1.Probe{
+			Handler:             handler,
+			InitialDelaySeconds: algoConfig.LivenessInitialDelaySeconds,
+			TimeoutSeconds:      algoConfig.LivenessTimeoutSeconds,
+			PeriodSeconds:       algoConfig.LivenessPeriodSeconds,
+			SuccessThreshold:    1,
+			FailureThreshold:    3,
+		}
+
+	} else {
+
+		entrypoint := strings.Split(runnerConfig.Entrypoint, " ")
+
+		algoCommand = []string{entrypoint[0]}
+		algoArgs = entrypoint[1:]
+
+		sidecarCommand := []string{"/algo-runner/algo-runner"}
+
+		sidecarEnvVars = createEnvVars(cr, runnerConfig, algoConfig)
+
+		sidecarReadinessProbe = &corev1.Probe{
+			Handler:             handler,
+			InitialDelaySeconds: algoConfig.ReadinessInitialDelaySeconds,
+			TimeoutSeconds:      algoConfig.ReadinessTimeoutSeconds,
+			PeriodSeconds:       algoConfig.ReadinessPeriodSeconds,
+			SuccessThreshold:    1,
+			FailureThreshold:    3,
+		}
+
+		sidecarLivenessProbe = &corev1.Probe{
+			Handler:             handler,
+			InitialDelaySeconds: algoConfig.LivenessInitialDelaySeconds,
+			TimeoutSeconds:      algoConfig.LivenessTimeoutSeconds,
+			PeriodSeconds:       algoConfig.LivenessPeriodSeconds,
+			SuccessThreshold:    1,
+			FailureThreshold:    3,
+		}
+
+		sidecarContainer := corev1.Container{
+			Name:           "algo-runner-sidecar",
+			Image:          sidecarImageName,
+			Command:        sidecarCommand,
+			Env:            sidecarEnvVars,
+			LivenessProbe:  sidecarLivenessProbe,
+			ReadinessProbe: sidecarReadinessProbe,
+		}
+
+		containers = append(containers, sidecarContainer)
+
+	}
 
 	resources, resourceErr := createResources(algoConfig)
 
@@ -784,17 +907,31 @@ func createDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 		return nil, resourceErr
 	}
 
-	var imagePullPolicy corev1.PullPolicy
-	switch cr.Spec.ImagePullPolicy {
-	case "Never":
-		imagePullPolicy = corev1.PullNever
-	case "IfNotPresent":
-		imagePullPolicy = corev1.PullIfNotPresent
-	default:
-		imagePullPolicy = corev1.PullAlways
+	// Algo container
+	algoContainer := corev1.Container{
+		Name:            name,
+		Image:           imageName,
+		Command:         algoCommand,
+		Args:            algoArgs,
+		Env:             algoEnvVars,
+		Resources:       *resources,
+		ImagePullPolicy: imagePullPolicy,
+		LivenessProbe:   algoLivenessProbe,
+		ReadinessProbe:  algoReadinessProbe,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "algo-runner-volume",
+				MountPath: "/algo-runner",
+			},
+			{
+				Name:      "algorun-data-volume",
+				MountPath: "/data",
+			},
+		},
 	}
+	containers = append(containers, algoContainer)
 
-	envVars := createEnvVars(cr, runnerConfig, algoConfig)
+	// nodeSelector := createSelector(request.Constraints)
 
 	// If this is an update, need to set the existing deployment name
 	var nameMeta metav1.ObjectMeta
@@ -847,36 +984,13 @@ func createDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 					//	FSGroup: int64p(1431),
 					// },
 					// NodeSelector: nodeSelector,
-					Containers: []corev1.Container{
-						{
-							Name:            name,
-							Image:           imageFullName,
-							Command:         []string{"/algo-runner/algo-runner"},
-							Env:             envVars,
-							Resources:       *resources,
-							ImagePullPolicy: imagePullPolicy,
-							LivenessProbe:   livenessProbe,
-							ReadinessProbe:  readinessProbe,
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "algo-runner-volume",
-									MountPath: "/algo-runner",
-								},
-								{
-									Name:      "algorun-data-volume",
-									MountPath: "/data",
-								},
-							},
-						},
-					},
+					InitContainers: initContainers,
+					Containers:     containers,
 					Volumes: []corev1.Volume{
 						{
 							Name: "algo-runner-volume",
 							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "algo-runner-pv-claim",
-									ReadOnly:  true,
-								},
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 						{
@@ -933,14 +1047,8 @@ func createEnvVars(cr *algov1alpha1.Endpoint, runnerConfig *v1alpha1.RunnerConfi
 
 	// Append the required kafka servers
 	envVars = append(envVars, corev1.EnvVar{
-		Name:  "KAFKA-SERVERS",
+		Name:  "KAFKA-BROKERS",
 		Value: cr.Spec.KafkaBrokers,
-	})
-
-	// Append the log topic
-	envVars = append(envVars, corev1.EnvVar{
-		Name:  "LOG-TOPIC",
-		Value: cr.Spec.LogTopic,
 	})
 
 	// for k, v := range algoConfig.EnvVars {

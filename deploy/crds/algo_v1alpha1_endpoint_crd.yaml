@@ -29,12 +29,6 @@ spec:
           type: object
         spec:
           properties:
-            algoRunnerImage:
-              type: string
-            algoRunnerImageTag:
-              type: string
-            commandTopic:
-              type: string
             endpointConfig:
               properties:
                 algoConfigs:
@@ -87,6 +81,10 @@ spec:
                           - name
                           type: object
                         type: array
+                      algoRunnerImage:
+                        type: string
+                      algoRunnerImageTag:
+                        type: string
                       algoVersionTag:
                         type: string
                       applied:
@@ -174,6 +172,15 @@ spec:
                       instances:
                         format: int32
                         type: integer
+                      livenessInitialDelaySeconds:
+                        format: int32
+                        type: integer
+                      livenessPeriodSeconds:
+                        format: int32
+                        type: integer
+                      livenessTimeoutSeconds:
+                        format: int32
+                        type: integer
                       maxInstances:
                         format: int32
                         type: integer
@@ -224,6 +231,15 @@ spec:
                           - mediaType
                           type: object
                         type: array
+                      readinessInitialDelaySeconds:
+                        format: int32
+                        type: integer
+                      readinessPeriodSeconds:
+                        format: int32
+                        type: integer
+                      readinessTimeoutSeconds:
+                        format: int32
+                        type: integer
                       serverType:
                         type: string
                       timeoutSeconds:
@@ -329,32 +345,8 @@ spec:
               type: object
             imagePullPolicy:
               type: string
-            inCluster:
-              type: boolean
             kafkaBrokers:
               type: string
-            livenessInitialDelaySeconds:
-              format: int32
-              type: integer
-            livenessPeriodSeconds:
-              format: int32
-              type: integer
-            livenessTimeoutSeconds:
-              format: int32
-              type: integer
-            logTopic:
-              type: string
-            namespace:
-              type: string
-            readinessInitialDelaySeconds:
-              format: int32
-              type: integer
-            readinessPeriodSeconds:
-              format: int32
-              type: integer
-            readinessTimeoutSeconds:
-              format: int32
-              type: integer
           type: object
         status:
           properties:
@@ -381,10 +373,6 @@ spec:
                   desired:
                     format: int32
                     type: integer
-                  endpointName:
-                    type: string
-                  endpointOwnerUserName:
-                    type: string
                   name:
                     type: string
                   ready:
@@ -413,10 +401,6 @@ spec:
                     type: array
                   createdTimestamp:
                     type: string
-                  endpointName:
-                    type: string
-                  endpointOwnerUserName:
-                    type: string
                   ip:
                     type: string
                   name:
@@ -430,6 +414,10 @@ spec:
                     type: string
                 type: object
               type: array
+            endpointName:
+              type: string
+            endpointOwnerUserName:
+              type: string
             status:
               type: string
           type: object

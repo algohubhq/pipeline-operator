@@ -15,7 +15,6 @@ import (
 )
 
 type NotifMessage struct {
-
 	Key string `json:"key,omitempty"`
 
 	MessageTimestamp time.Time `json:"messageTimestamp,omitempty"`
@@ -29,8 +28,6 @@ type NotifMessage struct {
 	Url string `json:"url,omitempty"`
 
 	LogMessageType string `json:"logMessageType,omitempty"`
-
-	LogEntry *LogEntryModel `json:"logEntry,omitempty"`
 
 	EndpointStatusMessage *EndpointStatusMessage `json:"endpointStatusMessage,omitempty"`
 }

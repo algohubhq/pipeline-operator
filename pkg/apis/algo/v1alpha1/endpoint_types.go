@@ -10,24 +10,9 @@ import (
 // EndpointSpec defines the desired state of Endpoint
 // +k8s:openapi-gen=true
 type EndpointSpec struct {
-	AlgoRunnerImage    string `json:"algoRunnerUrl,omitempty"`
-	AlgoRunnerImageTag string `json:"algoRunnerVersion,omitempty"`
-	InCluster          bool   `json:"inCluster,omitempty"`
-	Namespace          string `json:"namespace,omitempty"`
-	ImagePullPolicy    string `json:"imagePullPolicy,omitempty"`
-
-	KafkaBrokers string `json:"kafkaBrokers,omitempty"`
-	LogTopic     string `json:"logTopic,omitempty"`
-	CommandTopic string `json:"commandTopic,omitempty"`
-
-	LivenessInitialDelaySeconds  int32 `json:"livenessInitialDelaySeconds,omitempty"`
-	LivenessTimeoutSeconds       int32 `json:"livenessTimeoutSeconds,omitempty"`
-	LivenessPeriodSeconds        int32 `json:"livenessPeriodSeconds,omitempty"`
-	ReadinessInitialDelaySeconds int32 `json:"readinessInitialDelaySeconds,omitempty"`
-	ReadinessTimeoutSeconds      int32 `json:"readinessTimeoutSeconds,omitempty"`
-	ReadinessPeriodSeconds       int32 `json:"readinessPeriodSeconds,omitempty"`
-
-	EndpointConfig EndpointConfig `json:"endpointConfig,omitempty"`
+	ImagePullPolicy string         `json:"imagePullPolicy,omitempty"`
+	KafkaBrokers    string         `json:"kafkaBrokers,omitempty"`
+	EndpointConfig  EndpointConfig `json:"endpointConfig,omitempty"`
 }
 
 // EndpointStatus defines the observed state of Endpoint

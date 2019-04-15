@@ -67,10 +67,29 @@ func schema_pkg_apis_algo_v1alpha1_EndpointSpec(ref common.ReferenceCallback) co
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "EndpointSpec defines the desired state of Endpoint",
-				Properties:  map[string]spec.Schema{},
+				Properties: map[string]spec.Schema{
+					"imagePullPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"kafkaBrokers": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"endpointConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("endpoint-operator/pkg/apis/algo/v1alpha1.EndpointConfig"),
+						},
+					},
+				},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"endpoint-operator/pkg/apis/algo/v1alpha1.EndpointConfig"},
 	}
 }
 
@@ -79,9 +98,53 @@ func schema_pkg_apis_algo_v1alpha1_EndpointStatus(ref common.ReferenceCallback) 
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "EndpointStatus defines the observed state of Endpoint",
-				Properties:  map[string]spec.Schema{},
+				Properties: map[string]spec.Schema{
+					"endpointOwnerUserName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"endpointName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"algoDeploymentStatuses": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("endpoint-operator/pkg/apis/algo/v1alpha1.AlgoDeploymentStatus"),
+									},
+								},
+							},
+						},
+					},
+					"algoPodStatuses": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("endpoint-operator/pkg/apis/algo/v1alpha1.AlgoPodStatus"),
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"endpoint-operator/pkg/apis/algo/v1alpha1.AlgoDeploymentStatus", "endpoint-operator/pkg/apis/algo/v1alpha1.AlgoPodStatus"},
 	}
 }
