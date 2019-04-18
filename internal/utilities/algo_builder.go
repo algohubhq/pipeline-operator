@@ -18,33 +18,7 @@ import (
 
 var log = logf.Log.WithName("utilities")
 
-func CreateRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec, algoConfig *v1alpha1.AlgoConfig) v1alpha1.RunnerConfig {
-
-	runnerConfig := v1alpha1.RunnerConfig{
-		EndpointOwnerUserName: endpointSpec.EndpointConfig.EndpointOwnerUserName,
-		EndpointName:          endpointSpec.EndpointConfig.EndpointName,
-		PipelineOwnerUserName: endpointSpec.EndpointConfig.PipelineOwnerUserName,
-		PipelineName:          endpointSpec.EndpointConfig.PipelineName,
-		Pipes:                 endpointSpec.EndpointConfig.Pipes,
-		TopicConfigs:          endpointSpec.EndpointConfig.TopicConfigs,
-		AlgoOwnerUserName:     algoConfig.AlgoOwnerUserName,
-		AlgoName:              algoConfig.AlgoName,
-		AlgoVersionTag:        algoConfig.AlgoVersionTag,
-		AlgoIndex:             algoConfig.AlgoIndex,
-		Entrypoint:            algoConfig.Entrypoint,
-		ServerType:            algoConfig.ServerType,
-		AlgoParams:            algoConfig.AlgoParams,
-		Inputs:                algoConfig.Inputs,
-		Outputs:               algoConfig.Outputs,
-		WriteAllOutputs:       algoConfig.WriteAllOutputs,
-		GpuEnabled:            algoConfig.GpuEnabled,
-		TimeoutSeconds:        algoConfig.TimeoutSeconds,
-	}
-
-	return runnerConfig
-
-}
-
+// CreateDeploymentSpec generates the k8s spec for the algo deployment
 func CreateDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[string]string, algoConfig *v1alpha1.AlgoConfig, runnerConfig *v1alpha1.RunnerConfig, update bool) (*appsv1.Deployment, error) {
 
 	// Set the image name
@@ -76,7 +50,7 @@ func CreateDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 	case "IfNotPresent":
 		imagePullPolicy = corev1.PullIfNotPresent
 	default:
-		imagePullPolicy = corev1.PullIfNotPresent
+		imagePullPolicy = corev1.PullAlways
 	}
 
 	// Configure the readiness and liveness
@@ -437,4 +411,32 @@ func createResources(algoConfig *v1alpha1.AlgoConfig) (*corev1.ResourceRequireme
 	}
 
 	return resources, nil
+}
+
+// CreateRunnerConfig creates the config struct to be sent to the runner
+func CreateRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec, algoConfig *v1alpha1.AlgoConfig) v1alpha1.RunnerConfig {
+
+	runnerConfig := v1alpha1.RunnerConfig{
+		EndpointOwnerUserName: endpointSpec.EndpointConfig.EndpointOwnerUserName,
+		EndpointName:          endpointSpec.EndpointConfig.EndpointName,
+		PipelineOwnerUserName: endpointSpec.EndpointConfig.PipelineOwnerUserName,
+		PipelineName:          endpointSpec.EndpointConfig.PipelineName,
+		Pipes:                 endpointSpec.EndpointConfig.Pipes,
+		TopicConfigs:          endpointSpec.EndpointConfig.TopicConfigs,
+		AlgoOwnerUserName:     algoConfig.AlgoOwnerUserName,
+		AlgoName:              algoConfig.AlgoName,
+		AlgoVersionTag:        algoConfig.AlgoVersionTag,
+		AlgoIndex:             algoConfig.AlgoIndex,
+		Entrypoint:            algoConfig.Entrypoint,
+		ServerType:            algoConfig.ServerType,
+		AlgoParams:            algoConfig.AlgoParams,
+		Inputs:                algoConfig.Inputs,
+		Outputs:               algoConfig.Outputs,
+		WriteAllOutputs:       algoConfig.WriteAllOutputs,
+		GpuEnabled:            algoConfig.GpuEnabled,
+		TimeoutSeconds:        algoConfig.TimeoutSeconds,
+	}
+
+	return runnerConfig
+
 }
