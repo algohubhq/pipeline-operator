@@ -140,6 +140,19 @@ func CreateDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 			FailureThreshold:    3,
 		}
 
+	} else if algoConfig.ServerType == "Delegated" {
+
+		// If delegated there is no sidecar or init container
+		// the entrypoint is ran "as is" and the kafka config is passed to the container
+		entrypoint := strings.Split(runnerConfig.Entrypoint, " ")
+
+		algoCommand = []string{entrypoint[0]}
+		algoArgs = entrypoint[1:]
+
+		algoEnvVars = createEnvVars(cr, runnerConfig, algoConfig)
+
+		// TODO: Add user defined liveness/readiness probes to algo
+
 	} else {
 
 		entrypoint := strings.Split(runnerConfig.Entrypoint, " ")
