@@ -16,7 +16,7 @@ spec:
       containers:
         - name: endpoint-operator
           # Replace this with the built image name
-          image: algohub/endpoint-operator:72629598e142bf88e39c341e6972432f2e4c4036
+          image: algohub/endpoint-operator:1aea7fe6d552b51cc72e43f87701202665e71e8b
           command:
           - endpoint-operator
           imagePullPolicy: Always
