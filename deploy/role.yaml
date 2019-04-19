@@ -2,7 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   creationTimestamp: null
-  name: endpoint-operator
+  name: algorun-endpoint-operator
 rules:
 - apiGroups:
   - ""
@@ -52,3 +52,15 @@ rules:
   - '*'
   verbs:
   - '*'
+- apiGroups:
+  - kafka.strimzi.io
+  resources:
+  - kafkatopics
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - patch
+  - update
+  - delete

@@ -18,7 +18,10 @@ func BuildTopic(endpointConfig algov1alpha1.EndpointConfig, topicConfig algov1al
 	topicName := strings.ToLower(strings.Replace(topicConfig.TopicName, "{endpointownerusername}", endpointConfig.EndpointOwnerUserName, -1))
 	topicName = strings.ToLower(strings.Replace(topicName, "{endpointname}", endpointConfig.EndpointName, -1))
 
-	log.WithValues("Topic", topicName)
+	logData := map[string]interface{}{
+		"Topic": topicName,
+	}
+	log.WithValues("data", logData)
 
 	var topicPartitions int64 = 1
 	if topicConfig.TopicAutoPartition {

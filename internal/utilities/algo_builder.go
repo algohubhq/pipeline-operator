@@ -50,7 +50,7 @@ func CreateDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 	case "IfNotPresent":
 		imagePullPolicy = corev1.PullIfNotPresent
 	default:
-		imagePullPolicy = corev1.PullAlways
+		imagePullPolicy = corev1.PullIfNotPresent
 	}
 
 	// Configure the readiness and liveness
@@ -311,7 +311,6 @@ func createEnvVars(cr *algov1alpha1.Endpoint, runnerConfig *v1alpha1.RunnerConfi
 	// serialize the runner config to json string
 	runnerConfigBytes, err := json.Marshal(runnerConfig)
 	if err != nil {
-		log.WithValues("Data", runnerConfig)
 		log.Error(err, "Failed deserializing runner config")
 	}
 

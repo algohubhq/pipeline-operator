@@ -95,7 +95,12 @@ type ReconcileEndpoint struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
+	logData := map[string]interface{}{
+		"Request.Namespace": request.Namespace,
+		"Request.Name":      request.Name,
+	}
+	reqLogger := log.WithValues("data", logData)
 	reqLogger.Info("Reconciling Endpoint")
 
 	// Fetch the Endpoint instance
@@ -255,7 +260,11 @@ func (r *ReconcileEndpoint) getStatus(cr *algov1alpha1.Endpoint, request reconci
 		EndpointName:          cr.Spec.EndpointConfig.EndpointName,
 	}
 
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	logData := map[string]interface{}{
+		"Request.Namespace": request.Namespace,
+		"Request.Name":      request.Name,
+	}
+	reqLogger := log.WithValues("data", logData)
 
 	deploymentStatuses, err := r.getDeploymentStatuses(cr, request)
 	if err != nil {
@@ -418,7 +427,14 @@ func calculateStatus(cr *algov1alpha1.Endpoint, deploymentStatuses *[]algov1alph
 // reconcileAlgos creates or updates all algos for the endpoint
 func (r *ReconcileEndpoint) reconcileAlgo(endpoint *algov1alpha1.Endpoint, algoConfig *algov1alpha1.AlgoConfig, runnerConfig *algov1alpha1.RunnerConfig, request reconcile.Request) error {
 
-	algoLogger := log.WithValues("AlgoOwner", algoConfig.AlgoOwnerUserName, "AlgoName", algoConfig.AlgoName, "AlgoVersionTag", algoConfig.AlgoVersionTag, "Index", algoConfig.AlgoIndex)
+	logData := map[string]interface{}{
+		"AlgoOwner":      algoConfig.AlgoOwnerUserName,
+		"AlgoName":       algoConfig.AlgoName,
+		"AlgoVersionTag": algoConfig.AlgoVersionTag,
+		"Index":          algoConfig.AlgoIndex,
+	}
+	algoLogger := log.WithValues("data", logData)
+
 	algoLogger.Info("Reconciling Algo")
 
 	// Truncate the name of the deployment / pod just in case
@@ -530,13 +546,18 @@ func (r *ReconcileEndpoint) checkForDeployment(listOptions *client.ListOptions) 
 
 func (r *ReconcileEndpoint) createDeployment(deployment *appsv1.Deployment) error {
 
+	logData := map[string]interface{}{
+		"labels": deployment.Labels,
+	}
+
 	if err := r.client.Create(context.TODO(), deployment); err != nil {
-		log.WithValues("Data", deployment.Labels)
+		log.WithValues("data", logData)
 		log.Error(err, "Failed creating the algo deployment")
 		return err
 	}
 
-	log.WithValues("Name", deployment.GetName())
+	logData["name"] = deployment.GetName()
+	log.WithValues("data", logData)
 	log.Info("Created deployment")
 
 	return nil
@@ -545,13 +566,18 @@ func (r *ReconcileEndpoint) createDeployment(deployment *appsv1.Deployment) erro
 
 func (r *ReconcileEndpoint) updateDeployment(deployment *appsv1.Deployment) error {
 
+	logData := map[string]interface{}{
+		"labels": deployment.Labels,
+	}
+
 	if err := r.client.Update(context.TODO(), deployment); err != nil {
-		log.WithValues("Data", deployment.Labels)
+		log.WithValues("data", logData)
 		log.Error(err, "Failed updating the algo deployment")
 		return err
 	}
 
-	log.WithValues("Name", deployment.GetName())
+	logData["name"] = deployment.GetName()
+	log.WithValues("data", logData)
 	log.Info("Updated deployment")
 
 	return nil
@@ -621,8 +647,11 @@ func (r *ReconcileEndpoint) createTopics(cr *algov1alpha1.Endpoint, request reco
 				partitionsCurrent, ok = spec["partitions"].(int64)
 				if ok {
 					if partitionsCurrent > newTopicConfig.Partitions {
-						log.WithValues("PartitionsCurrent", partitionsCurrent)
-						log.WithValues("PartitionsNew", newTopicConfig.Partitions)
+						logData := map[string]interface{}{
+							"partitionsCurrent": partitionsCurrent,
+							"partitionsNew":     newTopicConfig.Partitions,
+						}
+						log.WithValues("data", logData)
 						log.Error(err, "Partition count cannot be decreased. Keeping current partition count.")
 						newTopicConfig.Partitions = partitionsCurrent
 					}
