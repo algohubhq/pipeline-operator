@@ -24,6 +24,8 @@ type EndpointConfig struct {
 
 	AlgoConfigs []AlgoConfig `json:"algoConfigs,omitempty"`
 
+	DataConnectorConfigs []DataConnectorConfig `json:"dataConnectorConfigs,omitempty"`
+
 	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
 
 	Pipes []PipeModel `json:"pipes,omitempty"`

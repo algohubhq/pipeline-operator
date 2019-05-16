@@ -115,8 +115,8 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 			// Sending a notification that an endpoint was deleted. Just not sure which one!
 			notifMessage := &v1alpha1.NotifMessage{
 				MessageTimestamp: time.Now(),
-				NotifLevel:       "Info",
-				LogMessageType:   "EndpointDeleted",
+				Level:            "Info",
+				Type_:            "EndpointDeleted",
 			}
 			utils.Notify(notifMessage)
 			return reconcile.Result{}, nil
@@ -173,8 +173,8 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 
 		notifMessage := &v1alpha1.NotifMessage{
 			MessageTimestamp: time.Now(),
-			NotifLevel:       "Info",
-			LogMessageType:   "EndpointStatus",
+			Level:            "Info",
+			Type_:            "EndpointStatus",
 			EndpointStatusMessage: &v1alpha1.EndpointStatusMessage{
 				EndpointOwnerUserName: instance.Spec.EndpointConfig.EndpointOwnerUserName,
 				EndpointName:          instance.Spec.EndpointConfig.EndpointName,
@@ -196,8 +196,8 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 					// reqLogger.Info("Differences", "Differences", diff)
 					notifMessage := &v1alpha1.NotifMessage{
 						MessageTimestamp: time.Now(),
-						NotifLevel:       "Info",
-						LogMessageType:   "EndpointDeployment",
+						Level:            "Info",
+						Type_:            "EndpointDeployment",
 						EndpointStatusMessage: &v1alpha1.EndpointStatusMessage{
 							EndpointOwnerUserName: instance.Spec.EndpointConfig.EndpointOwnerUserName,
 							EndpointName:          instance.Spec.EndpointConfig.EndpointName,
@@ -223,8 +223,8 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 					// reqLogger.Info("Differences", "Differences", diff)
 					notifMessage := &v1alpha1.NotifMessage{
 						MessageTimestamp: time.Now(),
-						NotifLevel:       "Info",
-						LogMessageType:   "EndpointPod",
+						Level:            "Info",
+						Type_:            "EndpointPod",
 						EndpointStatusMessage: &v1alpha1.EndpointStatusMessage{
 							EndpointOwnerUserName: instance.Spec.EndpointConfig.EndpointOwnerUserName,
 							EndpointName:          instance.Spec.EndpointConfig.EndpointName,

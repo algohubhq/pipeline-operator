@@ -10,17 +10,19 @@
 
 package v1alpha1
 
-type DataConnectorModel struct {
+type DataConnectorConfig struct {
 
-	Id int32 `json:"id,omitempty"`
-
-	DataConnectorType string `json:"dataConnectorType,omitempty"`
+	DeploymentName string `json:"deploymentName,omitempty"`
 
 	Name string `json:"name,omitempty"`
 
-	Description string `json:"description,omitempty"`
+	VersionTag string `json:"versionTag,omitempty"`
 
-	Url string `json:"url,omitempty"`
+	Index int32 `json:"index,omitempty"`
+
+	ImageRepository string `json:"imageRepository,omitempty"`
+
+	ImageTag string `json:"imageTag,omitempty"`
 
 	ConnectorClass string `json:"connectorClass,omitempty"`
 

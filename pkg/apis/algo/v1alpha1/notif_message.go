@@ -15,11 +15,12 @@ import (
 )
 
 type NotifMessage struct {
+
 	Key string `json:"key,omitempty"`
 
 	MessageTimestamp time.Time `json:"messageTimestamp,omitempty"`
 
-	NotifLevel string `json:"notifLevel,omitempty"`
+	Level string `json:"level,omitempty"`
 
 	Title string `json:"title,omitempty"`
 
@@ -27,7 +28,7 @@ type NotifMessage struct {
 
 	Url string `json:"url,omitempty"`
 
-	LogMessageType string `json:"logMessageType,omitempty"`
+	Type_ string `json:"type,omitempty"`
 
 	EndpointStatusMessage *EndpointStatusMessage `json:"endpointStatusMessage,omitempty"`
 }
