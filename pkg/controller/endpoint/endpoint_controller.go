@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	kc "github.com/go-kafka/connect"
 	"github.com/go-test/deep"
 
 	utils "endpoint-operator/internal/utilities"
@@ -127,7 +128,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 
 	// Create / update the kafka topics
 	go func() {
@@ -152,7 +153,23 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 		}(algoConfig)
 	}
 
-	// Wait for algo reconciliation to be done, then mark task complete
+	// Reconcile all data connectors
+	reqLogger.Info("Reconciling Data Connectors")
+	// Iterate the DataConnectors
+	var wgDcs sync.WaitGroup
+	for _, dcConfig := range instance.Spec.EndpointConfig.DataConnectorConfigs {
+		wgDcs.Add(1)
+		go func(currentDcConfig algov1alpha1.DataConnectorConfig) {
+			err = r.reconcileDataConnector(instance, &currentDcConfig, request)
+			if err != nil {
+				reqLogger.Error(err, "Error in DataConnectorConfigs reconcile loop.")
+			}
+			wgDcs.Done()
+		}(dcConfig)
+	}
+
+	// Wait for algo and data connector reconciliation to be done, then mark task complete
+	wgDcs.Wait()
 	wgAlgos.Wait()
 	wg.Done()
 
@@ -582,6 +599,97 @@ func (r *ReconcileEndpoint) updateDeployment(deployment *appsv1.Deployment) erro
 
 	return nil
 
+}
+
+// reconcileDataConnector creates or updates all data connectors for the endpoint
+func (r *ReconcileEndpoint) reconcileDataConnector(endpoint *algov1alpha1.Endpoint, dataConnectorConfig *algov1alpha1.DataConnectorConfig, request reconcile.Request) error {
+
+	kcName := fmt.Sprintf("%s-%s", endpoint.Spec.EndpointConfig.EndpointName, dataConnectorConfig.Name)
+	dcName := fmt.Sprintf("%s-%s-%d", endpoint.Spec.EndpointConfig.EndpointName, dataConnectorConfig.Name, dataConnectorConfig.Index)
+	// Set the image name
+	var imageName string
+	if dataConnectorConfig.ImageTag == "" || dataConnectorConfig.ImageTag == "latest" {
+		imageName = fmt.Sprintf("%s:latest", dataConnectorConfig.ImageRepository)
+	} else {
+		imageName = fmt.Sprintf("%s:%s", dataConnectorConfig.ImageRepository, dataConnectorConfig.ImageTag)
+	}
+	// dcName := strings.TrimRight(utils.Short(dcName, 20), "-")
+	// check to see if data connector already exists
+	existingDc := &unstructured.Unstructured{}
+	existingDc.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "kafka.strimzi.io",
+		Kind:    "KafkaConnect",
+		Version: "v1alpha1",
+	})
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: kcName, Namespace: request.NamespacedName.Namespace}, existingDc)
+
+	if err != nil && errors.IsNotFound(err) {
+		// Create the connector cluster
+		// Using a unstructured object to submit a strimzi topic creation.
+		newDc := &unstructured.Unstructured{}
+		newDc.Object = map[string]interface{}{
+			"name":      kcName,
+			"namespace": request.NamespacedName.Namespace,
+			"spec": map[string]interface{}{
+				"version":          "2.1.0",
+				"replicas":         1,
+				"image":            imageName,
+				"bootstrapServers": endpoint.Spec.KafkaBrokers,
+				"config": map[string]interface{}{
+					"config.storage.replication.factor": 1,
+					"offset.storage.replication.factor": 1,
+					"status.storage.replication.factor": 1,
+				},
+			},
+		}
+		newDc.SetName(kcName)
+		newDc.SetNamespace(request.NamespacedName.Namespace)
+		newDc.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "kafka.strimzi.io",
+			Kind:    "KafkaConnect",
+			Version: "v1alpha1",
+		})
+
+		// Set Endpoint instance as the owner and controller
+		if err := controllerutil.SetControllerReference(endpoint, newDc, r.scheme); err != nil {
+			log.Error(err, "Failed setting the data connector controller owner")
+		}
+
+		err := r.client.Create(context.TODO(), newDc)
+		if err != nil {
+			log.Error(err, "Failed creating data connector")
+		}
+	} else if err != nil {
+		log.Error(err, "Failed to check if data connector cluster exists.")
+	} else {
+		// If the cluster node exists, then check if connector exists
+		// TODO: Use the dns name of the connector cluster
+		host := "http://example.com"
+		client := kc.NewClient(host)
+
+		connector, _, err := client.GetConnector(dcName)
+		if err != nil {
+			// TODO: figure out what to do
+		}
+
+		// If connector doesn't exist, then create it
+		if connector == nil {
+			dcConfig := make(map[string]string)
+			// iterate the options to create the map
+			for _, dcOption := range dataConnectorConfig.Options {
+				dcConfig[dcOption.Name] = dcOption.Value
+			}
+
+			newConnector := kc.Connector{
+				Name:   dcName,
+				Config: dcConfig,
+			}
+			client.CreateConnector(&newConnector)
+		}
+
+	}
+
+	return nil
 }
 
 func (r *ReconcileEndpoint) createTopics(cr *algov1alpha1.Endpoint, request reconcile.Request) {
