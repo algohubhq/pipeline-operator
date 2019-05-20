@@ -14,6 +14,8 @@ type DataConnectorConfig struct {
 
 	DeploymentName string `json:"deploymentName,omitempty"`
 
+	DataConnectorType string `json:"dataConnectorType,omitempty"`
+
 	Name string `json:"name,omitempty"`
 
 	VersionTag string `json:"versionTag,omitempty"`

@@ -249,6 +249,64 @@ spec:
                         type: boolean
                     type: object
                   type: array
+                dataConnectorConfigs:
+                  items:
+                    properties:
+                      connectorClass:
+                        type: string
+                      dataConnectorType:
+                        type: string
+                      deploymentName:
+                        type: string
+                      imageRepository:
+                        type: string
+                      imageTag:
+                        type: string
+                      index:
+                        format: int32
+                        type: integer
+                      name:
+                        type: string
+                      options:
+                        items:
+                          properties:
+                            dataType:
+                              properties:
+                                mask:
+                                  type: string
+                                name:
+                                  type: string
+                                precision:
+                                  format: int32
+                                  type: integer
+                                regex:
+                                  type: string
+                                scale:
+                                  format: int32
+                                  type: integer
+                              required:
+                              - name
+                              type: object
+                            description:
+                              type: string
+                            name:
+                              type: string
+                            required:
+                              type: boolean
+                            sortOrder:
+                              format: int32
+                              type: integer
+                            value:
+                              type: string
+                          type: object
+                        type: array
+                      tasksMax:
+                        format: int32
+                        type: integer
+                      versionTag:
+                        type: string
+                    type: object
+                  type: array
                 endpointName:
                   type: string
                 endpointOwnerUserName:
