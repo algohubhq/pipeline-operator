@@ -12,33 +12,19 @@ package v1alpha1
 
 type PipeModel struct {
 
-	PipeType string `json:"pipeType,omitempty"`
+	SourceNodeType string `json:"sourceNodeType,omitempty"`
 
-	PipelineEndpointConnectorOutputName string `json:"pipelineEndpointConnectorOutputName,omitempty"`
+	SourceName string `json:"sourceName,omitempty"`
 
-	PipelineDataSourceName string `json:"pipelineDataSourceName,omitempty"`
+	SourceOutputName string `json:"sourceOutputName,omitempty"`
 
-	PipelineDataSourceIndex int32 `json:"pipelineDataSourceIndex,omitempty"`
+	SourceOutputMessageDataType string `json:"sourceOutputMessageDataType,omitempty"`
 
-	SourceAlgoOwnerName string `json:"sourceAlgoOwnerName,omitempty"`
+	DestNodeType string `json:"destNodeType,omitempty"`
 
-	SourceAlgoName string `json:"sourceAlgoName,omitempty"`
+	DestName string `json:"destName,omitempty"`
 
-	SourceAlgoIndex int32 `json:"sourceAlgoIndex,omitempty"`
+	DestInputName string `json:"destInputName,omitempty"`
 
-	SourceAlgoOutputName string `json:"sourceAlgoOutputName,omitempty"`
-
-	SourceAlgoOutputMessageDataType string `json:"sourceAlgoOutputMessageDataType,omitempty"`
-
-	PipelineDataSinkName string `json:"pipelineDataSinkName,omitempty"`
-
-	PipelineDataSinkIndex int32 `json:"pipelineDataSinkIndex,omitempty"`
-
-	DestAlgoOwnerName string `json:"destAlgoOwnerName,omitempty"`
-
-	DestAlgoName string `json:"destAlgoName,omitempty"`
-
-	DestAlgoIndex int32 `json:"destAlgoIndex,omitempty"`
-
-	DestAlgoInputName string `json:"destAlgoInputName,omitempty"`
+	DestInputMessageDataType string `json:"destInputMessageDataType,omitempty"`
 }

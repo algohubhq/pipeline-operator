@@ -10,7 +10,7 @@
 
 package v1alpha1
 
-type RunnerConfig struct {
+type AlgoRunnerConfig struct {
 
 	EndpointOwnerUserName string `json:"endpointOwnerUserName,omitempty"`
 

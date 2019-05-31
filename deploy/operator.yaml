@@ -2,6 +2,11 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: algorun-endpoint-operator
+  labels:
+    system: algorun
+    tier: backend
+    app: endpoint-operator
+    env: production
 spec:
   replicas: 1
   selector:
@@ -16,7 +21,7 @@ spec:
       containers:
         - name: endpoint-operator
           # Replace this with the built image name
-          image: algohub/endpoint-operator:1aea7fe6d552b51cc72e43f87701202665e71e8b
+          image: algohub/endpoint-operator:c7ae9cff089409863366e054c4f909df7406dbe3
           command:
           - endpoint-operator
           imagePullPolicy: Always

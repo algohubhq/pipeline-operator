@@ -10,7 +10,7 @@
 
 package v1alpha1
 
-type EndpointConfig struct {
+type HookRunnerConfig struct {
 
 	EndpointOwnerUserName string `json:"endpointOwnerUserName,omitempty"`
 
@@ -20,15 +20,15 @@ type EndpointConfig struct {
 
 	PipelineName string `json:"pipelineName,omitempty"`
 
-	PipelineVersionTag string `json:"pipelineVersionTag,omitempty"`
+	ImageRepository string `json:"imageRepository,omitempty"`
 
-	AlgoConfigs []AlgoConfig `json:"algoConfigs,omitempty"`
+	ImageTag string `json:"imageTag,omitempty"`
 
-	DataConnectorConfigs []DataConnectorConfig `json:"dataConnectorConfigs,omitempty"`
+	Instances int32 `json:"instances,omitempty"`
 
-	HookConfig *HookConfig `json:"hookConfig,omitempty"`
-
-	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
+	WebHooks []WebHookModel `json:"webHooks,omitempty"`
 
 	Pipes []PipeModel `json:"pipes,omitempty"`
+
+	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
 }

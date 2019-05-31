@@ -16,10 +16,19 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
+type AlgoBuilder struct {
+	Endpoint   *algov1alpha1.Endpoint
+	AlgoConfig *v1alpha1.AlgoConfig
+}
+
 var log = logf.Log.WithName("utilities")
 
 // CreateDeploymentSpec generates the k8s spec for the algo deployment
-func CreateDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[string]string, algoConfig *v1alpha1.AlgoConfig, runnerConfig *v1alpha1.RunnerConfig, update bool) (*appsv1.Deployment, error) {
+func (algoBuilder *AlgoBuilder) CreateDeploymentSpec(name string, labels map[string]string, update bool) (*appsv1.Deployment, error) {
+
+	endpoint := algoBuilder.Endpoint
+	algoConfig := algoBuilder.AlgoConfig
+	runnerConfig := algoBuilder.createRunnerConfig(&endpoint.Spec, algoConfig)
 
 	// Set the image name
 	var imageName string
@@ -42,7 +51,7 @@ func CreateDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 	}
 
 	var imagePullPolicy corev1.PullPolicy
-	switch cr.Spec.ImagePullPolicy {
+	switch endpoint.Spec.ImagePullPolicy {
 	case "Never":
 		imagePullPolicy = corev1.PullNever
 	case "PullAlways":
@@ -103,7 +112,7 @@ func CreateDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 				"chmod +x /algo-runner-dest/algo-runner",
 		}
 
-		algoEnvVars = createEnvVars(cr, runnerConfig, algoConfig)
+		algoEnvVars = algoBuilder.createEnvVars(endpoint, runnerConfig, algoConfig)
 
 		initContainer := corev1.Container{
 			Name:                     "algo-runner-init",
@@ -149,7 +158,7 @@ func CreateDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 		algoCommand = []string{entrypoint[0]}
 		algoArgs = entrypoint[1:]
 
-		algoEnvVars = createEnvVars(cr, runnerConfig, algoConfig)
+		algoEnvVars = algoBuilder.createEnvVars(endpoint, runnerConfig, algoConfig)
 
 		// TODO: Add user defined liveness/readiness probes to algo
 
@@ -162,7 +171,7 @@ func CreateDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 
 		sidecarCommand := []string{"/algo-runner/algo-runner"}
 
-		sidecarEnvVars = createEnvVars(cr, runnerConfig, algoConfig)
+		sidecarEnvVars = algoBuilder.createEnvVars(endpoint, runnerConfig, algoConfig)
 
 		sidecarReadinessProbe = &corev1.Probe{
 			Handler:             handler,
@@ -198,7 +207,7 @@ func CreateDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 
 	}
 
-	resources, resourceErr := createResources(algoConfig)
+	resources, resourceErr := algoBuilder.createResources(algoConfig)
 
 	if resourceErr != nil {
 		return nil, resourceErr
@@ -236,14 +245,14 @@ func CreateDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 	var nameMeta metav1.ObjectMeta
 	if update {
 		nameMeta = metav1.ObjectMeta{
-			Namespace: cr.Namespace,
+			Namespace: endpoint.Namespace,
 			Name:      algoConfig.DeploymentName,
 			Labels:    labels,
 			// Annotations: annotations,
 		}
 	} else {
 		nameMeta = metav1.ObjectMeta{
-			Namespace:    cr.Namespace,
+			Namespace:    endpoint.Namespace,
 			GenerateName: name,
 			Labels:       labels,
 			// Annotations: annotations,
@@ -317,7 +326,7 @@ func CreateDeploymentSpec(cr *algov1alpha1.Endpoint, name string, labels map[str
 
 }
 
-func createEnvVars(cr *algov1alpha1.Endpoint, runnerConfig *v1alpha1.RunnerConfig, algoConfig *v1alpha1.AlgoConfig) []corev1.EnvVar {
+func (algoBuilder *AlgoBuilder) createEnvVars(cr *algov1alpha1.Endpoint, runnerConfig *v1alpha1.AlgoRunnerConfig, algoConfig *v1alpha1.AlgoConfig) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
 
@@ -360,7 +369,7 @@ func createEnvVars(cr *algov1alpha1.Endpoint, runnerConfig *v1alpha1.RunnerConfi
 	return envVars
 }
 
-func createSelector(constraints []string) map[string]string {
+func (algoBuilder *AlgoBuilder) createSelector(constraints []string) map[string]string {
 	selector := make(map[string]string)
 
 	if len(constraints) > 0 {
@@ -376,7 +385,7 @@ func createSelector(constraints []string) map[string]string {
 	return selector
 }
 
-func createResources(algoConfig *v1alpha1.AlgoConfig) (*corev1.ResourceRequirements, error) {
+func (algoBuilder *AlgoBuilder) createResources(algoConfig *v1alpha1.AlgoConfig) (*corev1.ResourceRequirements, error) {
 	resources := &corev1.ResourceRequirements{}
 
 	// Set Memory limits
@@ -426,9 +435,9 @@ func createResources(algoConfig *v1alpha1.AlgoConfig) (*corev1.ResourceRequireme
 }
 
 // CreateRunnerConfig creates the config struct to be sent to the runner
-func CreateRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec, algoConfig *v1alpha1.AlgoConfig) v1alpha1.RunnerConfig {
+func (algoBuilder *AlgoBuilder) createRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec, algoConfig *v1alpha1.AlgoConfig) *v1alpha1.AlgoRunnerConfig {
 
-	runnerConfig := v1alpha1.RunnerConfig{
+	runnerConfig := &v1alpha1.AlgoRunnerConfig{
 		EndpointOwnerUserName: endpointSpec.EndpointConfig.EndpointOwnerUserName,
 		EndpointName:          endpointSpec.EndpointConfig.EndpointName,
 		PipelineOwnerUserName: endpointSpec.EndpointConfig.PipelineOwnerUserName,

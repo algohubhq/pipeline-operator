@@ -2,6 +2,7 @@ package utilities
 
 import (
 	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
+	"fmt"
 	"strings"
 )
 
@@ -28,70 +29,21 @@ func BuildTopic(endpointConfig algov1alpha1.EndpointConfig, topicConfig algov1al
 		// Set the topic partitions based on the max destination instance count
 		for _, pipe := range endpointConfig.Pipes {
 
-			switch pipeType := pipe.PipeType; pipeType {
-			case "Algo":
+			// Match the Source Pipe
+			if pipe.SourceName == topicConfig.SourceName &&
+				pipe.SourceOutputName == topicConfig.SourceOutputName {
 
-				// Match the Source Algo Pipe
-				if pipe.SourceAlgoOwnerName == topicConfig.AlgoOwnerName &&
-					pipe.SourceAlgoName == topicConfig.AlgoName &&
-					pipe.SourceAlgoIndex == topicConfig.AlgoIndex &&
-					pipe.SourceAlgoOutputName == topicConfig.AlgoOutputName {
-
-					// Find the destination Algo
-					for _, algoConfig := range endpointConfig.AlgoConfigs {
-
-						if algoConfig.AlgoOwnerUserName == pipe.DestAlgoOwnerName &&
-							algoConfig.AlgoName == pipe.DestAlgoName &&
-							algoConfig.AlgoIndex == pipe.DestAlgoIndex {
-							topicPartitions = Max(int64(algoConfig.MinInstances), topicPartitions)
-							topicPartitions = Max(int64(algoConfig.Instances), topicPartitions)
-						}
-
-					}
-
-				}
-
-			case "DataSource":
-
-				// Match the Data Source Pipe
-				if pipe.PipelineDataSourceName == topicConfig.PipelineDataSourceName &&
-					pipe.PipelineDataSourceIndex == topicConfig.PipelineDataSourceIndex {
-
-					// Find the destination Algo
-					for _, algoConfig := range endpointConfig.AlgoConfigs {
-
-						if algoConfig.AlgoOwnerUserName == pipe.DestAlgoOwnerName &&
-							algoConfig.AlgoName == pipe.DestAlgoName &&
-							algoConfig.AlgoIndex == pipe.DestAlgoIndex {
-							topicPartitions = Max(int64(algoConfig.MinInstances), topicPartitions)
-							topicPartitions = Max(int64(algoConfig.Instances), topicPartitions)
-						}
-
-					}
-
-				}
-
-			case "EndpointConnector":
-
-				// Match the Endpoint Connector Pipe
-				if pipe.PipelineEndpointConnectorOutputName == topicConfig.EndpointConnectorOutputName {
-
-					// Find the destination Algo
-					for _, algoConfig := range endpointConfig.AlgoConfigs {
-
-						if algoConfig.AlgoOwnerUserName == pipe.DestAlgoOwnerName &&
-							algoConfig.AlgoName == pipe.DestAlgoName &&
-							algoConfig.AlgoIndex == pipe.DestAlgoIndex {
-							topicPartitions = Max(int64(algoConfig.MinInstances), topicPartitions)
-							topicPartitions = Max(int64(algoConfig.Instances), topicPartitions)
-						}
-
+				// Find the destination Algo
+				for _, algoConfig := range endpointConfig.AlgoConfigs {
+					algoName := fmt.Sprintf("%s/%s:%s[%d]", algoConfig.AlgoOwnerUserName, algoConfig.AlgoName, algoConfig.AlgoVersionTag, algoConfig.AlgoIndex)
+					if algoName == pipe.DestName {
+						topicPartitions = Max(int64(algoConfig.MinInstances), topicPartitions)
+						topicPartitions = Max(int64(algoConfig.Instances), topicPartitions)
 					}
 
 				}
 
 			}
-
 		}
 
 	} else {

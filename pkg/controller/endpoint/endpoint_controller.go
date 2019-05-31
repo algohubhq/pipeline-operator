@@ -143,9 +143,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	for _, algoConfig := range instance.Spec.EndpointConfig.AlgoConfigs {
 		wg.Add(1)
 		go func(currentAlgoConfig algov1alpha1.AlgoConfig) {
-			// Generate the runnerconfig
-			runnerConfig := utils.CreateRunnerConfig(&instance.Spec, &currentAlgoConfig)
-			err = r.reconcileAlgo(instance, &currentAlgoConfig, &runnerConfig, request)
+			err = r.reconcileAlgo(instance, &currentAlgoConfig, request)
 			if err != nil {
 				reqLogger.Error(err, "Error in AlgoConfig reconcile loop.")
 			}
@@ -166,6 +164,17 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 			wg.Done()
 		}(dcConfig)
 	}
+
+	// Reconcile hook container
+	reqLogger.Info("Reconciling Hooks")
+	wg.Add(1)
+	go func(endpoint *algov1alpha1.Endpoint) {
+		err = r.reconcileHook(endpoint, request)
+		if err != nil {
+			reqLogger.Error(err, "Error in Hook reconcile.")
+		}
+		wg.Done()
+	}(instance)
 
 	// Wait for algo, data connector and topic reconciliation to complete
 	wg.Wait()
@@ -436,7 +445,7 @@ func calculateStatus(cr *algov1alpha1.Endpoint, deploymentStatuses *[]algov1alph
 }
 
 // reconcileAlgos creates or updates all algos for the endpoint
-func (r *ReconcileEndpoint) reconcileAlgo(endpoint *algov1alpha1.Endpoint, algoConfig *algov1alpha1.AlgoConfig, runnerConfig *algov1alpha1.RunnerConfig, request reconcile.Request) error {
+func (r *ReconcileEndpoint) reconcileAlgo(endpoint *algov1alpha1.Endpoint, algoConfig *algov1alpha1.AlgoConfig, request reconcile.Request) error {
 
 	logData := map[string]interface{}{
 		"AlgoOwner":      algoConfig.AlgoOwnerUserName,
@@ -454,9 +463,9 @@ func (r *ReconcileEndpoint) reconcileAlgo(endpoint *algov1alpha1.Endpoint, algoC
 	labels := map[string]string{
 		"system":        "algorun",
 		"tier":          "algo",
-		"endpointowner": runnerConfig.EndpointOwnerUserName,
-		"endpoint":      runnerConfig.EndpointName,
-		"pipeline":      runnerConfig.PipelineName,
+		"endpointowner": endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
+		"endpoint":      endpoint.Spec.EndpointConfig.EndpointName,
+		"pipeline":      endpoint.Spec.EndpointConfig.PipelineName,
 		"algoowner":     algoConfig.AlgoOwnerUserName,
 		"algo":          algoConfig.AlgoName,
 		"algoversion":   algoConfig.AlgoVersionTag,
@@ -467,8 +476,8 @@ func (r *ReconcileEndpoint) reconcileAlgo(endpoint *algov1alpha1.Endpoint, algoC
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
 	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s, algoowner=%s, algo=%s, algoversion=%s, algoindex=%v",
-		runnerConfig.EndpointOwnerUserName,
-		runnerConfig.EndpointName,
+		endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
+		endpoint.Spec.EndpointConfig.EndpointName,
 		algoConfig.AlgoOwnerUserName,
 		algoConfig.AlgoName,
 		algoConfig.AlgoVersionTag,
@@ -482,7 +491,8 @@ func (r *ReconcileEndpoint) reconcileAlgo(endpoint *algov1alpha1.Endpoint, algoC
 	}
 
 	// Generate the k8s deployment for the algoconfig
-	algoDeployment, err := utils.CreateDeploymentSpec(endpoint, name, labels, algoConfig, runnerConfig, existingDeployment != nil)
+	algoBuilder := utils.AlgoBuilder{endpoint, algoConfig}
+	algoDeployment, err := algoBuilder.CreateDeploymentSpec(name, labels, existingDeployment != nil)
 	if err != nil {
 		algoLogger.Error(err, "Failed to create algo deployment spec")
 		return err
@@ -529,6 +539,83 @@ func (r *ReconcileEndpoint) reconcileAlgo(endpoint *algov1alpha1.Endpoint, algoC
 	// TODO: Setup the horizontal pod autoscaler
 	if algoConfig.AutoScale {
 
+	}
+
+	return nil
+
+}
+
+// reconcileHook creates or updates the hook deployment for the endpoint
+func (r *ReconcileEndpoint) reconcileHook(endpoint *algov1alpha1.Endpoint, request reconcile.Request) error {
+
+	hookLogger := log
+
+	hookLogger.Info("Reconciling Hook")
+
+	name := "endpoint-hook"
+
+	labels := map[string]string{
+		"system":        "algorun",
+		"tier":          "hook",
+		"endpointowner": endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
+		"endpoint":      endpoint.Spec.EndpointConfig.EndpointName,
+		"pipeline":      endpoint.Spec.EndpointConfig.PipelineName,
+		"env":           "production",
+	}
+
+	// Check to make sure the algo isn't already created
+	listOptions := &client.ListOptions{}
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=hook, endpointowner=%s, endpoint=%s",
+		endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
+		endpoint.Spec.EndpointConfig.EndpointName))
+	listOptions.InNamespace(request.NamespacedName.Namespace)
+
+	existingDeployment, err := r.checkForDeployment(listOptions)
+
+	// Generate the k8s deployment
+	hookBuilder := utils.HookBuilder{endpoint}
+	hookDeployment, err := hookBuilder.CreateDeploymentSpec(name, labels, existingDeployment)
+	if err != nil {
+		hookLogger.Error(err, "Failed to create hook deployment spec")
+		return err
+	}
+
+	// Set Endpoint instance as the owner and controller
+	if err := controllerutil.SetControllerReference(endpoint, hookDeployment, r.scheme); err != nil {
+		return err
+	}
+
+	if existingDeployment == nil {
+		err := r.createDeployment(hookDeployment)
+		if err != nil {
+			hookLogger.Error(err, "Failed to create hook deployment")
+			return err
+		}
+	} else {
+		var deplChanged bool
+
+		// Set some values that are defaulted by k8s but shouldn't trigger a change
+		hookDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds = existingDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds
+		hookDeployment.Spec.Template.Spec.SecurityContext = existingDeployment.Spec.Template.Spec.SecurityContext
+		hookDeployment.Spec.Template.Spec.SchedulerName = existingDeployment.Spec.Template.Spec.SchedulerName
+
+		if *existingDeployment.Spec.Replicas != *hookDeployment.Spec.Replicas {
+			hookLogger.Info("Hook Replica Count Changed. Updating deployment.",
+				"Old Replicas", existingDeployment.Spec.Replicas,
+				"New Replicas", hookDeployment.Spec.Replicas)
+			deplChanged = true
+		} else if diff := deep.Equal(existingDeployment.Spec.Template.Spec, hookDeployment.Spec.Template.Spec); diff != nil {
+			hookLogger.Info("Hook Changed. Updating deployment.", "Differences", diff)
+			deplChanged = true
+
+		}
+		if deplChanged {
+			err := r.updateDeployment(hookDeployment)
+			if err != nil {
+				hookLogger.Error(err, "Failed to update hook deployment")
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -724,15 +811,14 @@ func (r *ReconcileEndpoint) getDcSourceTopic(endpoint *algov1alpha1.Endpoint, da
 
 	for _, pipe := range config.Pipes {
 
-		if pipe.PipelineDataSinkName == dataConnectorConfig.Name &&
-			pipe.PipelineDataSinkIndex == dataConnectorConfig.Index {
+		dcName := fmt.Sprintf("%s:%s[%d]", dataConnectorConfig.Name, dataConnectorConfig.VersionTag, dataConnectorConfig.Index)
+
+		if pipe.DestName == dcName {
 
 			// Get the source topic connected to this pipe
 			for _, topic := range endpoint.Spec.EndpointConfig.TopicConfigs {
-				if pipe.SourceAlgoOwnerName == topic.AlgoOwnerName &&
-					pipe.SourceAlgoName == topic.AlgoName &&
-					pipe.SourceAlgoIndex == topic.AlgoIndex &&
-					pipe.SourceAlgoOutputName == topic.AlgoOutputName {
+				if pipe.SourceName == topic.SourceName &&
+					pipe.SourceOutputName == topic.SourceOutputName {
 					newTopicConfig, err := utils.BuildTopic(config, topic)
 					if err != nil {
 						return newTopicConfig, err
