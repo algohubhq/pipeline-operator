@@ -750,7 +750,6 @@ func (r *ReconcileEndpoint) reconcileDataConnector(endpoint *algov1alpha1.Endpoi
 		log.Error(err, "Failed to check if kafka connect cluster exists.")
 	} else {
 
-		log.Info("The existing connector", "connector", existingDc)
 		// TODO: Get the deployment and ensure the status is running
 
 		// If the cluster node exists, then check if connector exists

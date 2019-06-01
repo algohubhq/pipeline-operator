@@ -22,7 +22,8 @@ type HookBuilder struct {
 func (hookBuilder *HookBuilder) CreateDeploymentSpec(name string, labels map[string]string, existingDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 
 	endpoint := hookBuilder.Endpoint
-	hookConfig := hookBuilder.createHookRunnerConfig(&endpoint.Spec)
+	hookConfig := endpoint.Spec.EndpointConfig.HookConfig
+	hookRunnerConfig := hookBuilder.createHookRunnerConfig(&endpoint.Spec)
 
 	// Set the image name
 	var imageName string
@@ -56,7 +57,7 @@ func (hookBuilder *HookBuilder) CreateDeploymentSpec(name string, labels map[str
 	var containers []corev1.Container
 
 	hookCommand := []string{"/pipeline-hook/pipeline-hook"}
-	hookEnvVars := hookBuilder.createEnvVars(endpoint, hookConfig)
+	hookEnvVars := hookBuilder.createEnvVars(endpoint, hookRunnerConfig)
 
 	readinessProbe := &corev1.Probe{
 		Handler:             handler,
@@ -244,9 +245,6 @@ func (hookBuilder *HookBuilder) createHookRunnerConfig(endpointSpec *algov1alpha
 		EndpointName:          endpointSpec.EndpointConfig.EndpointName,
 		PipelineOwnerUserName: endpointSpec.EndpointConfig.PipelineOwnerUserName,
 		PipelineName:          endpointSpec.EndpointConfig.PipelineName,
-		ImageRepository:       endpointSpec.EndpointConfig.HookConfig.ImageRepository,
-		ImageTag:              endpointSpec.EndpointConfig.HookConfig.ImageTag,
-		Instances:             endpointSpec.EndpointConfig.HookConfig.Instances,
 		WebHooks:              endpointSpec.EndpointConfig.HookConfig.WebHooks,
 		Pipes:                 endpointSpec.EndpointConfig.Pipes,
 		TopicConfigs:          endpointSpec.EndpointConfig.TopicConfigs,
