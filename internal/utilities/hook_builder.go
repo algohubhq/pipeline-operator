@@ -56,7 +56,7 @@ func (hookBuilder *HookBuilder) CreateDeploymentSpec(name string, labels map[str
 
 	var containers []corev1.Container
 
-	hookCommand := []string{"/pipeline-hook/pipeline-hook"}
+	hookCommand := []string{"/hook-runner/hook-runner"}
 	hookEnvVars := hookBuilder.createEnvVars(endpoint, hookRunnerConfig)
 
 	readinessProbe := &corev1.Probe{
@@ -201,7 +201,7 @@ func (hookBuilder *HookBuilder) createEnvVars(cr *algov1alpha1.Endpoint, hookCon
 
 	// Append the required runner config
 	envVars = append(envVars, corev1.EnvVar{
-		Name:  "HOOK-CONFIG",
+		Name:  "HOOK-RUNNER-CONFIG",
 		Value: string(hookConfigBytes),
 	})
 
