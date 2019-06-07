@@ -3,32 +3,165 @@ package utilities
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"endpoint-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
 
+	"github.com/go-test/deep"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-type AlgoBuilder struct {
-	Endpoint   *algov1alpha1.Endpoint
-	AlgoConfig *v1alpha1.AlgoConfig
+// AlgoReconciler reconciles an AlgoConfig object
+type AlgoReconciler struct {
+	endpoint   *algov1alpha1.Endpoint
+	algoConfig *v1alpha1.AlgoConfig
+	request    *reconcile.Request
+	client     client.Client
+	scheme     *runtime.Scheme
 }
 
 var log = logf.Log.WithName("utilities")
 
-// CreateDeploymentSpec generates the k8s spec for the algo deployment
-func (algoBuilder *AlgoBuilder) CreateDeploymentSpec(name string, labels map[string]string, update bool) (*appsv1.Deployment, error) {
+// NewAlgoReconciler returns a new AlgoReconciler
+func NewAlgoReconciler(endpoint *algov1alpha1.Endpoint,
+	algoConfig *v1alpha1.AlgoConfig,
+	request *reconcile.Request,
+	client client.Client,
+	scheme *runtime.Scheme) AlgoReconciler {
+	return AlgoReconciler{
+		endpoint:   endpoint,
+		algoConfig: algoConfig,
+		request:    request,
+		client:     client,
+		scheme:     scheme,
+	}
+}
 
-	endpoint := algoBuilder.Endpoint
-	algoConfig := algoBuilder.AlgoConfig
-	runnerConfig := algoBuilder.createRunnerConfig(&endpoint.Spec, algoConfig)
+// Reconcile creates or updates all algos for the endpoint
+func (algoReconciler *AlgoReconciler) Reconcile() error {
+
+	algoConfig := algoReconciler.algoConfig
+	endpoint := algoReconciler.endpoint
+	request := algoReconciler.request
+
+	logData := map[string]interface{}{
+		"AlgoOwner":      algoConfig.AlgoOwnerUserName,
+		"AlgoName":       algoConfig.AlgoName,
+		"AlgoVersionTag": algoConfig.AlgoVersionTag,
+		"Index":          algoConfig.AlgoIndex,
+	}
+	algoLogger := log.WithValues("data", logData)
+
+	algoLogger.Info("Reconciling Algo")
+
+	// Truncate the name of the deployment / pod just in case
+	name := strings.TrimRight(Short(algoConfig.AlgoName, 20), "-")
+
+	labels := map[string]string{
+		"system":        "algorun",
+		"tier":          "algo",
+		"endpointowner": endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
+		"endpoint":      endpoint.Spec.EndpointConfig.EndpointName,
+		"pipeline":      endpoint.Spec.EndpointConfig.PipelineName,
+		"algoowner":     algoConfig.AlgoOwnerUserName,
+		"algo":          algoConfig.AlgoName,
+		"algoversion":   algoConfig.AlgoVersionTag,
+		"algoindex":     strconv.Itoa(int(algoConfig.AlgoIndex)),
+		"env":           "production",
+	}
+
+	// Check to make sure the algo isn't already created
+	listOptions := &client.ListOptions{}
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s, algoowner=%s, algo=%s, algoversion=%s, algoindex=%v",
+		endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
+		endpoint.Spec.EndpointConfig.EndpointName,
+		algoConfig.AlgoOwnerUserName,
+		algoConfig.AlgoName,
+		algoConfig.AlgoVersionTag,
+		algoConfig.AlgoIndex))
+	listOptions.InNamespace(request.NamespacedName.Namespace)
+
+	deplUtil := DeploymentUtil{
+		client: algoReconciler.client,
+	}
+
+	existingDeployment, err := deplUtil.checkForDeployment(listOptions)
+
+	if existingDeployment != nil {
+		algoConfig.DeploymentName = existingDeployment.GetName()
+	}
+
+	// Generate the k8s deployment for the algoconfig
+	algoDeployment, err := algoReconciler.createDeploymentSpec(name, labels, existingDeployment != nil)
+	if err != nil {
+		algoLogger.Error(err, "Failed to create algo deployment spec")
+		return err
+	}
+
+	// Set Endpoint instance as the owner and controller
+	if err := controllerutil.SetControllerReference(endpoint, algoDeployment, algoReconciler.scheme); err != nil {
+		return err
+	}
+
+	if existingDeployment == nil {
+		err := deplUtil.createDeployment(algoDeployment)
+		if err != nil {
+			algoLogger.Error(err, "Failed to create algo deployment")
+			return err
+		}
+	} else {
+		var deplChanged bool
+
+		// Set some values that are defaulted by k8s but shouldn't trigger a change
+		algoDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds = existingDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds
+		algoDeployment.Spec.Template.Spec.SecurityContext = existingDeployment.Spec.Template.Spec.SecurityContext
+		algoDeployment.Spec.Template.Spec.SchedulerName = existingDeployment.Spec.Template.Spec.SchedulerName
+
+		if *existingDeployment.Spec.Replicas != *algoDeployment.Spec.Replicas {
+			algoLogger.Info("Algo Replica Count Changed. Updating deployment.",
+				"Old Replicas", existingDeployment.Spec.Replicas,
+				"New Replicas", algoDeployment.Spec.Replicas)
+			deplChanged = true
+		} else if diff := deep.Equal(existingDeployment.Spec.Template.Spec, algoDeployment.Spec.Template.Spec); diff != nil {
+			algoLogger.Info("Algo Changed. Updating deployment.", "Differences", diff)
+			deplChanged = true
+
+		}
+		if deplChanged {
+			err := deplUtil.updateDeployment(algoDeployment)
+			if err != nil {
+				algoLogger.Error(err, "Failed to update algo deployment")
+				return err
+			}
+		}
+	}
+
+	// TODO: Setup the horizontal pod autoscaler
+	if algoConfig.AutoScale {
+
+	}
+
+	return nil
+
+}
+
+// CreateDeploymentSpec generates the k8s spec for the algo deployment
+func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels map[string]string, update bool) (*appsv1.Deployment, error) {
+
+	endpoint := algoReconciler.endpoint
+	algoConfig := algoReconciler.algoConfig
+	runnerConfig := algoReconciler.createRunnerConfig(&endpoint.Spec, algoConfig)
 
 	// Set the image name
 	var imageName string
@@ -112,7 +245,7 @@ func (algoBuilder *AlgoBuilder) CreateDeploymentSpec(name string, labels map[str
 				"chmod +x /algo-runner-dest/algo-runner",
 		}
 
-		algoEnvVars = algoBuilder.createEnvVars(endpoint, runnerConfig, algoConfig)
+		algoEnvVars = algoReconciler.createEnvVars(endpoint, runnerConfig, algoConfig)
 
 		initContainer := corev1.Container{
 			Name:                     "algo-runner-init",
@@ -158,7 +291,7 @@ func (algoBuilder *AlgoBuilder) CreateDeploymentSpec(name string, labels map[str
 		algoCommand = []string{entrypoint[0]}
 		algoArgs = entrypoint[1:]
 
-		algoEnvVars = algoBuilder.createEnvVars(endpoint, runnerConfig, algoConfig)
+		algoEnvVars = algoReconciler.createEnvVars(endpoint, runnerConfig, algoConfig)
 
 		// TODO: Add user defined liveness/readiness probes to algo
 
@@ -171,7 +304,7 @@ func (algoBuilder *AlgoBuilder) CreateDeploymentSpec(name string, labels map[str
 
 		sidecarCommand := []string{"/algo-runner/algo-runner"}
 
-		sidecarEnvVars = algoBuilder.createEnvVars(endpoint, runnerConfig, algoConfig)
+		sidecarEnvVars = algoReconciler.createEnvVars(endpoint, runnerConfig, algoConfig)
 
 		sidecarReadinessProbe = &corev1.Probe{
 			Handler:             handler,
@@ -207,7 +340,7 @@ func (algoBuilder *AlgoBuilder) CreateDeploymentSpec(name string, labels map[str
 
 	}
 
-	resources, resourceErr := algoBuilder.createResources(algoConfig)
+	resources, resourceErr := algoReconciler.createResources(algoConfig)
 
 	if resourceErr != nil {
 		return nil, resourceErr
@@ -326,7 +459,7 @@ func (algoBuilder *AlgoBuilder) CreateDeploymentSpec(name string, labels map[str
 
 }
 
-func (algoBuilder *AlgoBuilder) createEnvVars(cr *algov1alpha1.Endpoint, runnerConfig *v1alpha1.AlgoRunnerConfig, algoConfig *v1alpha1.AlgoConfig) []corev1.EnvVar {
+func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1alpha1.Endpoint, runnerConfig *v1alpha1.AlgoRunnerConfig, algoConfig *v1alpha1.AlgoConfig) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
 
@@ -369,7 +502,7 @@ func (algoBuilder *AlgoBuilder) createEnvVars(cr *algov1alpha1.Endpoint, runnerC
 	return envVars
 }
 
-func (algoBuilder *AlgoBuilder) createSelector(constraints []string) map[string]string {
+func (algoReconciler *AlgoReconciler) createSelector(constraints []string) map[string]string {
 	selector := make(map[string]string)
 
 	if len(constraints) > 0 {
@@ -385,7 +518,7 @@ func (algoBuilder *AlgoBuilder) createSelector(constraints []string) map[string]
 	return selector
 }
 
-func (algoBuilder *AlgoBuilder) createResources(algoConfig *v1alpha1.AlgoConfig) (*corev1.ResourceRequirements, error) {
+func (algoReconciler *AlgoReconciler) createResources(algoConfig *v1alpha1.AlgoConfig) (*corev1.ResourceRequirements, error) {
 	resources := &corev1.ResourceRequirements{}
 
 	// Set Memory limits
@@ -435,7 +568,7 @@ func (algoBuilder *AlgoBuilder) createResources(algoConfig *v1alpha1.AlgoConfig)
 }
 
 // CreateRunnerConfig creates the config struct to be sent to the runner
-func (algoBuilder *AlgoBuilder) createRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec, algoConfig *v1alpha1.AlgoConfig) *v1alpha1.AlgoRunnerConfig {
+func (algoReconciler *AlgoReconciler) createRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec, algoConfig *v1alpha1.AlgoConfig) *v1alpha1.AlgoRunnerConfig {
 
 	runnerConfig := &v1alpha1.AlgoRunnerConfig{
 		EndpointOwnerUserName: endpointSpec.EndpointConfig.EndpointOwnerUserName,

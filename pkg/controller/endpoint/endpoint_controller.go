@@ -2,15 +2,11 @@ package endpoint
 
 import (
 	"context"
-	errorsbase "errors"
 	"fmt"
-	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	kc "github.com/go-kafka/connect"
 	"github.com/go-test/deep"
 
 	utils "endpoint-operator/internal/utilities"
@@ -20,13 +16,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -132,10 +124,16 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	wg.Add(1)
 
 	// Create / update the kafka topics
-	go func() {
-		r.reconcileTopics(instance, request)
-		wg.Done()
-	}()
+	reqLogger.Info("Reconciling Kakfa Topics")
+	// Iterate the topics
+	for _, topicConfig := range instance.Spec.EndpointConfig.TopicConfigs {
+		wg.Add(1)
+		go func(currentTopicConfig algov1alpha1.TopicConfigModel) {
+			topicReconciler := utils.NewTopicReconciler(instance, &currentTopicConfig, &request, r.client, r.scheme)
+			topicReconciler.Reconcile()
+			wg.Done()
+		}(topicConfig)
+	}
 
 	// Reconcile all algo deployments
 	reqLogger.Info("Reconciling Algos")
@@ -143,7 +141,8 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	for _, algoConfig := range instance.Spec.EndpointConfig.AlgoConfigs {
 		wg.Add(1)
 		go func(currentAlgoConfig algov1alpha1.AlgoConfig) {
-			err = r.reconcileAlgo(instance, &currentAlgoConfig, request)
+			algoReconciler := utils.NewAlgoReconciler(instance, &currentAlgoConfig, &request, r.client, r.scheme)
+			err = algoReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in AlgoConfig reconcile loop.")
 			}
@@ -157,7 +156,8 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	for _, dcConfig := range instance.Spec.EndpointConfig.DataConnectorConfigs {
 		wg.Add(1)
 		go func(currentDcConfig algov1alpha1.DataConnectorConfig) {
-			err = r.reconcileDataConnector(instance, &currentDcConfig, request)
+			dcReconciler := utils.NewDataConnectorReconciler(instance, &currentDcConfig, &request, r.client, r.scheme)
+			err = dcReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in DataConnectorConfigs reconcile loop.")
 			}
@@ -169,7 +169,8 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	reqLogger.Info("Reconciling Hooks")
 	wg.Add(1)
 	go func(endpoint *algov1alpha1.Endpoint) {
-		err = r.reconcileHook(endpoint, request)
+		hookReconciler := utils.NewHookReconciler(instance, &request, r.client, r.scheme)
+		err = hookReconciler.Reconcile()
 		if err != nil {
 			reqLogger.Error(err, "Error in Hook reconcile.")
 		}
@@ -441,498 +442,5 @@ func calculateStatus(cr *algov1alpha1.Endpoint, deploymentStatuses *[]algov1alph
 	}
 
 	return "Stopped", nil
-
-}
-
-// reconcileAlgos creates or updates all algos for the endpoint
-func (r *ReconcileEndpoint) reconcileAlgo(endpoint *algov1alpha1.Endpoint, algoConfig *algov1alpha1.AlgoConfig, request reconcile.Request) error {
-
-	logData := map[string]interface{}{
-		"AlgoOwner":      algoConfig.AlgoOwnerUserName,
-		"AlgoName":       algoConfig.AlgoName,
-		"AlgoVersionTag": algoConfig.AlgoVersionTag,
-		"Index":          algoConfig.AlgoIndex,
-	}
-	algoLogger := log.WithValues("data", logData)
-
-	algoLogger.Info("Reconciling Algo")
-
-	// Truncate the name of the deployment / pod just in case
-	name := strings.TrimRight(utils.Short(algoConfig.AlgoName, 20), "-")
-
-	labels := map[string]string{
-		"system":        "algorun",
-		"tier":          "algo",
-		"endpointowner": endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
-		"endpoint":      endpoint.Spec.EndpointConfig.EndpointName,
-		"pipeline":      endpoint.Spec.EndpointConfig.PipelineName,
-		"algoowner":     algoConfig.AlgoOwnerUserName,
-		"algo":          algoConfig.AlgoName,
-		"algoversion":   algoConfig.AlgoVersionTag,
-		"algoindex":     strconv.Itoa(int(algoConfig.AlgoIndex)),
-		"env":           "production",
-	}
-
-	// Check to make sure the algo isn't already created
-	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s, algoowner=%s, algo=%s, algoversion=%s, algoindex=%v",
-		endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
-		endpoint.Spec.EndpointConfig.EndpointName,
-		algoConfig.AlgoOwnerUserName,
-		algoConfig.AlgoName,
-		algoConfig.AlgoVersionTag,
-		algoConfig.AlgoIndex))
-	listOptions.InNamespace(request.NamespacedName.Namespace)
-
-	existingDeployment, err := r.checkForDeployment(listOptions)
-
-	if existingDeployment != nil {
-		algoConfig.DeploymentName = existingDeployment.GetName()
-	}
-
-	// Generate the k8s deployment for the algoconfig
-	algoBuilder := utils.AlgoBuilder{endpoint, algoConfig}
-	algoDeployment, err := algoBuilder.CreateDeploymentSpec(name, labels, existingDeployment != nil)
-	if err != nil {
-		algoLogger.Error(err, "Failed to create algo deployment spec")
-		return err
-	}
-
-	// Set Endpoint instance as the owner and controller
-	if err := controllerutil.SetControllerReference(endpoint, algoDeployment, r.scheme); err != nil {
-		return err
-	}
-
-	if existingDeployment == nil {
-		err := r.createDeployment(algoDeployment)
-		if err != nil {
-			algoLogger.Error(err, "Failed to create algo deployment")
-			return err
-		}
-	} else {
-		var deplChanged bool
-
-		// Set some values that are defaulted by k8s but shouldn't trigger a change
-		algoDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds = existingDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds
-		algoDeployment.Spec.Template.Spec.SecurityContext = existingDeployment.Spec.Template.Spec.SecurityContext
-		algoDeployment.Spec.Template.Spec.SchedulerName = existingDeployment.Spec.Template.Spec.SchedulerName
-
-		if *existingDeployment.Spec.Replicas != *algoDeployment.Spec.Replicas {
-			algoLogger.Info("Algo Replica Count Changed. Updating deployment.",
-				"Old Replicas", existingDeployment.Spec.Replicas,
-				"New Replicas", algoDeployment.Spec.Replicas)
-			deplChanged = true
-		} else if diff := deep.Equal(existingDeployment.Spec.Template.Spec, algoDeployment.Spec.Template.Spec); diff != nil {
-			algoLogger.Info("Algo Changed. Updating deployment.", "Differences", diff)
-			deplChanged = true
-
-		}
-		if deplChanged {
-			err := r.updateDeployment(algoDeployment)
-			if err != nil {
-				algoLogger.Error(err, "Failed to update algo deployment")
-				return err
-			}
-		}
-	}
-
-	// TODO: Setup the horizontal pod autoscaler
-	if algoConfig.AutoScale {
-
-	}
-
-	return nil
-
-}
-
-// reconcileHook creates or updates the hook deployment for the endpoint
-func (r *ReconcileEndpoint) reconcileHook(endpoint *algov1alpha1.Endpoint, request reconcile.Request) error {
-
-	hookLogger := log
-
-	hookLogger.Info("Reconciling Hook")
-
-	name := "endpoint-hook"
-
-	labels := map[string]string{
-		"system":        "algorun",
-		"tier":          "hook",
-		"endpointowner": endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
-		"endpoint":      endpoint.Spec.EndpointConfig.EndpointName,
-		"pipeline":      endpoint.Spec.EndpointConfig.PipelineName,
-		"env":           "production",
-	}
-
-	// Check to make sure the algo isn't already created
-	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=hook, endpointowner=%s, endpoint=%s",
-		endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
-		endpoint.Spec.EndpointConfig.EndpointName))
-	listOptions.InNamespace(request.NamespacedName.Namespace)
-
-	existingDeployment, err := r.checkForDeployment(listOptions)
-
-	// Generate the k8s deployment
-	hookBuilder := utils.HookBuilder{endpoint}
-	hookDeployment, err := hookBuilder.CreateDeploymentSpec(name, labels, existingDeployment)
-	if err != nil {
-		hookLogger.Error(err, "Failed to create hook deployment spec")
-		return err
-	}
-
-	// Set Endpoint instance as the owner and controller
-	if err := controllerutil.SetControllerReference(endpoint, hookDeployment, r.scheme); err != nil {
-		return err
-	}
-
-	if existingDeployment == nil {
-		err := r.createDeployment(hookDeployment)
-		if err != nil {
-			hookLogger.Error(err, "Failed to create hook deployment")
-			return err
-		}
-	} else {
-		var deplChanged bool
-
-		// Set some values that are defaulted by k8s but shouldn't trigger a change
-		hookDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds = existingDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds
-		hookDeployment.Spec.Template.Spec.SecurityContext = existingDeployment.Spec.Template.Spec.SecurityContext
-		hookDeployment.Spec.Template.Spec.SchedulerName = existingDeployment.Spec.Template.Spec.SchedulerName
-
-		if *existingDeployment.Spec.Replicas != *hookDeployment.Spec.Replicas {
-			hookLogger.Info("Hook Replica Count Changed. Updating deployment.",
-				"Old Replicas", existingDeployment.Spec.Replicas,
-				"New Replicas", hookDeployment.Spec.Replicas)
-			deplChanged = true
-		} else if diff := deep.Equal(existingDeployment.Spec.Template.Spec, hookDeployment.Spec.Template.Spec); diff != nil {
-			hookLogger.Info("Hook Changed. Updating deployment.", "Differences", diff)
-			deplChanged = true
-
-		}
-		if deplChanged {
-			err := r.updateDeployment(hookDeployment)
-			if err != nil {
-				hookLogger.Error(err, "Failed to update hook deployment")
-				return err
-			}
-		}
-	}
-
-	return nil
-
-}
-
-func (r *ReconcileEndpoint) checkForDeployment(listOptions *client.ListOptions) (*appsv1.Deployment, error) {
-
-	deploymentList := &appsv1.DeploymentList{}
-	ctx := context.TODO()
-	err := r.client.List(ctx, listOptions, deploymentList)
-
-	if err != nil && errors.IsNotFound(err) {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-
-	if len(deploymentList.Items) > 0 {
-		return &deploymentList.Items[0], nil
-	}
-
-	return nil, nil
-
-}
-
-func (r *ReconcileEndpoint) createDeployment(deployment *appsv1.Deployment) error {
-
-	logData := map[string]interface{}{
-		"labels": deployment.Labels,
-	}
-
-	if err := r.client.Create(context.TODO(), deployment); err != nil {
-		log.WithValues("data", logData)
-		log.Error(err, "Failed creating the algo deployment")
-		return err
-	}
-
-	logData["name"] = deployment.GetName()
-	log.WithValues("data", logData)
-	log.Info("Created deployment")
-
-	return nil
-
-}
-
-func (r *ReconcileEndpoint) updateDeployment(deployment *appsv1.Deployment) error {
-
-	logData := map[string]interface{}{
-		"labels": deployment.Labels,
-	}
-
-	if err := r.client.Update(context.TODO(), deployment); err != nil {
-		log.WithValues("data", logData)
-		log.Error(err, "Failed updating the algo deployment")
-		return err
-	}
-
-	logData["name"] = deployment.GetName()
-	log.WithValues("data", logData)
-	log.Info("Updated deployment")
-
-	return nil
-
-}
-
-// reconcileDataConnector creates or updates all data connectors for the endpoint
-func (r *ReconcileEndpoint) reconcileDataConnector(endpoint *algov1alpha1.Endpoint, dataConnectorConfig *algov1alpha1.DataConnectorConfig, request reconcile.Request) error {
-
-	kcName := strings.ToLower(fmt.Sprintf("%s-%s", endpoint.Spec.EndpointConfig.EndpointName, dataConnectorConfig.Name))
-	dcName := strings.ToLower(fmt.Sprintf("%s-%s-%d", endpoint.Spec.EndpointConfig.EndpointName, dataConnectorConfig.Name, dataConnectorConfig.Index))
-	// Set the image name
-	var imageName string
-	if dataConnectorConfig.ImageTag == "" || dataConnectorConfig.ImageTag == "latest" {
-		imageName = fmt.Sprintf("%s:latest", dataConnectorConfig.ImageRepository)
-	} else {
-		imageName = fmt.Sprintf("%s:%s", dataConnectorConfig.ImageRepository, dataConnectorConfig.ImageTag)
-	}
-	// dcName := strings.TrimRight(utils.Short(dcName, 20), "-")
-	// check to see if data connector already exists
-	existingDc := &unstructured.Unstructured{}
-	existingDc.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "kafka.strimzi.io",
-		Kind:    "KafkaConnect",
-		Version: "v1alpha1",
-	})
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: kcName, Namespace: request.NamespacedName.Namespace}, existingDc)
-
-	if err != nil && errors.IsNotFound(err) {
-		// Create the connector cluster
-		// Using a unstructured object to submit a strimzi topic creation.
-		newDc := &unstructured.Unstructured{}
-		newDc.Object = map[string]interface{}{
-			"name":      kcName,
-			"namespace": request.NamespacedName.Namespace,
-			"spec": map[string]interface{}{
-				"version":          "2.1.0",
-				"replicas":         1,
-				"image":            imageName,
-				"bootstrapServers": endpoint.Spec.KafkaBrokers,
-				// "bootstrapServers": "algorun-kafka-kafka-bootstrap.algorun:9092",
-				"config": map[string]interface{}{
-					"group.id":                          "connect-cluster",
-					"offset.storage.topic":              "connect-cluster-offsets",
-					"config.storage.topic":              "connect-cluster-configs",
-					"status.storage.topic":              "connect-cluster-status",
-					"config.storage.replication.factor": 1,
-					"offset.storage.replication.factor": 1,
-					"status.storage.replication.factor": 1,
-				},
-			},
-		}
-		newDc.SetName(kcName)
-		newDc.SetNamespace(request.NamespacedName.Namespace)
-		newDc.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "kafka.strimzi.io",
-			Kind:    "KafkaConnect",
-			Version: "v1alpha1",
-		})
-
-		// Set Endpoint instance as the owner and controller
-		if err := controllerutil.SetControllerReference(endpoint, newDc, r.scheme); err != nil {
-			log.Error(err, "Failed setting the kafka connect cluster controller owner")
-		}
-
-		err := r.client.Create(context.TODO(), newDc)
-		if err != nil {
-			log.Error(err, "Failed creating kafka connect cluster")
-		}
-
-	} else if err != nil {
-		log.Error(err, "Failed to check if kafka connect cluster exists.")
-	} else {
-
-		// TODO: Get the deployment and ensure the status is running
-
-		// If the cluster node exists, then check if connector exists
-		// Use the dns name of the connector cluster
-		host := fmt.Sprintf("http://%s-connect-api.%s:8083", kcName, request.NamespacedName.Namespace)
-		// host := fmt.Sprintf("http://192.168.99.100:30383")
-		client := kc.NewClient(host)
-
-		_, http, err := client.GetConnector(dcName)
-		if err != nil && http != nil && http.StatusCode != 404 {
-			log.Error(err, "Failed to check if data connector exists.")
-			return err
-		}
-
-		// If connector doesn't exist, then create it
-		if http != nil && http.StatusCode == 404 {
-			dcConfig := make(map[string]string)
-			// iterate the options to create the map
-			for _, dcOption := range dataConnectorConfig.Options {
-				dcConfig[dcOption.Name] = dcOption.Value
-			}
-
-			dcConfig["connector.class"] = dataConnectorConfig.ConnectorClass
-			dcConfig["tasks.max"] = strconv.Itoa(int(dataConnectorConfig.TasksMax))
-
-			// If Sink. need to add the source topics
-			if strings.ToLower(dataConnectorConfig.DataConnectorType) == "sink" {
-				topicConfig, err := r.getDcSourceTopic(endpoint, dataConnectorConfig)
-				dcConfig["topics"] = topicConfig.Name
-
-				if err != nil {
-					// connector wasn't created.
-					log.Error(err, "Could not get sink data connector source topic.")
-					return err
-				}
-			}
-
-			newConnector := kc.Connector{
-				Name:   dcName,
-				Config: dcConfig,
-			}
-			_, err = client.CreateConnector(&newConnector)
-			if err != nil {
-				// connector wasn't created.
-				log.Error(err, "Fatal error creating data connector. Kafka connect instance exists but REST API create failed.")
-				return err
-			}
-		}
-
-	}
-
-	return nil
-}
-
-func (r *ReconcileEndpoint) getDcSourceTopic(endpoint *algov1alpha1.Endpoint, dataConnectorConfig *algov1alpha1.DataConnectorConfig) (utils.TopicConfig, error) {
-
-	config := endpoint.Spec.EndpointConfig
-
-	for _, pipe := range config.Pipes {
-
-		dcName := fmt.Sprintf("%s:%s[%d]", dataConnectorConfig.Name, dataConnectorConfig.VersionTag, dataConnectorConfig.Index)
-
-		if pipe.DestName == dcName {
-
-			// Get the source topic connected to this pipe
-			for _, topic := range endpoint.Spec.EndpointConfig.TopicConfigs {
-				if pipe.SourceName == topic.SourceName &&
-					pipe.SourceOutputName == topic.SourceOutputName {
-					newTopicConfig, err := utils.BuildTopic(config, topic)
-					if err != nil {
-						return newTopicConfig, err
-					}
-					return newTopicConfig, nil
-				}
-			}
-
-		}
-
-	}
-
-	return utils.TopicConfig{}, errorsbase.New(fmt.Sprintf("No topic config found for data connector source. [%s-%d]",
-		dataConnectorConfig.Name,
-		dataConnectorConfig.Index))
-
-}
-
-func (r *ReconcileEndpoint) reconcileTopics(cr *algov1alpha1.Endpoint, request reconcile.Request) {
-
-	endpointSpec := cr.Spec
-	for _, topicConfig := range endpointSpec.EndpointConfig.TopicConfigs {
-
-		newTopicConfig, err := utils.BuildTopic(endpointSpec.EndpointConfig, topicConfig)
-		if err != nil {
-			log.Error(err, "Error creating new topic config")
-		}
-
-		// check to see if topic already exists
-		existingTopic := &unstructured.Unstructured{}
-		existingTopic.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "kafka.strimzi.io",
-			Kind:    "KafkaTopic",
-			Version: "v1alpha1",
-		})
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: newTopicConfig.Name, Namespace: request.NamespacedName.Namespace}, existingTopic)
-
-		if err != nil && errors.IsNotFound(err) {
-			// Create the topic
-			// Using a unstructured object to submit a strimzi topic creation.
-			newTopic := &unstructured.Unstructured{}
-			newTopic.Object = map[string]interface{}{
-				"name":      newTopicConfig.Name,
-				"namespace": request.NamespacedName.Namespace,
-				"spec": map[string]interface{}{
-					"partitions": newTopicConfig.Partitions,
-					"replicas":   int(topicConfig.TopicReplicationFactor),
-					"config":     newTopicConfig.Params,
-				},
-			}
-			newTopic.SetName(newTopicConfig.Name)
-			newTopic.SetNamespace(request.NamespacedName.Namespace)
-			newTopic.SetGroupVersionKind(schema.GroupVersionKind{
-				Group:   "kafka.strimzi.io",
-				Kind:    "KafkaTopic",
-				Version: "v1alpha1",
-			})
-
-			// Set Endpoint instance as the owner and controller
-			if err := controllerutil.SetControllerReference(cr, newTopic, r.scheme); err != nil {
-				log.Error(err, "Failed setting the topic controller owner")
-			}
-
-			err := r.client.Create(context.TODO(), newTopic)
-			if err != nil {
-				log.Error(err, "Failed creating topic")
-			}
-		} else if err != nil {
-			log.Error(err, "Failed to check if Kafka topic exists.")
-		} else {
-			// Update the topic if changed
-			// Check that the partition count did not go down (kafka doesn't support)
-			var partitionsCurrent, replicasCurrent int64
-			var paramsCurrent map[string]string
-			spec, ok := existingTopic.Object["spec"].(map[string]interface{})
-			if ok {
-				replicasCurrent, ok = spec["replicas"].(int64)
-				paramsCurrent, ok = spec["config"].(map[string]string)
-				partitionsCurrent, ok = spec["partitions"].(int64)
-				if ok {
-					if partitionsCurrent > newTopicConfig.Partitions {
-						logData := map[string]interface{}{
-							"partitionsCurrent": partitionsCurrent,
-							"partitionsNew":     newTopicConfig.Partitions,
-						}
-						log.WithValues("data", logData)
-						log.Error(err, "Partition count cannot be decreased. Keeping current partition count.")
-						newTopicConfig.Partitions = partitionsCurrent
-					}
-				}
-			}
-
-			if partitionsCurrent != newTopicConfig.Partitions ||
-				replicasCurrent != newTopicConfig.Replicas ||
-				(len(paramsCurrent) != len(newTopicConfig.Params) &&
-					!reflect.DeepEqual(paramsCurrent, newTopicConfig.Params)) {
-
-				fmt.Printf("%v", paramsCurrent)
-				// !reflect.DeepEqual(paramsCurrent, params)
-				// Update the existing spec
-				spec["partitions"] = newTopicConfig.Partitions
-				spec["replicas"] = newTopicConfig.Replicas
-				spec["config"] = newTopicConfig.Params
-
-				existingTopic.Object["spec"] = spec
-
-				err := r.client.Update(context.TODO(), existingTopic)
-				if err != nil {
-					log.Error(err, "Failed updating topic")
-				}
-
-			}
-
-		}
-
-	}
 
 }

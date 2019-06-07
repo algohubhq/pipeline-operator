@@ -29,8 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/types"
 )
 
-// WebhookBuilder builds a webhook based on the provided options.
-type WebhookBuilder struct {
+// WebhookReconciler builds a webhook based on the provided options.
+type WebhookReconciler struct {
 	// name specifies the name of the webhook. It must be unique among all webhooks.
 	name string
 
@@ -38,7 +38,7 @@ type WebhookBuilder struct {
 	path string
 
 	// handlers handle admission requests.
-	// A WebhookBuilder may have multiple handlers.
+	// A WebhookReconciler may have multiple handlers.
 	// For example, handlers[0] mutates a pod for feature foo.
 	// handlers[1] mutates a pod for a different feature bar.
 	handlers []admission.Handler
@@ -68,21 +68,21 @@ type WebhookBuilder struct {
 	manager manager.Manager
 }
 
-// NewWebhookBuilder creates an empty WebhookBuilder.
-func NewWebhookBuilder() *WebhookBuilder {
-	return &WebhookBuilder{}
+// NewWebhookReconciler creates an empty WebhookReconciler.
+func NewWebhookReconciler() *WebhookReconciler {
+	return &WebhookReconciler{}
 }
 
 // Name sets the name of the webhook.
 // This is optional
-func (b *WebhookBuilder) Name(name string) *WebhookBuilder {
+func (b *WebhookReconciler) Name(name string) *WebhookReconciler {
 	b.name = name
 	return b
 }
 
 // Mutating sets the type to mutating admission webhook
 // Only one of Mutating and Validating can be invoked.
-func (b *WebhookBuilder) Mutating() *WebhookBuilder {
+func (b *WebhookReconciler) Mutating() *WebhookReconciler {
 	m := types.WebhookTypeMutating
 	b.t = &m
 	return b
@@ -90,7 +90,7 @@ func (b *WebhookBuilder) Mutating() *WebhookBuilder {
 
 // Validating sets the type to validating admission webhook
 // Only one of Mutating and Validating can be invoked.
-func (b *WebhookBuilder) Validating() *WebhookBuilder {
+func (b *WebhookReconciler) Validating() *WebhookReconciler {
 	m := types.WebhookTypeValidating
 	b.t = &m
 	return b
@@ -101,7 +101,7 @@ func (b *WebhookBuilder) Validating() *WebhookBuilder {
 // This is optional. If not set, it will be built from the type and resource name.
 // For example, a webhook that mutates pods has a default path of "/mutate-pods"
 // If the defaulting logic can't find a unique path for it, user need to set it manually.
-func (b *WebhookBuilder) Path(path string) *WebhookBuilder {
+func (b *WebhookReconciler) Path(path string) *WebhookReconciler {
 	b.path = path
 	return b
 }
@@ -109,14 +109,14 @@ func (b *WebhookBuilder) Path(path string) *WebhookBuilder {
 // Operations sets the operations that this webhook cares.
 // It will be overridden by Rules if Rules are not empty.
 // This is optional
-func (b *WebhookBuilder) Operations(ops ...admissionregistrationv1beta1.OperationType) *WebhookBuilder {
+func (b *WebhookReconciler) Operations(ops ...admissionregistrationv1beta1.OperationType) *WebhookReconciler {
 	b.operations = ops
 	return b
 }
 
 // ForType sets the type of resources that the webhook will operate.
 // It will be overridden by Rules if Rules are not empty.
-func (b *WebhookBuilder) ForType(obj runtime.Object) *WebhookBuilder {
+func (b *WebhookReconciler) ForType(obj runtime.Object) *WebhookReconciler {
 	b.apiType = obj
 	return b
 }
@@ -124,7 +124,7 @@ func (b *WebhookBuilder) ForType(obj runtime.Object) *WebhookBuilder {
 // Rules sets the RuleWithOperations for the webhook.
 // It overrides ForType and Operations.
 // This is optional and for advanced user.
-func (b *WebhookBuilder) Rules(rules ...admissionregistrationv1beta1.RuleWithOperations) *WebhookBuilder {
+func (b *WebhookReconciler) Rules(rules ...admissionregistrationv1beta1.RuleWithOperations) *WebhookReconciler {
 	b.rules = rules
 	return b
 }
@@ -132,31 +132,31 @@ func (b *WebhookBuilder) Rules(rules ...admissionregistrationv1beta1.RuleWithOpe
 // FailurePolicy sets the FailurePolicy of the webhook.
 // If not set, it will be defaulted by the server.
 // This is optional
-func (b *WebhookBuilder) FailurePolicy(policy admissionregistrationv1beta1.FailurePolicyType) *WebhookBuilder {
+func (b *WebhookReconciler) FailurePolicy(policy admissionregistrationv1beta1.FailurePolicyType) *WebhookReconciler {
 	b.failurePolicy = &policy
 	return b
 }
 
 // NamespaceSelector sets the NamespaceSelector for the webhook.
 // This is optional
-func (b *WebhookBuilder) NamespaceSelector(namespaceSelector *metav1.LabelSelector) *WebhookBuilder {
+func (b *WebhookReconciler) NamespaceSelector(namespaceSelector *metav1.LabelSelector) *WebhookReconciler {
 	b.namespaceSelector = namespaceSelector
 	return b
 }
 
 // WithManager set the manager for the webhook for provisioning various dependencies. e.g. client etc.
-func (b *WebhookBuilder) WithManager(mgr manager.Manager) *WebhookBuilder {
+func (b *WebhookReconciler) WithManager(mgr manager.Manager) *WebhookReconciler {
 	b.manager = mgr
 	return b
 }
 
 // Handlers sets the handlers of the webhook.
-func (b *WebhookBuilder) Handlers(handlers ...admission.Handler) *WebhookBuilder {
+func (b *WebhookReconciler) Handlers(handlers ...admission.Handler) *WebhookReconciler {
 	b.handlers = handlers
 	return b
 }
 
-func (b *WebhookBuilder) validate() error {
+func (b *WebhookReconciler) validate() error {
 	if b.t == nil {
 		return errors.New("webhook type cannot be nil")
 	}
@@ -170,7 +170,7 @@ func (b *WebhookBuilder) validate() error {
 }
 
 // Build creates the Webhook based on the options provided.
-func (b *WebhookBuilder) Build() (*admission.Webhook, error) {
+func (b *WebhookReconciler) Build() (*admission.Webhook, error) {
 	err := b.validate()
 	if err != nil {
 		return nil, err

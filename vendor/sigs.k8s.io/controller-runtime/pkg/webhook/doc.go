@@ -22,7 +22,7 @@ Currently, it only supports admission webhooks. It will support CRD conversion w
 Build webhooks
 
 	// mgr is the manager that runs the server.
-	webhook1, err := NewWebhookBuilder().
+	webhook1, err := NewWebhookReconciler().
 		Name("foo.k8s.io").
 		Mutating().
 		Path("/mutating-pods").
@@ -35,7 +35,7 @@ Build webhooks
 		// handle error
 	}
 
-	webhook2, err := NewWebhookBuilder().
+	webhook2, err := NewWebhookReconciler().
 		Name("bar.k8s.io").
 		Validating().
 		Path("/validating-deployment").
