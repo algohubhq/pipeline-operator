@@ -1,7 +1,8 @@
-package utilities
+package reconciler
 
 import (
 	"context"
+	utils "endpoint-operator/internal/utilities"
 	"endpoint-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
 	"fmt"
@@ -171,8 +172,8 @@ func BuildTopic(endpointConfig algov1alpha1.EndpointConfig, topicConfig *algov1a
 				for _, algoConfig := range endpointConfig.AlgoConfigs {
 					algoName := fmt.Sprintf("%s/%s:%s[%d]", algoConfig.AlgoOwnerUserName, algoConfig.AlgoName, algoConfig.AlgoVersionTag, algoConfig.AlgoIndex)
 					if algoName == pipe.DestName {
-						topicPartitions = Max(int64(algoConfig.MinInstances), topicPartitions)
-						topicPartitions = Max(int64(algoConfig.Instances), topicPartitions)
+						topicPartitions = utils.Max(int64(algoConfig.MinInstances), topicPartitions)
+						topicPartitions = utils.Max(int64(algoConfig.Instances), topicPartitions)
 					}
 
 				}

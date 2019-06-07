@@ -6,14 +6,24 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
+
+var log = logf.Log.WithName("utilities")
+
+// NewDeploymentUtil returns a new DeploymentUtil
+func NewDeploymentUtil(client client.Client) DeploymentUtil {
+	return DeploymentUtil{
+		client: client,
+	}
+}
 
 // DeploymentUtil some helper methods for managing kubernetes deployments
 type DeploymentUtil struct {
 	client client.Client
 }
 
-func (d *DeploymentUtil) checkForDeployment(listOptions *client.ListOptions) (*appsv1.Deployment, error) {
+func (d *DeploymentUtil) CheckForDeployment(listOptions *client.ListOptions) (*appsv1.Deployment, error) {
 
 	deploymentList := &appsv1.DeploymentList{}
 	ctx := context.TODO()
@@ -33,7 +43,7 @@ func (d *DeploymentUtil) checkForDeployment(listOptions *client.ListOptions) (*a
 
 }
 
-func (d *DeploymentUtil) createDeployment(deployment *appsv1.Deployment) error {
+func (d *DeploymentUtil) CreateDeployment(deployment *appsv1.Deployment) error {
 
 	logData := map[string]interface{}{
 		"labels": deployment.Labels,
@@ -53,7 +63,7 @@ func (d *DeploymentUtil) createDeployment(deployment *appsv1.Deployment) error {
 
 }
 
-func (d *DeploymentUtil) updateDeployment(deployment *appsv1.Deployment) error {
+func (d *DeploymentUtil) UpdateDeployment(deployment *appsv1.Deployment) error {
 
 	logData := map[string]interface{}{
 		"labels": deployment.Labels,

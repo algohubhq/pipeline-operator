@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-test/deep"
 
+	recon "endpoint-operator/internal/reconciler"
 	utils "endpoint-operator/internal/utilities"
 	"endpoint-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
@@ -128,7 +129,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	for _, topicConfig := range instance.Spec.EndpointConfig.TopicConfigs {
 		wg.Add(1)
 		go func(currentTopicConfig algov1alpha1.TopicConfigModel) {
-			topicReconciler := utils.NewTopicReconciler(instance, &currentTopicConfig, &request, r.client, r.scheme)
+			topicReconciler := recon.NewTopicReconciler(instance, &currentTopicConfig, &request, r.client, r.scheme)
 			topicReconciler.Reconcile()
 			wg.Done()
 		}(topicConfig)
@@ -140,7 +141,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	for _, algoConfig := range instance.Spec.EndpointConfig.AlgoConfigs {
 		wg.Add(1)
 		go func(currentAlgoConfig algov1alpha1.AlgoConfig) {
-			algoReconciler := utils.NewAlgoReconciler(instance, &currentAlgoConfig, &request, r.client, r.scheme)
+			algoReconciler := recon.NewAlgoReconciler(instance, &currentAlgoConfig, &request, r.client, r.scheme)
 			err = algoReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in AlgoConfig reconcile loop.")
@@ -155,7 +156,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	for _, dcConfig := range instance.Spec.EndpointConfig.DataConnectorConfigs {
 		wg.Add(1)
 		go func(currentDcConfig algov1alpha1.DataConnectorConfig) {
-			dcReconciler := utils.NewDataConnectorReconciler(instance, &currentDcConfig, &request, r.client, r.scheme)
+			dcReconciler := recon.NewDataConnectorReconciler(instance, &currentDcConfig, &request, r.client, r.scheme)
 			err = dcReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in DataConnectorConfigs reconcile loop.")
@@ -168,7 +169,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	reqLogger.Info("Reconciling Hooks")
 	wg.Add(1)
 	go func(endpoint *algov1alpha1.Endpoint) {
-		hookReconciler := utils.NewHookReconciler(instance, &request, r.client, r.scheme)
+		hookReconciler := recon.NewHookReconciler(instance, &request, r.client, r.scheme)
 		err = hookReconciler.Reconcile()
 		if err != nil {
 			reqLogger.Error(err, "Error in Hook reconcile.")

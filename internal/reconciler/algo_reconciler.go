@@ -1,4 +1,4 @@
-package utilities
+package reconciler
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	utils "endpoint-operator/internal/utilities"
 	"endpoint-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
 
@@ -31,7 +32,7 @@ type AlgoReconciler struct {
 	scheme     *runtime.Scheme
 }
 
-var log = logf.Log.WithName("utilities")
+var log = logf.Log.WithName("reconciler")
 
 // NewAlgoReconciler returns a new AlgoReconciler
 func NewAlgoReconciler(endpoint *algov1alpha1.Endpoint,
@@ -66,7 +67,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	algoLogger.Info("Reconciling Algo")
 
 	// Truncate the name of the deployment / pod just in case
-	name := strings.TrimRight(Short(algoConfig.AlgoName, 20), "-")
+	name := strings.TrimRight(utils.Short(algoConfig.AlgoName, 20), "-")
 
 	labels := map[string]string{
 		"system":        "algorun",
@@ -92,11 +93,9 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		algoConfig.AlgoIndex))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
 
-	deplUtil := DeploymentUtil{
-		client: algoReconciler.client,
-	}
+	deplUtil := utils.NewDeploymentUtil(algoReconciler.client)
 
-	existingDeployment, err := deplUtil.checkForDeployment(listOptions)
+	existingDeployment, err := deplUtil.CheckForDeployment(listOptions)
 
 	if existingDeployment != nil {
 		algoConfig.DeploymentName = existingDeployment.GetName()
@@ -115,7 +114,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	}
 
 	if existingDeployment == nil {
-		err := deplUtil.createDeployment(algoDeployment)
+		err := deplUtil.CreateDeployment(algoDeployment)
 		if err != nil {
 			algoLogger.Error(err, "Failed to create algo deployment")
 			return err
@@ -139,7 +138,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 		}
 		if deplChanged {
-			err := deplUtil.updateDeployment(algoDeployment)
+			err := deplUtil.UpdateDeployment(algoDeployment)
 			if err != nil {
 				algoLogger.Error(err, "Failed to update algo deployment")
 				return err
@@ -417,7 +416,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 					},
 				},
 			},
-			RevisionHistoryLimit: Int32p(10),
+			RevisionHistoryLimit: utils.Int32p(10),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: nameMeta,
 				Spec: corev1.PodSpec{

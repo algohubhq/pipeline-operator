@@ -1,10 +1,11 @@
-package utilities
+package reconciler
 
 import (
 	"encoding/json"
 	"fmt"
 	"strings"
 
+	utils "endpoint-operator/internal/utilities"
 	"endpoint-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
 
@@ -68,11 +69,9 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 		endpoint.Spec.EndpointConfig.EndpointName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
 
-	deplUtil := DeploymentUtil{
-		client: hookReconciler.client,
-	}
+	deplUtil := utils.NewDeploymentUtil(hookReconciler.client)
 
-	existingDeployment, err := deplUtil.checkForDeployment(listOptions)
+	existingDeployment, err := deplUtil.CheckForDeployment(listOptions)
 
 	// Generate the k8s deployment
 	hookDeployment, err := hookReconciler.createDeploymentSpec(name, labels, existingDeployment)
@@ -87,7 +86,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 	}
 
 	if existingDeployment == nil {
-		err := deplUtil.createDeployment(hookDeployment)
+		err := deplUtil.CreateDeployment(hookDeployment)
 		if err != nil {
 			hookLogger.Error(err, "Failed to create hook deployment")
 			return err
@@ -111,7 +110,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 
 		}
 		if deplChanged {
-			err := deplUtil.updateDeployment(hookDeployment)
+			err := deplUtil.UpdateDeployment(hookDeployment)
 			if err != nil {
 				hookLogger.Error(err, "Failed to update hook deployment")
 				return err
@@ -248,7 +247,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 					},
 				},
 			},
-			RevisionHistoryLimit: Int32p(10),
+			RevisionHistoryLimit: utils.Int32p(10),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: nameMeta,
 				Spec: corev1.PodSpec{
