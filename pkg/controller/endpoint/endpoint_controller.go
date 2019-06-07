@@ -121,7 +121,6 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(1)
 
 	// Create / update the kafka topics
 	reqLogger.Info("Reconciling Kakfa Topics")
