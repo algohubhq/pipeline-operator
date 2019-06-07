@@ -8,21 +8,126 @@ import (
 	"endpoint-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
 
+	"github.com/go-test/deep"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type HookBuilder struct {
-	Endpoint *algov1alpha1.Endpoint
+// NewHookReconciler returns a new HookReconciler
+func NewHookReconciler(endpoint *algov1alpha1.Endpoint,
+	request *reconcile.Request,
+	client client.Client,
+	scheme *runtime.Scheme) HookReconciler {
+	return HookReconciler{
+		endpoint: endpoint,
+		request:  request,
+		client:   client,
+		scheme:   scheme,
+	}
+}
+
+// HookReconciler reconciles an Hook object
+type HookReconciler struct {
+	endpoint *algov1alpha1.Endpoint
+	request  *reconcile.Request
+	client   client.Client
+	scheme   *runtime.Scheme
+}
+
+// Reconcile creates or updates the hook deployment for the endpoint
+func (hookReconciler *HookReconciler) Reconcile() error {
+
+	endpoint := hookReconciler.endpoint
+	request := hookReconciler.request
+
+	hookLogger := log
+
+	hookLogger.Info("Reconciling Hook")
+
+	name := "endpoint-hook"
+
+	labels := map[string]string{
+		"system":        "algorun",
+		"tier":          "hook",
+		"endpointowner": endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
+		"endpoint":      endpoint.Spec.EndpointConfig.EndpointName,
+		"pipeline":      endpoint.Spec.EndpointConfig.PipelineName,
+		"env":           "production",
+	}
+
+	// Check to make sure the algo isn't already created
+	listOptions := &client.ListOptions{}
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=hook, endpointowner=%s, endpoint=%s",
+		endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
+		endpoint.Spec.EndpointConfig.EndpointName))
+	listOptions.InNamespace(request.NamespacedName.Namespace)
+
+	deplUtil := DeploymentUtil{
+		client: hookReconciler.client,
+	}
+
+	existingDeployment, err := deplUtil.checkForDeployment(listOptions)
+
+	// Generate the k8s deployment
+	hookDeployment, err := hookReconciler.createDeploymentSpec(name, labels, existingDeployment)
+	if err != nil {
+		hookLogger.Error(err, "Failed to create hook deployment spec")
+		return err
+	}
+
+	// Set Endpoint instance as the owner and controller
+	if err := controllerutil.SetControllerReference(endpoint, hookDeployment, hookReconciler.scheme); err != nil {
+		return err
+	}
+
+	if existingDeployment == nil {
+		err := deplUtil.createDeployment(hookDeployment)
+		if err != nil {
+			hookLogger.Error(err, "Failed to create hook deployment")
+			return err
+		}
+	} else {
+		var deplChanged bool
+
+		// Set some values that are defaulted by k8s but shouldn't trigger a change
+		hookDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds = existingDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds
+		hookDeployment.Spec.Template.Spec.SecurityContext = existingDeployment.Spec.Template.Spec.SecurityContext
+		hookDeployment.Spec.Template.Spec.SchedulerName = existingDeployment.Spec.Template.Spec.SchedulerName
+
+		if *existingDeployment.Spec.Replicas != *hookDeployment.Spec.Replicas {
+			hookLogger.Info("Hook Replica Count Changed. Updating deployment.",
+				"Old Replicas", existingDeployment.Spec.Replicas,
+				"New Replicas", hookDeployment.Spec.Replicas)
+			deplChanged = true
+		} else if diff := deep.Equal(existingDeployment.Spec.Template.Spec, hookDeployment.Spec.Template.Spec); diff != nil {
+			hookLogger.Info("Hook Changed. Updating deployment.", "Differences", diff)
+			deplChanged = true
+
+		}
+		if deplChanged {
+			err := deplUtil.updateDeployment(hookDeployment)
+			if err != nil {
+				hookLogger.Error(err, "Failed to update hook deployment")
+				return err
+			}
+		}
+	}
+
+	return nil
+
 }
 
 // CreateDeploymentSpec generates the k8s spec for the algo deployment
-func (hookBuilder *HookBuilder) CreateDeploymentSpec(name string, labels map[string]string, existingDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
+func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels map[string]string, existingDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 
-	endpoint := hookBuilder.Endpoint
-	hookConfig := hookBuilder.createHookRunnerConfig(&endpoint.Spec)
+	endpoint := hookReconciler.endpoint
+	hookConfig := hookReconciler.createHookRunnerConfig(&endpoint.Spec)
 
 	// Set the image name
 	var imageName string
@@ -56,7 +161,7 @@ func (hookBuilder *HookBuilder) CreateDeploymentSpec(name string, labels map[str
 	var containers []corev1.Container
 
 	hookCommand := []string{"/pipeline-hook/pipeline-hook"}
-	hookEnvVars := hookBuilder.createEnvVars(endpoint, hookConfig)
+	hookEnvVars := hookReconciler.createEnvVars(endpoint, hookConfig)
 
 	readinessProbe := &corev1.Probe{
 		Handler:             handler,
@@ -177,7 +282,7 @@ func (hookBuilder *HookBuilder) CreateDeploymentSpec(name string, labels map[str
 
 }
 
-func (hookBuilder *HookBuilder) createEnvVars(cr *algov1alpha1.Endpoint, hookConfig *v1alpha1.HookRunnerConfig) []corev1.EnvVar {
+func (hookReconciler *HookReconciler) createEnvVars(cr *algov1alpha1.Endpoint, hookConfig *v1alpha1.HookRunnerConfig) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
 
@@ -220,7 +325,7 @@ func (hookBuilder *HookBuilder) createEnvVars(cr *algov1alpha1.Endpoint, hookCon
 	return envVars
 }
 
-func (hookBuilder *HookBuilder) createSelector(constraints []string) map[string]string {
+func (hookReconciler *HookReconciler) createSelector(constraints []string) map[string]string {
 	selector := make(map[string]string)
 
 	if len(constraints) > 0 {
@@ -237,7 +342,7 @@ func (hookBuilder *HookBuilder) createSelector(constraints []string) map[string]
 }
 
 // CreateRunnerConfig creates the config struct to be sent to the runner
-func (hookBuilder *HookBuilder) createHookRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec) *v1alpha1.HookRunnerConfig {
+func (hookReconciler *HookReconciler) createHookRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec) *v1alpha1.HookRunnerConfig {
 
 	hookConfig := &v1alpha1.HookRunnerConfig{
 		EndpointOwnerUserName: endpointSpec.EndpointConfig.EndpointOwnerUserName,

@@ -19,7 +19,7 @@ Package builder provides methods to build admission webhooks.
 
 The following are 2 examples for building mutating webhook and validating webhook.
 
-	webhook1, err := NewWebhookBuilder().
+	webhook1, err := NewWebhookReconciler().
 		Mutating().
 		Operations(admissionregistrationv1beta1.Create).
 		ForType(&corev1.Pod{}).
@@ -30,7 +30,7 @@ The following are 2 examples for building mutating webhook and validating webhoo
 		// handle error
 	}
 
-	webhook2, err := NewWebhookBuilder().
+	webhook2, err := NewWebhookReconciler().
 		Validating().
 		Operations(admissionregistrationv1beta1.Create, admissionregistrationv1beta1.Update).
 		ForType(&appsv1.Deployment{}).
@@ -66,7 +66,7 @@ The following snippet shows how to register CRD types with manager's scheme.
 There are more options for configuring a webhook. e.g. Name, Path, FailurePolicy, NamespaceSelector.
 Here is another example:
 
-	webhook3, err := NewWebhookBuilder().
+	webhook3, err := NewWebhookReconciler().
 		Name("foo.example.com").
 		Path("/mutatepods").
 		Mutating().
@@ -87,7 +87,7 @@ a empty target object to ForType method than passing a complex RuleWithOperation
 Rules may be useful for some more advanced use cases like subresources, wildcard resources etc.
 Here is an example:
 
-	webhook4, err := NewWebhookBuilder().
+	webhook4, err := NewWebhookReconciler().
 		Validating().
 		Rules(admissionregistrationv1beta1.RuleWithOperations{
 			Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},

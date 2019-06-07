@@ -80,7 +80,7 @@ func main() {
 
 	// Setup webhooks
 	entryLog.Info("setting up webhooks")
-	mutatingWebhook, err := builder.NewWebhookBuilder().
+	mutatingWebhook, err := builder.NewWebhookReconciler().
 		Name("mutating.k8s.io").
 		Mutating().
 		Operations(admissionregistrationv1beta1.Create, admissionregistrationv1beta1.Update).
@@ -93,7 +93,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	validatingWebhook, err := builder.NewWebhookBuilder().
+	validatingWebhook, err := builder.NewWebhookReconciler().
 		Name("validating.k8s.io").
 		Validating().
 		Operations(admissionregistrationv1beta1.Create, admissionregistrationv1beta1.Update).
