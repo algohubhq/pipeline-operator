@@ -150,6 +150,15 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 		}(algoConfig)
 	}
 
+	// Reconcile the algo metrics service
+	reqLogger.Info("Reconciling Algo Metrics Service")
+	wg.Add(1)
+	go func() {
+		algoReconciler := recon.NewAlgoReconciler(instance, nil, &request, r.client, r.scheme)
+		algoReconciler.ReconcileService()
+		wg.Done()
+	}()
+
 	// Reconcile all data connectors
 	reqLogger.Info("Reconciling Data Connectors")
 	// Iterate the DataConnectors

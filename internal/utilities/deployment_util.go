@@ -4,6 +4,7 @@ import (
 	"context"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -43,6 +44,26 @@ func (d *DeploymentUtil) CheckForDeployment(listOptions *client.ListOptions) (*a
 
 }
 
+func (d *DeploymentUtil) CheckForService(listOptions *client.ListOptions) (*corev1.Service, error) {
+
+	serviceList := &corev1.ServiceList{}
+	ctx := context.TODO()
+	err := d.client.List(ctx, listOptions, serviceList)
+
+	if err != nil && errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	if len(serviceList.Items) > 0 {
+		return &serviceList.Items[0], nil
+	}
+
+	return nil, nil
+
+}
+
 func (d *DeploymentUtil) CreateDeployment(deployment *appsv1.Deployment) error {
 
 	logData := map[string]interface{}{
@@ -58,6 +79,26 @@ func (d *DeploymentUtil) CreateDeployment(deployment *appsv1.Deployment) error {
 	logData["name"] = deployment.GetName()
 	log.WithValues("data", logData)
 	log.Info("Created deployment")
+
+	return nil
+
+}
+
+func (d *DeploymentUtil) CreateService(service *corev1.Service) error {
+
+	logData := map[string]interface{}{
+		"labels": service.Labels,
+	}
+
+	if err := d.client.Create(context.TODO(), service); err != nil {
+		log.WithValues("data", logData)
+		log.Error(err, "Failed creating the service")
+		return err
+	}
+
+	logData["name"] = service.GetName()
+	log.WithValues("data", logData)
+	log.Info("Created service")
 
 	return nil
 

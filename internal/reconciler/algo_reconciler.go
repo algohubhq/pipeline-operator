@@ -50,6 +50,41 @@ func NewAlgoReconciler(endpoint *algov1alpha1.Endpoint,
 }
 
 // Reconcile creates or updates all algos for the endpoint
+func (algoReconciler *AlgoReconciler) ReconcileService() error {
+
+	deplUtil := utils.NewDeploymentUtil(algoReconciler.client)
+
+	// Check to see if the metrics / health service is already created (All algos share the same service port)
+	srvListOptions := &client.ListOptions{}
+	srvListOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo"))
+	srvListOptions.InNamespace(algoReconciler.request.NamespacedName.Namespace)
+
+	existingService, err := deplUtil.CheckForService(srvListOptions)
+	if err != nil {
+		log.Error(err, "Failed to check for existing algo metric service")
+		return err
+	}
+	if existingService == nil {
+
+		// Generate the service for the all algos
+		algoService, err := algoReconciler.createMetricServiceSpec(algoReconciler.endpoint)
+		if err != nil {
+			log.Error(err, "Failed to create algo metrics / health service spec")
+			return err
+		}
+
+		err = deplUtil.CreateService(algoService)
+		if err != nil {
+			log.Error(err, "Failed to create algo metrics / health service")
+			return err
+		}
+	}
+
+	return nil
+
+}
+
+// Reconcile creates or updates all algos for the endpoint
 func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 	algoConfig := algoReconciler.algoConfig
@@ -82,6 +117,8 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		"env":           "production",
 	}
 
+	deplUtil := utils.NewDeploymentUtil(algoReconciler.client)
+
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
 	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s, algoowner=%s, algo=%s, algoversion=%s, algoindex=%v",
@@ -92,8 +129,6 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		algoConfig.AlgoVersionTag,
 		algoConfig.AlgoIndex))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
-
-	deplUtil := utils.NewDeploymentUtil(algoReconciler.client)
 
 	existingDeployment, err := deplUtil.CheckForDeployment(listOptions)
 
@@ -152,6 +187,39 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	}
 
 	return nil
+
+}
+
+func (algoReconciler *AlgoReconciler) createMetricServiceSpec(endpoint *algov1alpha1.Endpoint) (*corev1.Service, error) {
+
+	labels := map[string]string{
+		"system": "algorun",
+		"tier":   "algo",
+		"env":    "production",
+	}
+
+	algoServiceSpec := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: endpoint.Namespace,
+			Name:      "algo-metrics-service",
+			Labels:    labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				corev1.ServicePort{
+					Name: "metrics",
+					Port: 10080,
+				},
+			},
+			Selector: map[string]string{
+				"system": "algorun",
+				"tier":   "algo",
+				"env":    "production",
+			},
+		},
+	}
+
+	return algoServiceSpec, nil
 
 }
 
