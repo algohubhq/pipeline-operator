@@ -21,7 +21,7 @@ spec:
       containers:
         - name: endpoint-operator
           # Replace this with the built image name
-          image: algohub/endpoint-operator:c7ae9cff089409863366e054c4f909df7406dbe3
+          image: algohub/endpoint-operator:439486cc0522965a1c99b21c3c392c5f506aa7e9
           command:
           - endpoint-operator
           imagePullPolicy: Always
@@ -35,4 +35,4 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: "endpoint-operator"
+              value: "algorun-endpoint-operator"

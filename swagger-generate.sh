@@ -31,3 +31,5 @@ find ./pkg/apis/algo/v1alpha1/ -name '*.go' -exec sed -i 's/package swagger/pack
 
 rm -rf ./algorun-go-client/
 
+operator-sdk generate k8s
+operator-sdk generate openapi
