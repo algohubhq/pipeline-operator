@@ -121,6 +121,35 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
+	// Check if the APP CR was marked to be deleted
+	isEndpointMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
+	if isEndpointMarkedToBeDeleted {
+
+		// This endpoint is queued for deletion. Update the guages
+		utils.EndpointCountGuage.Sub(1)
+		topicCount := len(instance.Spec.EndpointConfig.TopicConfigs)
+		utils.TopicCountGuage.Sub(float64(topicCount))
+		algoCount := len(instance.Spec.EndpointConfig.AlgoConfigs)
+		utils.AlgoCountGuage.Sub(float64(algoCount))
+		dataConnectorCount := len(instance.Spec.EndpointConfig.DataConnectorConfigs)
+		utils.DataConnectorCountGuage.Sub(float64(dataConnectorCount))
+
+		// Update finalizer to allow delete CR
+		instance.SetFinalizers(nil)
+
+		// Update CR
+		err := r.client.Update(context.TODO(), instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, nil
+	}
+
+	// Add finalizer for this CR
+	if err := r.addFinalizer(instance); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	var wg sync.WaitGroup
 
 	// Create / update the kafka topics
@@ -132,6 +161,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 			topicReconciler := recon.NewTopicReconciler(instance, &currentTopicConfig, &request, r.client, r.scheme)
 			topicReconciler.Reconcile()
 			wg.Done()
+			utils.TopicCountGuage.Add(1)
 		}(topicConfig)
 	}
 
@@ -145,6 +175,8 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 			err = algoReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in AlgoConfig reconcile loop.")
+			} else {
+				utils.AlgoCountGuage.Add(1)
 			}
 			wg.Done()
 		}(algoConfig)
@@ -169,6 +201,8 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 			err = dcReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in DataConnectorConfigs reconcile loop.")
+			} else {
+				utils.DataConnectorCountGuage.Add(1)
 			}
 			wg.Done()
 		}(dcConfig)
@@ -279,8 +313,26 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 		}
 	}
 
+	utils.EndpointCountGuage.Add(1)
+
 	return reconcile.Result{}, nil
 
+}
+
+//addFinalizer will add this attribute to the Endpoint CR
+func (r *ReconcileEndpoint) addFinalizer(endpoint *algov1alpha1.Endpoint) error {
+	if len(endpoint.GetFinalizers()) < 1 && endpoint.GetDeletionTimestamp() == nil {
+		log.Info("Adding Finalizer for the Endpoint")
+		endpoint.SetFinalizers([]string{"finalizer.endpoint.algo.run"})
+
+		// Update CR
+		err := r.client.Update(context.TODO(), endpoint)
+		if err != nil {
+			log.Error(err, "Failed to update Endpoint with finalizer")
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *ReconcileEndpoint) getStatus(cr *algov1alpha1.Endpoint, request reconcile.Request) (*algov1alpha1.EndpointStatus, error) {

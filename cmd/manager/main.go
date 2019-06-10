@@ -10,6 +10,7 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	utils "endpoint-operator/internal/utilities"
 	"endpoint-operator/pkg/apis"
 	"endpoint-operator/pkg/controller"
 
@@ -106,6 +107,10 @@ func main() {
 		log.Error(err, "")
 		os.Exit(1)
 	}
+
+	log.Info("Registering and serving custom metrics")
+	customMetrics := utils.NewCustomMetrics(mgr.GetClient(), namespace)
+	customMetrics.ServeCustomMetrics()
 
 	// Create Service object to expose the metrics port.
 	_, err = metrics.ExposeMetricsPort(ctx, metricsPort)
