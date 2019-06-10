@@ -82,6 +82,20 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 				"replicas":         1,
 				"image":            imageName,
 				"bootstrapServers": endpoint.Spec.KafkaBrokers,
+				"metrics": map[string]interface{}{
+					"lowercaseOutputName":       true,
+					"lowercaseOutputLabelNames": true,
+					"rules": []map[string]interface{}{
+						map[string]interface{}{
+							"pattern": "kafka.connect<type=connect-worker-metrics>([^:]+):",
+							"name":    "kafka_connect_connect_worker_metrics_$1",
+						},
+						map[string]interface{}{
+							"pattern": "kafka.connect<type=connect-metrics, client-id=([^:]+)><>([^:]+)",
+							"name":    "kafka_connect_connect_metrics_$1_$2",
+						},
+					},
+				},
 				// "bootstrapServers": "algorun-kafka-kafka-bootstrap.algorun:9092",
 				"config": map[string]interface{}{
 					"group.id":                          "connect-cluster",

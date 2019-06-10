@@ -4,6 +4,7 @@ metadata:
   name: admin-test-endpoint-1
   namespace: algorun
 spec:
+  kafkaBrokers: algorun-kafka-kafka-bootstrap.algorun.svc.cluster.local:9092
   endpointConfig:
     endpointOwnerUserName: admin
     endpointName: test-endpoint-1
@@ -12,12 +13,13 @@ spec:
     pipelineVersionTag: "1.0"
     algoConfigs:
     - algoOwnerUserName: admin
-      algoName: test-image-resize-delimitedfilein-folderout0test
+      algoName: test-image-resize-delimitedfilein-folderout
       algoVersionTag: "latest"
       algoIndex: 1
       imageRepository: algohub/algo-test-go
       imageTag: "latest"
       entrypoint: /opt/algo-test-go/algo-test-go --input-type delimitedparameter --output-type folder --media-type image
+      serverType: Serverless
       algoParams:
       - sortOrder: 1
         name: --transform
@@ -39,6 +41,51 @@ spec:
       - name: Transformed-Image
         description: Image result from the transform type
         outputDeliveryType: FolderParameter
+        parameter: --output-folder
+        mediaType:
+          title: Any Image
+          name: image/any
+          groupName: image
+          subTypeName: any
+      timeoutSeconds: 60
+      memoryRequestBytes: 0
+      memoryLimitBytes: 0
+      cpuRequestUnits: 0.0000000000000000000000000000
+      cpuLimitUnits: 0.0000000000000000000000000000
+      gpuLimitUnits: 0.0000000000000000000000000000
+      instances: 1
+      minInstances: 1
+      maxInstances: 1
+      autoScaleCPUPercent: 0
+    - algoOwnerUserName: admin
+      algoName: test-image-resize-filein-fileout
+      algoVersionTag: "latest"
+      algoIndex: 10
+      imageRepository: algohub/algo-test-go
+      imageTag: "latest"
+      entrypoint: /opt/algo-test-go/algo-test-go --input-type parameter --output-type file --media-type image
+      serverType: Serverless
+      algoParams:
+      - sortOrder: 1
+        name: --transform
+        value: resize
+        description: Type of transform to perform. --transform=[resize]
+        options: []
+      inputs:
+      - name: Image
+        description: Image to transform
+        isRequired: true
+        inputDeliveryType: Parameter
+        parameter: --input-file
+        mediaTypes:
+        - title: Any Image
+          name: image/any
+          groupName: image
+          subTypeName: any
+      outputs:
+      - name: Transformed-Image
+        description: Image result from the transform type
+        outputDeliveryType: FileParameter
         parameter: --output-folder
         mediaType:
           title: Any Image
@@ -102,56 +149,13 @@ spec:
       maxInstances: 1
       autoScaleCPUPercent: 0
     - algoOwnerUserName: admin
-      algoName: test-image-resize-filein-fileout
-      algoVersionTag: "latest"
-      algoIndex: 10
-      imageRepository: algohub/algo-test-go
-      imageTag: "latest"
-      entrypoint: /opt/algo-test-go/algo-test-go --input-type parameter --output-type file --media-type image
-      algoParams:
-      - sortOrder: 1
-        name: --transform
-        value: resize
-        description: Type of transform to perform. --transform=[resize]
-        options: []
-      inputs:
-      - name: Image
-        description: Image to transform
-        isRequired: true
-        inputDeliveryType: Parameter
-        parameter: --input-file
-        mediaTypes:
-        - title: Any Image
-          name: image/any
-          groupName: image
-          subTypeName: any
-      outputs:
-      - name: Transformed-Image
-        description: Image result from the transform type
-        outputDeliveryType: FileParameter
-        parameter: --output-folder
-        mediaType:
-          title: Any Image
-          name: image/any
-          groupName: image
-          subTypeName: any
-      timeoutSeconds: 60
-      memoryRequestBytes: 0
-      memoryLimitBytes: 0
-      cpuRequestUnits: 0.0000000000000000000000000000
-      cpuLimitUnits: 0.0000000000000000000000000000
-      gpuLimitUnits: 0.0000000000000000000000000000
-      instances: 1
-      minInstances: 1
-      maxInstances: 1
-      autoScaleCPUPercent: 0
-    - algoOwnerUserName: admin
       algoName: test-image-resize-repeatedfilein-folderout
       algoVersionTag: "latest"
-      algoIndex: 2
+      algoIndex: 9
       imageRepository: algohub/algo-test-go
       imageTag: "latest"
       entrypoint: /opt/algo-test-go/algo-test-go --input-type repeatedparameter --output-type folder --media-type image
+      serverType: Serverless
       algoParams:
       - sortOrder: 1
         name: --transform
@@ -190,12 +194,13 @@ spec:
       maxInstances: 1
       autoScaleCPUPercent: 0
     - algoOwnerUserName: admin
-      algoName: test-image-resize-filein-fileout
+      algoName: test-image-resize-stdin-stdout
       algoVersionTag: "latest"
-      algoIndex: 3
+      algoIndex: 11
       imageRepository: algohub/algo-test-go
       imageTag: "latest"
-      entrypoint: /opt/algo-test-go/algo-test-go --input-type parameter --output-type file --media-type image
+      entrypoint: /opt/algo-test-go/algo-test-go --input-type stdin --media-type image
+      serverType: Serverless
       algoParams:
       - sortOrder: 1
         name: --transform
@@ -206,8 +211,6 @@ spec:
       - name: Image
         description: Image to transform
         isRequired: true
-        inputDeliveryType: Parameter
-        parameter: --input-file
         mediaTypes:
         - title: Any Image
           name: image/any
@@ -216,8 +219,6 @@ spec:
       outputs:
       - name: Transformed-Image
         description: Image result from the transform type
-        outputDeliveryType: FileParameter
-        parameter: --output-folder
         mediaType:
           title: Any Image
           name: image/any
@@ -236,10 +237,11 @@ spec:
     - algoOwnerUserName: admin
       algoName: test-text-transform-stdin-stdout
       algoVersionTag: "latest"
-      algoIndex: 5
+      algoIndex: 12
       imageRepository: algohub/algo-test-go
       imageTag: "latest"
       entrypoint: /opt/algo-test-go/algo-test-go --input-type stdin
+      serverType: Serverless
       algoParams:
       - sortOrder: 1
         name: --transform
@@ -249,7 +251,6 @@ spec:
       inputs:
       - name: Text
         description: Text to transform
-        inputDeliveryType: StdIn
         isRequired: true
         mediaTypes:
         - title: Any Text
@@ -259,11 +260,101 @@ spec:
       outputs:
       - name: Transformed-Text
         description: Text result from the transform type
-        outputDeliveryType: StdOut
         mediaType:
           title: Any Text
           name: text/any
           groupName: text
+          subTypeName: any
+      timeoutSeconds: 60
+      memoryRequestBytes: 0
+      memoryLimitBytes: 0
+      cpuRequestUnits: 0.0000000000000000000000000000
+      cpuLimitUnits: 0.0000000000000000000000000000
+      gpuLimitUnits: 0.0000000000000000000000000000
+      instances: 1
+      minInstances: 1
+      maxInstances: 1
+      autoScaleCPUPercent: 0
+    - algoOwnerUserName: admin
+      algoName: test-image-resize-delimitedfilein-folderout
+      algoVersionTag: "latest"
+      algoIndex: 8
+      imageRepository: algohub/algo-test-go
+      imageTag: "latest"
+      entrypoint: /opt/algo-test-go/algo-test-go --input-type delimitedparameter --output-type folder --media-type image
+      serverType: Serverless
+      algoParams:
+      - sortOrder: 1
+        name: --transform
+        value: resize
+        description: Type of transform to perform. --transform=[resize]
+        options: []
+      inputs:
+      - name: Image
+        description: Image to transform
+        isRequired: true
+        inputDeliveryType: DelimitedParameter
+        parameter: --input-file
+        mediaTypes:
+        - title: Any Image
+          name: image/any
+          groupName: image
+          subTypeName: any
+      outputs:
+      - name: Transformed-Image
+        description: Image result from the transform type
+        outputDeliveryType: FolderParameter
+        parameter: --output-folder
+        mediaType:
+          title: Any Image
+          name: image/any
+          groupName: image
+          subTypeName: any
+      timeoutSeconds: 60
+      memoryRequestBytes: 0
+      memoryLimitBytes: 0
+      cpuRequestUnits: 0.0000000000000000000000000000
+      cpuLimitUnits: 0.0000000000000000000000000000
+      gpuLimitUnits: 0.0000000000000000000000000000
+      instances: 1
+      minInstances: 1
+      maxInstances: 1
+      autoScaleCPUPercent: 0
+    - algoOwnerUserName: admin
+      algoName: test-image-resize-http
+      algoVersionTag: "latest"
+      algoIndex: 7
+      imageRepository: algohub/algo-test-go
+      imageTag: "latest"
+      entrypoint: /opt/algo-test-go/algo-test-go --input-type http --media-type image
+      serverType: Serverless
+      algoParams:
+      - sortOrder: 1
+        name: --transform
+        value: resize
+        description: Type of transform to perform. --transform=[resize]
+        options: []
+      inputs:
+      - name: Image
+        description: Image to transform
+        isRequired: true
+        inputDeliveryType: Http
+        httpVerb: POST
+        httpPort: 8080
+        httpPath: /image
+        mediaTypes:
+        - title: Any Image
+          name: image/any
+          groupName: image
+          subTypeName: any
+      outputs:
+      - name: Transformed-Image
+        description: Image result from the transform type
+        outputDeliveryType: HttpResponse
+        mediaType:
+          title: Any Image
+          name: image/any
+          groupName: image
           subTypeName: any
       timeoutSeconds: 60
       memoryRequestBytes: 0
@@ -322,100 +413,13 @@ spec:
       maxInstances: 1
       autoScaleCPUPercent: 0
     - algoOwnerUserName: admin
-      algoName: test-image-resize-stdin-stdout
-      algoVersionTag: "latest"
-      algoIndex: 4
-      imageRepository: algohub/algo-test-go
-      imageTag: "latest"
-      entrypoint: /opt/algo-test-go/algo-test-go --input-type stdin --media-type image
-      algoParams:
-      - sortOrder: 1
-        name: --transform
-        value: resize
-        description: Type of transform to perform. --transform=[resize]
-        options: []
-      inputs:
-      - name: Image
-        description: Image to transform
-        inputDeliveryType: StdIn
-        isRequired: true
-        mediaTypes:
-        - title: Any Image
-          name: image/any
-          groupName: image
-          subTypeName: any
-      outputs:
-      - name: Transformed-Image
-        description: Image result from the transform type
-        outputDeliveryType: StdOut
-        mediaType:
-          title: Any Image
-          name: image/any
-          groupName: image
-          subTypeName: any
-      timeoutSeconds: 60
-      memoryRequestBytes: 0
-      memoryLimitBytes: 0
-      cpuRequestUnits: 0.0000000000000000000000000000
-      cpuLimitUnits: 0.0000000000000000000000000000
-      gpuLimitUnits: 0.0000000000000000000000000000
-      instances: 1
-      minInstances: 1
-      maxInstances: 1
-      autoScaleCPUPercent: 0
-    - algoOwnerUserName: admin
-      algoName: test-image-resize-http
-      algoVersionTag: "latest"
-      algoIndex: 14
-      imageRepository: algohub/algo-test-go
-      imageTag: "latest"
-      entrypoint: /opt/algo-test-go/algo-test-go --input-type http --media-type image
-      serverType: Http
-      algoParams:
-      - sortOrder: 1
-        name: --transform
-        value: resize
-        description: Type of transform to perform. --transform=[resize]
-        options: []
-      inputs:
-      - name: Image
-        description: Image to transform
-        isRequired: true
-        inputDeliveryType: Http
-        httpVerb: POST
-        httpPort: 8080
-        httpPath: /image
-        mediaTypes:
-        - title: Any Image
-          name: image/any
-          groupName: image
-          subTypeName: any
-      outputs:
-      - name: Transformed-Image
-        description: Image result from the transform type
-        outputDeliveryType: HttpResponse
-        mediaType:
-          title: Any Image
-          name: image/any
-          groupName: image
-          subTypeName: any
-      timeoutSeconds: 60
-      memoryRequestBytes: 0
-      memoryLimitBytes: 0
-      cpuRequestUnits: 0.0000000000000000000000000000
-      cpuLimitUnits: 0.0000000000000000000000000000
-      gpuLimitUnits: 0.0000000000000000000000000000
-      instances: 1
-      minInstances: 1
-      maxInstances: 1
-      autoScaleCPUPercent: 0
-    - algoOwnerUserName: admin
       algoName: test-text-transform-stdin-stdout
       algoVersionTag: "latest"
-      algoIndex: 12
+      algoIndex: 5
       imageRepository: algohub/algo-test-go
       imageTag: "latest"
       entrypoint: /opt/algo-test-go/algo-test-go --input-type stdin
+      serverType: Serverless
       algoParams:
       - sortOrder: 1
         name: --transform
@@ -425,7 +429,6 @@ spec:
       inputs:
       - name: Text
         description: Text to transform
-        inputDeliveryType: StdIn
         isRequired: true
         mediaTypes:
         - title: Any Text
@@ -435,7 +438,6 @@ spec:
       outputs:
       - name: Transformed-Text
         description: Text result from the transform type
-        outputDeliveryType: StdOut
         mediaType:
           title: Any Text
           name: text/any
@@ -454,10 +456,11 @@ spec:
     - algoOwnerUserName: admin
       algoName: test-image-resize-stdin-stdout
       algoVersionTag: "latest"
-      algoIndex: 11
+      algoIndex: 4
       imageRepository: algohub/algo-test-go
       imageTag: "latest"
       entrypoint: /opt/algo-test-go/algo-test-go --input-type stdin --media-type image
+      serverType: Serverless
       algoParams:
       - sortOrder: 1
         name: --transform
@@ -467,7 +470,6 @@ spec:
       inputs:
       - name: Image
         description: Image to transform
-        inputDeliveryType: StdIn
         isRequired: true
         mediaTypes:
         - title: Any Image
@@ -477,7 +479,51 @@ spec:
       outputs:
       - name: Transformed-Image
         description: Image result from the transform type
-        outputDeliveryType: StdOut
+        mediaType:
+          title: Any Image
+          name: image/any
+          groupName: image
+          subTypeName: any
+      timeoutSeconds: 60
+      memoryRequestBytes: 0
+      memoryLimitBytes: 0
+      cpuRequestUnits: 0.0000000000000000000000000000
+      cpuLimitUnits: 0.0000000000000000000000000000
+      gpuLimitUnits: 0.0000000000000000000000000000
+      instances: 1
+      minInstances: 1
+      maxInstances: 1
+      autoScaleCPUPercent: 0
+    - algoOwnerUserName: admin
+      algoName: test-image-resize-filein-fileout
+      algoVersionTag: "latest"
+      algoIndex: 3
+      imageRepository: algohub/algo-test-go
+      imageTag: "latest"
+      entrypoint: /opt/algo-test-go/algo-test-go --input-type parameter --output-type file --media-type image
+      serverType: Serverless
+      algoParams:
+      - sortOrder: 1
+        name: --transform
+        value: resize
+        description: Type of transform to perform. --transform=[resize]
+        options: []
+      inputs:
+      - name: Image
+        description: Image to transform
+        isRequired: true
+        inputDeliveryType: Parameter
+        parameter: --input-file
+        mediaTypes:
+        - title: Any Image
+          name: image/any
+          groupName: image
+          subTypeName: any
+      outputs:
+      - name: Transformed-Image
+        description: Image result from the transform type
+        outputDeliveryType: FileParameter
+        parameter: --output-folder
         mediaType:
           title: Any Image
           name: image/any
@@ -496,10 +542,11 @@ spec:
     - algoOwnerUserName: admin
       algoName: test-image-resize-repeatedfilein-folderout
       algoVersionTag: "latest"
-      algoIndex: 9
+      algoIndex: 2
       imageRepository: algohub/algo-test-go
       imageTag: "latest"
       entrypoint: /opt/algo-test-go/algo-test-go --input-type repeatedparameter --output-type folder --media-type image
+      serverType: Serverless
       algoParams:
       - sortOrder: 1
         name: --transform
@@ -538,57 +585,13 @@ spec:
       maxInstances: 1
       autoScaleCPUPercent: 0
     - algoOwnerUserName: admin
-      algoName: test-image-resize-delimitedfilein-folderout0test
-      algoVersionTag: "latest"
-      algoIndex: 8
-      imageRepository: algohub/algo-test-go
-      imageTag: "latest"
-      entrypoint: /opt/algo-test-go/algo-test-go --input-type delimitedparameter --output-type folder --media-type image
-      algoParams:
-      - sortOrder: 1
-        name: --transform
-        value: resize
-        description: Type of transform to perform. --transform=[resize]
-        options: []
-      inputs:
-      - name: Image
-        description: Image to transform
-        isRequired: true
-        inputDeliveryType: DelimitedParameter
-        parameter: --input-file
-        mediaTypes:
-        - title: Any Image
-          name: image/any
-          groupName: image
-          subTypeName: any
-      outputs:
-      - name: Transformed-Image
-        description: Image result from the transform type
-        outputDeliveryType: FolderParameter
-        parameter: --output-folder
-        mediaType:
-          title: Any Image
-          name: image/any
-          groupName: image
-          subTypeName: any
-      timeoutSeconds: 60
-      memoryRequestBytes: 0
-      memoryLimitBytes: 0
-      cpuRequestUnits: 0.0000000000000000000000000000
-      cpuLimitUnits: 0.0000000000000000000000000000
-      gpuLimitUnits: 0.0000000000000000000000000000
-      instances: 1
-      minInstances: 1
-      maxInstances: 1
-      autoScaleCPUPercent: 0
-    - algoOwnerUserName: admin
       algoName: test-image-resize-http
       algoVersionTag: "latest"
-      algoIndex: 7
+      algoIndex: 14
       imageRepository: algohub/algo-test-go
       imageTag: "latest"
       entrypoint: /opt/algo-test-go/algo-test-go --input-type http --media-type image
-      serverType: Http
+      serverType: Serverless
       algoParams:
       - sortOrder: 1
         name: --transform
@@ -627,261 +630,159 @@ spec:
       minInstances: 1
       maxInstances: 1
       autoScaleCPUPercent: 0
+    dataConnectorConfigs: []
+    hookConfig:
+      imageRepository: algohub/hook-runner
+      imageTag: "latest"
+      instances: 1
+      webHooks: []
     topicConfigs:
-    - pipeType: EndpointConnector
-      endpointConnectorOutputName: TextFile
-      topicAutoName: true
-      topicName: algorun.{endpointownerusername}.{endpointname}.connector.textfile
-      topicAutoPartition: true
-      topicPartitions: 1
-      topicReplicationFactor: 1
-      topicParams: []
-    - algoOwnerName: admin
-      algoName: test-image-resize-stdin-stdout
-      algoIndex: 11
-      algoOutputName: Transformed-Image
+    - sourceName: admin/test-image-resize-stdin-stdout:latest[11]
+      sourceOutputName: Transformed-Image
       topicAutoName: true
       topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-stdin-stdout.11.output.transformed-image
       topicAutoPartition: true
       topicPartitions: 1
       topicReplicationFactor: 1
       topicParams: []
-    - pipeType: EndpointConnector
-      endpointConnectorOutputName: TextEmbedded
+    - nodeType: EndpointConnector
+      sourceName: EndpointConnector
+      sourceOutputName: TextFile
+      topicAutoName: true
+      topicName: algorun.{endpointownerusername}.{endpointname}.connector.textfile
+      topicAutoPartition: true
+      topicPartitions: 1
+      topicReplicationFactor: 1
+      topicParams: []
+    - nodeType: EndpointConnector
+      sourceName: EndpointConnector
+      sourceOutputName: TextEmbedded
       topicAutoName: true
       topicName: algorun.{endpointownerusername}.{endpointname}.connector.textembedded
       topicAutoPartition: true
       topicPartitions: 1
       topicReplicationFactor: 1
       topicParams: []
-    - algoOwnerName: admin
-      algoName: test-image-resize-filein-fileout
-      algoIndex: 10
-      algoOutputName: Transformed-Image
+    - sourceName: admin/test-image-resize-filein-fileout:latest[10]
+      sourceOutputName: Transformed-Image
       topicAutoName: true
       topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-filein-fileout.10.output.transformed-image
       topicAutoPartition: true
       topicPartitions: 1
       topicReplicationFactor: 1
       topicParams: []
-    - algoOwnerName: admin
-      algoName: test-text-transform-http
-      algoIndex: 13
-      algoOutputName: Transformed-Text
+    - sourceName: admin/test-text-transform-http:latest[13]
+      sourceOutputName: Transformed-Text
       topicAutoName: true
       topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-text-transform-http.13.output.transformed-text
       topicAutoPartition: true
       topicPartitions: 1
       topicReplicationFactor: 1
       topicParams: []
-    - algoOwnerName: admin
-      algoName: test-image-resize-delimitedfilein-folderout0test
-      algoIndex: 8
-      algoOutputName: Transformed-Image
+    - sourceName: admin/test-image-resize-delimitedfilein-folderout:latest[8]
+      sourceOutputName: Transformed-Image
       topicAutoName: true
       topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-delimitedfilein-folderout.8.output.transformed-image
       topicAutoPartition: true
       topicPartitions: 1
       topicReplicationFactor: 1
       topicParams: []
-    - algoOwnerName: admin
-      algoName: test-image-resize-repeatedfilein-folderout
-      algoIndex: 9
-      algoOutputName: Transformed-Image
+    - sourceName: admin/test-image-resize-repeatedfilein-folderout:latest[9]
+      sourceOutputName: Transformed-Image
       topicAutoName: true
       topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-repeatedfilein-folderout.9.output.transformed-image
       topicAutoPartition: true
       topicPartitions: 1
       topicReplicationFactor: 1
       topicParams: []
-    - algoOwnerName: admin
-      algoName: test-text-transform-stdin-stdout
-      algoIndex: 12
-      algoOutputName: Transformed-Text
+    - sourceName: admin/test-text-transform-stdin-stdout:latest[12]
+      sourceOutputName: Transformed-Text
       topicAutoName: true
       topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-text-transform-stdin-stdout.12.output.transformed-text
       topicAutoPartition: true
       topicPartitions: 1
       topicReplicationFactor: 1
       topicParams: []
-    - algoOwnerName: admin
-      algoName: test-image-resize-filein-fileout
-      algoIndex: 3
-      algoOutputName: Transformed-Image
-      topicAutoName: true
-      topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-filein-fileout.3.output.transformed-image
-      topicAutoPartition: true
-      topicPartitions: 1
-      topicReplicationFactor: 1
-      topicParams: []
-    - algoOwnerName: admin
-      algoName: test-image-resize-http
-      algoIndex: 7
-      algoOutputName: Transformed-Image
-      topicAutoName: true
-      topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-http.7.output.transformed-image
-      topicAutoPartition: true
-      topicPartitions: 1
-      topicReplicationFactor: 1
-      topicParams: []
-    - algoOwnerName: admin
-      algoName: test-text-transform-http
-      algoIndex: 6
-      algoOutputName: Transformed-Text
-      topicAutoName: true
-      topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-text-transform-http.6.output.transformed-text
-      topicAutoPartition: true
-      topicPartitions: 1
-      topicReplicationFactor: 1
-      topicParams: []
-    - algoOwnerName: admin
-      algoName: test-text-transform-stdin-stdout
-      algoIndex: 5
-      algoOutputName: Transformed-Text
-      topicAutoName: true
-      topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-text-transform-stdin-stdout.5.output.transformed-text
-      topicAutoPartition: true
-      topicPartitions: 1
-      topicReplicationFactor: 1
-      topicParams: []
-    - algoOwnerName: admin
-      algoName: test-image-resize-stdin-stdout
-      algoIndex: 4
-      algoOutputName: Transformed-Image
-      topicAutoName: true
-      topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-stdin-stdout.4.output.transformed-image
-      topicAutoPartition: true
-      topicPartitions: 1
-      topicReplicationFactor: 1
-      topicParams: []
-    - algoOwnerName: admin
-      algoName: test-image-resize-repeatedfilein-folderout
-      algoIndex: 2
-      algoOutputName: Transformed-Image
-      topicAutoName: true
-      topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-repeatedfilein-folderout.2.output.transformed-image
-      topicAutoPartition: true
-      topicPartitions: 1
-      topicReplicationFactor: 1
-      topicParams: []
-    - algoOwnerName: admin
-      algoName: test-image-resize-delimitedfilein-folderout0test
-      algoIndex: 1
-      algoOutputName: Transformed-Image
+    - sourceName: admin/test-image-resize-delimitedfilein-folderout:latest[1]
+      sourceOutputName: Transformed-Image
       topicAutoName: true
       topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-delimitedfilein-folderout.1.output.transformed-image
       topicAutoPartition: true
       topicPartitions: 1
       topicReplicationFactor: 1
       topicParams: []
-    - pipeType: EndpointConnector
-      endpointConnectorOutputName: ImageEmbedded
+    - sourceName: admin/test-image-resize-http:latest[7]
+      sourceOutputName: Transformed-Image
+      topicAutoName: true
+      topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-http.7.output.transformed-image
+      topicAutoPartition: true
+      topicPartitions: 1
+      topicReplicationFactor: 1
+      topicParams: []
+    - sourceName: admin/test-text-transform-http:latest[6]
+      sourceOutputName: Transformed-Text
+      topicAutoName: true
+      topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-text-transform-http.6.output.transformed-text
+      topicAutoPartition: true
+      topicPartitions: 1
+      topicReplicationFactor: 1
+      topicParams: []
+    - sourceName: admin/test-text-transform-stdin-stdout:latest[5]
+      sourceOutputName: Transformed-Text
+      topicAutoName: true
+      topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-text-transform-stdin-stdout.5.output.transformed-text
+      topicAutoPartition: true
+      topicPartitions: 1
+      topicReplicationFactor: 1
+      topicParams: []
+    - sourceName: admin/test-image-resize-stdin-stdout:latest[4]
+      sourceOutputName: Transformed-Image
+      topicAutoName: true
+      topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-stdin-stdout.4.output.transformed-image
+      topicAutoPartition: true
+      topicPartitions: 1
+      topicReplicationFactor: 1
+      topicParams: []
+    - sourceName: admin/test-image-resize-filein-fileout:latest[3]
+      sourceOutputName: Transformed-Image
+      topicAutoName: true
+      topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-filein-fileout.3.output.transformed-image
+      topicAutoPartition: true
+      topicPartitions: 1
+      topicReplicationFactor: 1
+      topicParams: []
+    - sourceName: admin/test-image-resize-repeatedfilein-folderout:latest[2]
+      sourceOutputName: Transformed-Image
+      topicAutoName: true
+      topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-repeatedfilein-folderout.2.output.transformed-image
+      topicAutoPartition: true
+      topicPartitions: 1
+      topicReplicationFactor: 1
+      topicParams: []
+    - nodeType: EndpointConnector
+      sourceName: EndpointConnector
+      sourceOutputName: ImageEmbedded
       topicAutoName: true
       topicName: algorun.{endpointownerusername}.{endpointname}.connector.imageembedded
       topicAutoPartition: true
       topicPartitions: 1
       topicReplicationFactor: 1
       topicParams: []
-    - algoOwnerName: admin
-      algoName: test-image-resize-http
-      algoIndex: 14
-      algoOutputName: Transformed-Image
+    - sourceName: admin/test-image-resize-http:latest[14]
+      sourceOutputName: Transformed-Image
       topicAutoName: true
       topicName: algorun.{endpointownerusername}.{endpointname}.algo.admin.test-image-resize-http.14.output.transformed-image
       topicAutoPartition: true
       topicPartitions: 1
       topicReplicationFactor: 1
       topicParams: []
-    - pipeType: EndpointConnector
-      endpointConnectorOutputName: ImageFile
+    - nodeType: EndpointConnector
+      sourceName: EndpointConnector
+      sourceOutputName: ImageFile
       topicAutoName: true
       topicName: algorun.{endpointownerusername}.{endpointname}.connector.imagefile
       topicAutoPartition: true
       topicPartitions: 1
       topicReplicationFactor: 1
       topicParams: []
-    pipes:
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: ImageEmbedded
-      destAlgoOwnerName: admin
-      destAlgoName: test-image-resize-delimitedfilein-folderout0test
-      destAlgoIndex: 1
-      destAlgoInputName: Image
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: ImageEmbedded
-      destAlgoOwnerName: admin
-      destAlgoName: test-image-resize-repeatedfilein-folderout
-      destAlgoIndex: 2
-      destAlgoInputName: Image
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: ImageFile
-      destAlgoOwnerName: admin
-      destAlgoName: test-image-resize-http
-      destAlgoIndex: 14
-      destAlgoInputName: Image
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: ImageEmbedded
-      destAlgoOwnerName: admin
-      destAlgoName: test-image-resize-filein-fileout
-      destAlgoIndex: 3
-      destAlgoInputName: Image
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: TextEmbedded
-      destAlgoOwnerName: admin
-      destAlgoName: test-text-transform-stdin-stdout
-      destAlgoIndex: 5
-      destAlgoInputName: Text
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: TextEmbedded
-      destAlgoOwnerName: admin
-      destAlgoName: test-text-transform-http
-      destAlgoIndex: 6
-      destAlgoInputName: Text
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: TextFile
-      destAlgoOwnerName: admin
-      destAlgoName: test-text-transform-stdin-stdout
-      destAlgoIndex: 12
-      destAlgoInputName: Text
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: TextFile
-      destAlgoOwnerName: admin
-      destAlgoName: test-text-transform-http
-      destAlgoIndex: 13
-      destAlgoInputName: Text
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: ImageEmbedded
-      destAlgoOwnerName: admin
-      destAlgoName: test-image-resize-stdin-stdout
-      destAlgoIndex: 4
-      destAlgoInputName: Image
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: ImageEmbedded
-      destAlgoOwnerName: admin
-      destAlgoName: test-image-resize-http
-      destAlgoIndex: 7
-      destAlgoInputName: Image
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: ImageFile
-      destAlgoOwnerName: admin
-      destAlgoName: test-image-resize-stdin-stdout
-      destAlgoIndex: 11
-      destAlgoInputName: Image
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: ImageFile
-      destAlgoOwnerName: admin
-      destAlgoName: test-image-resize-filein-fileout
-      destAlgoIndex: 10
-      destAlgoInputName: Image
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: ImageFile
-      destAlgoOwnerName: admin
-      destAlgoName: test-image-resize-delimitedfilein-folderout0test
-      destAlgoIndex: 8
-      destAlgoInputName: Image
-    - pipeType: EndpointConnector
-      pipelineEndpointConnectorOutputName: ImageFile
-      destAlgoOwnerName: admin
-      destAlgoName: test-image-resize-repeatedfilein-folderout
-      destAlgoIndex: 9
-      destAlgoInputName: Image
+    pipes: []

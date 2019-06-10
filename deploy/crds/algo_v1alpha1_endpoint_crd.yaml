@@ -165,7 +165,6 @@ spec:
                           required:
                           - name
                           - isRequired
-                          - inputDeliveryType
                           - mediaTypes
                           type: object
                         type: array
@@ -227,7 +226,6 @@ spec:
                               type: string
                           required:
                           - name
-                          - outputDeliveryType
                           - mediaType
                           type: object
                         type: array
@@ -311,6 +309,33 @@ spec:
                   type: string
                 endpointOwnerUserName:
                   type: string
+                hookConfig:
+                  properties:
+                    imageRepository:
+                      type: string
+                    imageTag:
+                      type: string
+                    instances:
+                      format: int32
+                      type: integer
+                    webHooks:
+                      items:
+                        properties:
+                          endpointName:
+                            type: string
+                          endpointOwnerUserName:
+                            type: string
+                          httpHeaders:
+                            type: string
+                          httpVerb:
+                            type: string
+                          pipelineHookInputName:
+                            type: string
+                          webHookUrl:
+                            type: string
+                        type: object
+                      type: array
+                  type: object
                 pipelineName:
                   type: string
                 pipelineOwnerUserName:
@@ -320,62 +345,32 @@ spec:
                 pipes:
                   items:
                     properties:
-                      destAlgoIndex:
-                        format: int32
-                        type: integer
-                      destAlgoInputName:
+                      destInputMessageDataType:
                         type: string
-                      destAlgoName:
+                      destInputName:
                         type: string
-                      destAlgoOwnerName:
+                      destName:
                         type: string
-                      pipeType:
+                      destNodeType:
                         type: string
-                      pipelineDataSinkIndex:
-                        format: int32
-                        type: integer
-                      pipelineDataSinkName:
+                      sourceName:
                         type: string
-                      pipelineDataSourceIndex:
-                        format: int32
-                        type: integer
-                      pipelineDataSourceName:
+                      sourceNodeType:
                         type: string
-                      pipelineEndpointConnectorOutputName:
+                      sourceOutputMessageDataType:
                         type: string
-                      sourceAlgoIndex:
-                        format: int32
-                        type: integer
-                      sourceAlgoName:
-                        type: string
-                      sourceAlgoOutputMessageDataType:
-                        type: string
-                      sourceAlgoOutputName:
-                        type: string
-                      sourceAlgoOwnerName:
+                      sourceOutputName:
                         type: string
                     type: object
                   type: array
                 topicConfigs:
                   items:
                     properties:
-                      algoIndex:
-                        format: int32
-                        type: integer
-                      algoName:
+                      nodeType:
                         type: string
-                      algoOutputName:
+                      sourceName:
                         type: string
-                      algoOwnerName:
-                        type: string
-                      endpointConnectorOutputName:
-                        type: string
-                      pipeType:
-                        type: string
-                      pipelineDataSourceIndex:
-                        format: int32
-                        type: integer
-                      pipelineDataSourceName:
+                      sourceOutputName:
                         type: string
                       topicAutoName:
                         type: boolean
