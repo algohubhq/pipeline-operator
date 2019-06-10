@@ -154,6 +154,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 			algoLogger.Error(err, "Failed to create algo deployment")
 			return err
 		}
+		utils.AlgoCountGuage.Add(1)
 	} else {
 		var deplChanged bool
 

@@ -161,7 +161,6 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 			topicReconciler := recon.NewTopicReconciler(instance, &currentTopicConfig, &request, r.client, r.scheme)
 			topicReconciler.Reconcile()
 			wg.Done()
-			utils.TopicCountGuage.Add(1)
 		}(topicConfig)
 	}
 
@@ -175,8 +174,6 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 			err = algoReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in AlgoConfig reconcile loop.")
-			} else {
-				utils.AlgoCountGuage.Add(1)
 			}
 			wg.Done()
 		}(algoConfig)
@@ -201,8 +198,6 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 			err = dcReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in DataConnectorConfigs reconcile loop.")
-			} else {
-				utils.DataConnectorCountGuage.Add(1)
 			}
 			wg.Done()
 		}(dcConfig)
@@ -312,8 +307,6 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 			return reconcile.Result{}, err
 		}
 	}
-
-	utils.EndpointCountGuage.Add(1)
 
 	return reconcile.Result{}, nil
 

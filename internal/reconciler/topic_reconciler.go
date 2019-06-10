@@ -97,6 +97,8 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		err := topicReconciler.client.Create(context.TODO(), newTopic)
 		if err != nil {
 			log.Error(err, "Failed creating topic")
+		} else {
+			utils.TopicCountGuage.Add(1)
 		}
 	} else if err != nil {
 		log.Error(err, "Failed to check if Kafka topic exists.")

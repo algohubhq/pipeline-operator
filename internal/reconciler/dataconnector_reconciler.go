@@ -2,6 +2,7 @@ package reconciler
 
 import (
 	"context"
+	utils "endpoint-operator/internal/utilities"
 	"endpoint-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
 	errorsbase "errors"
@@ -124,6 +125,8 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 		err := dataConnectorReconciler.client.Create(context.TODO(), newDc)
 		if err != nil {
 			log.Error(err, "Failed creating kafka connect cluster")
+		} else {
+			utils.DataConnectorCountGuage.Add(1)
 		}
 
 	} else if err != nil {
