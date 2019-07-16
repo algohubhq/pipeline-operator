@@ -10,11 +10,11 @@
 
 package v1alpha1
 
-type EndpointConfig struct {
+type PipelineSpec struct {
 
-	EndpointOwnerUserName string `json:"endpointOwnerUserName,omitempty"`
+	DeploymentOwnerUserName string `json:"deploymentOwnerUserName,omitempty"`
 
-	EndpointName string `json:"endpointName,omitempty"`
+	DeploymentName string `json:"deploymentName,omitempty"`
 
 	PipelineOwnerUserName string `json:"pipelineOwnerUserName,omitempty"`
 

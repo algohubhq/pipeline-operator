@@ -1,7 +1,7 @@
 package apis
 
 import (
-	"endpoint-operator/pkg/apis/algo/v1alpha1"
+	"pipeline-operator/pkg/apis/algo/v1alpha1"
 )
 
 func init() {

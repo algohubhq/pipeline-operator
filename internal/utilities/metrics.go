@@ -12,20 +12,20 @@ import (
 
 // Global metrics variables
 var (
-	EndpointCountGuage = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "endpoint_operator_running_endpoints",
-		Help: "Total running Endpoints",
+	PipelineDeploymentCountGuage = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pipeline_deployment_operator_running_pipeline_deployments",
+		Help: "Total running pipeline_deployments",
 	})
 	AlgoCountGuage = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "endpoint_operator_running_algos",
+		Name: "pipeline_deployment_operator_running_algos",
 		Help: "Total running Algos",
 	})
 	DataConnectorCountGuage = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "endpoint_operator_running_dataconnectors",
+		Name: "pipeline_deployment_operator_running_dataconnectors",
 		Help: "Total running Data Connectors",
 	})
 	TopicCountGuage = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "endpoint_operator_topics",
+		Name: "pipeline_deployment_operator_topics",
 		Help: "Total topics managed by the operator",
 	})
 )
@@ -47,7 +47,7 @@ func NewCustomMetrics(client client.Client,
 
 func (customMetrics *CustomMetrics) ServeCustomMetrics() {
 
-	prometheus.MustRegister(EndpointCountGuage)
+	prometheus.MustRegister(PipelineDeploymentCountGuage)
 	prometheus.MustRegister(AlgoCountGuage)
 	prometheus.MustRegister(DataConnectorCountGuage)
 	prometheus.MustRegister(TopicCountGuage)
@@ -75,13 +75,13 @@ func (customMetrics *CustomMetrics) ServeCustomMetrics() {
 func (customMetrics *CustomMetrics) createMetricServiceSpec() (*corev1.Service, error) {
 
 	labels := map[string]string{
-		"name": "algorun-endpoint-operator",
+		"name": "algorun-pipeline-operator",
 	}
 
 	metricsServiceSpec := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: customMetrics.namespace,
-			Name:      "endpoint-custom-metrics",
+			Name:      "pipeline_deployment-custom-metrics",
 			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{
@@ -92,7 +92,7 @@ func (customMetrics *CustomMetrics) createMetricServiceSpec() (*corev1.Service, 
 				},
 			},
 			Selector: map[string]string{
-				"name": "algorun-endpoint-operator",
+				"name": "algorun-pipeline-operator",
 			},
 		},
 	}

@@ -10,11 +10,11 @@
 
 package v1alpha1
 
-type EndpointStatusMessage struct {
+type DeploymentStatusMessage struct {
 
-	EndpointOwnerUserName string `json:"endpointOwnerUserName,omitempty"`
+	DeploymentOwnerUserName string `json:"deploymentOwnerUserName,omitempty"`
 
-	EndpointName string `json:"endpointName,omitempty"`
+	DeploymentName string `json:"deploymentName,omitempty"`
 
 	Status string `json:"status,omitempty"`
 

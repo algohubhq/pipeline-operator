@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
-	"endpoint-operator/pkg/apis/algo/v1alpha1"
+	"pipeline-operator/pkg/apis/algo/v1alpha1"
 	"errors"
 	"fmt"
 	"net/http"

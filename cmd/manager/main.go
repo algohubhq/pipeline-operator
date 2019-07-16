@@ -10,9 +10,9 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	utils "endpoint-operator/internal/utilities"
-	"endpoint-operator/pkg/apis"
-	"endpoint-operator/pkg/controller"
+	utils "pipeline-operator/internal/utilities"
+	"pipeline-operator/pkg/apis"
+	"pipeline-operator/pkg/controller"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
@@ -78,7 +78,7 @@ func main() {
 	ctx := context.TODO()
 
 	// Become the leader before proceeding
-	err = leader.Become(ctx, "endpoint-operator-lock")
+	err = leader.Become(ctx, "pipeline-operator-lock")
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)

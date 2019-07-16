@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	utils "endpoint-operator/internal/utilities"
-	"endpoint-operator/pkg/apis/algo/v1alpha1"
-	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
+	utils "pipeline-operator/internal/utilities"
+	"pipeline-operator/pkg/apis/algo/v1alpha1"
+	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
 
 	"github.com/go-test/deep"
 	appsv1 "k8s.io/api/apps/v1"
@@ -21,52 +21,52 @@ import (
 )
 
 // NewHookReconciler returns a new HookReconciler
-func NewHookReconciler(endpoint *algov1alpha1.Endpoint,
+func NewHookReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme) HookReconciler {
 	return HookReconciler{
-		endpoint: endpoint,
-		request:  request,
-		client:   client,
-		scheme:   scheme,
+		pipelineDeployment: pipelineDeployment,
+		request:            request,
+		client:             client,
+		scheme:             scheme,
 	}
 }
 
 // HookReconciler reconciles an Hook object
 type HookReconciler struct {
-	endpoint *algov1alpha1.Endpoint
-	request  *reconcile.Request
-	client   client.Client
-	scheme   *runtime.Scheme
+	pipelineDeployment *algov1alpha1.PipelineDeployment
+	request            *reconcile.Request
+	client             client.Client
+	scheme             *runtime.Scheme
 }
 
-// Reconcile creates or updates the hook deployment for the endpoint
+// Reconcile creates or updates the hook deployment for the pipelineDeployment
 func (hookReconciler *HookReconciler) Reconcile() error {
 
-	endpoint := hookReconciler.endpoint
+	pipelineDeployment := hookReconciler.pipelineDeployment
 	request := hookReconciler.request
 
 	hookLogger := log
 
 	hookLogger.Info("Reconciling Hook")
 
-	name := "endpoint-hook"
+	name := "pipelineDeployment-hook"
 
 	labels := map[string]string{
-		"system":        "algorun",
-		"tier":          "hook",
-		"endpointowner": endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
-		"endpoint":      endpoint.Spec.EndpointConfig.EndpointName,
-		"pipeline":      endpoint.Spec.EndpointConfig.PipelineName,
-		"env":           "production",
+		"system":                  "algorun",
+		"tier":                    "hook",
+		"pipelinedeploymentowner": pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		"pipelinedeployment":      pipelineDeployment.Spec.PipelineSpec.DeploymentName,
+		"pipeline":                pipelineDeployment.Spec.PipelineSpec.PipelineName,
+		"env":                     "production",
 	}
 
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=hook, endpointowner=%s, endpoint=%s",
-		endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
-		endpoint.Spec.EndpointConfig.EndpointName))
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=hook, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
 
 	deplUtil := utils.NewDeploymentUtil(hookReconciler.client)
@@ -80,8 +80,8 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 		return err
 	}
 
-	// Set Endpoint instance as the owner and controller
-	if err := controllerutil.SetControllerReference(endpoint, hookDeployment, hookReconciler.scheme); err != nil {
+	// Set PipelineDeployment instance as the owner and controller
+	if err := controllerutil.SetControllerReference(pipelineDeployment, hookDeployment, hookReconciler.scheme); err != nil {
 		return err
 	}
 
@@ -125,9 +125,9 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 // CreateDeploymentSpec generates the k8s spec for the algo deployment
 func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels map[string]string, existingDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 
-	endpoint := hookReconciler.endpoint
-	hookConfig := hookReconciler.endpoint.Spec.EndpointConfig.HookConfig
-	hookRunnerConfig := hookReconciler.createHookRunnerConfig(&endpoint.Spec)
+	pipelineDeployment := hookReconciler.pipelineDeployment
+	hookConfig := hookReconciler.pipelineDeployment.Spec.PipelineSpec.HookConfig
+	hookRunnerConfig := hookReconciler.createHookRunnerConfig(&pipelineDeployment.Spec)
 
 	// Set the image name
 	var imageName string
@@ -138,7 +138,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 	}
 
 	var imagePullPolicy corev1.PullPolicy
-	switch endpoint.Spec.ImagePullPolicy {
+	switch pipelineDeployment.Spec.ImagePullPolicy {
 	case "Never":
 		imagePullPolicy = corev1.PullNever
 	case "PullAlways":
@@ -161,7 +161,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 	var containers []corev1.Container
 
 	hookCommand := []string{"/hook-runner/hook-runner"}
-	hookEnvVars := hookReconciler.createEnvVars(endpoint, hookRunnerConfig)
+	hookEnvVars := hookReconciler.createEnvVars(pipelineDeployment, hookRunnerConfig)
 
 	readinessProbe := &corev1.Probe{
 		Handler:             handler,
@@ -208,14 +208,14 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 	var nameMeta metav1.ObjectMeta
 	if existingDeployment != nil {
 		nameMeta = metav1.ObjectMeta{
-			Namespace: endpoint.Namespace,
+			Namespace: pipelineDeployment.Namespace,
 			Name:      existingDeployment.Name,
 			Labels:    labels,
 			// Annotations: annotations,
 		}
 	} else {
 		nameMeta = metav1.ObjectMeta{
-			Namespace:    endpoint.Namespace,
+			Namespace:    pipelineDeployment.Namespace,
 			GenerateName: name,
 			Labels:       labels,
 			// Annotations: annotations,
@@ -282,7 +282,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 
 }
 
-func (hookReconciler *HookReconciler) createEnvVars(cr *algov1alpha1.Endpoint, hookConfig *v1alpha1.HookRunnerConfig) []corev1.EnvVar {
+func (hookReconciler *HookReconciler) createEnvVars(cr *algov1alpha1.PipelineDeployment, hookConfig *v1alpha1.HookRunnerConfig) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
 
@@ -342,16 +342,16 @@ func (hookReconciler *HookReconciler) createSelector(constraints []string) map[s
 }
 
 // CreateRunnerConfig creates the config struct to be sent to the runner
-func (hookReconciler *HookReconciler) createHookRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec) *v1alpha1.HookRunnerConfig {
+func (hookReconciler *HookReconciler) createHookRunnerConfig(pipelineDeploymentSpec *algov1alpha1.PipelineDeploymentSpec) *v1alpha1.HookRunnerConfig {
 
 	hookConfig := &v1alpha1.HookRunnerConfig{
-		EndpointOwnerUserName: endpointSpec.EndpointConfig.EndpointOwnerUserName,
-		EndpointName:          endpointSpec.EndpointConfig.EndpointName,
-		PipelineOwnerUserName: endpointSpec.EndpointConfig.PipelineOwnerUserName,
-		PipelineName:          endpointSpec.EndpointConfig.PipelineName,
-		WebHooks:              endpointSpec.EndpointConfig.HookConfig.WebHooks,
-		Pipes:                 endpointSpec.EndpointConfig.Pipes,
-		TopicConfigs:          endpointSpec.EndpointConfig.TopicConfigs,
+		DeploymentOwnerUserName: pipelineDeploymentSpec.PipelineSpec.DeploymentOwnerUserName,
+		DeploymentName:          pipelineDeploymentSpec.PipelineSpec.DeploymentName,
+		PipelineOwnerUserName:   pipelineDeploymentSpec.PipelineSpec.PipelineOwnerUserName,
+		PipelineName:            pipelineDeploymentSpec.PipelineSpec.PipelineName,
+		WebHooks:                pipelineDeploymentSpec.PipelineSpec.HookConfig.WebHooks,
+		Pipes:                   pipelineDeploymentSpec.PipelineSpec.Pipes,
+		TopicConfigs:            pipelineDeploymentSpec.PipelineSpec.TopicConfigs,
 	}
 
 	return hookConfig

@@ -1,29 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: algorun-endpoint-operator
+  name: algorun-pipeline-operator
   labels:
     system: algorun
     tier: backend
-    app: endpoint-operator
+    app: pipeline-operator
     env: production
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: algorun-endpoint-operator
+      name: algorun-pipeline-operator
   template:
     metadata:
       labels:
-        name: algorun-endpoint-operator
+        name: algorun-pipeline-operator
     spec:
-      serviceAccountName: algorun-endpoint-operator
+      serviceAccountName: algorun-pipeline-operator
       containers:
-        - name: endpoint-operator
+        - name: pipeline-operator
           # Replace this with the built image name
-          image: algohub/endpoint-operator:e2a38aa9819d47e33c7e8682dbab8db7acb0c0dc
+          image: algohub/pipeline-operator:aac5c6b4fa2b946056e4baaaddabbbdbbe9b7951
           command:
-          - endpoint-operator
+          - pipeline-operator
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
@@ -35,4 +35,4 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: "algorun-endpoint-operator"
+              value: "algorun-pipeline-operator"

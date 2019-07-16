@@ -2,11 +2,11 @@ package reconciler
 
 import (
 	"context"
-	utils "endpoint-operator/internal/utilities"
-	"endpoint-operator/pkg/apis/algo/v1alpha1"
-	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
 	errorsbase "errors"
 	"fmt"
+	utils "pipeline-operator/internal/utilities"
+	"pipeline-operator/pkg/apis/algo/v1alpha1"
+	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
 	"strconv"
 	"strings"
 
@@ -23,13 +23,13 @@ import (
 )
 
 // NewDataConnectorReconciler returns a new DataConnectorReconciler
-func NewDataConnectorReconciler(endpoint *algov1alpha1.Endpoint,
+func NewDataConnectorReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
 	dataConnectorConfig *v1alpha1.DataConnectorConfig,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme) DataConnectorReconciler {
 	return DataConnectorReconciler{
-		endpoint:            endpoint,
+		pipelineDeployment:  pipelineDeployment,
 		dataConnectorConfig: dataConnectorConfig,
 		request:             request,
 		client:              client,
@@ -39,21 +39,21 @@ func NewDataConnectorReconciler(endpoint *algov1alpha1.Endpoint,
 
 // DataConnectorReconciler reconciles an dataConnectorConfig object
 type DataConnectorReconciler struct {
-	endpoint            *algov1alpha1.Endpoint
+	pipelineDeployment  *algov1alpha1.PipelineDeployment
 	dataConnectorConfig *v1alpha1.DataConnectorConfig
 	request             *reconcile.Request
 	client              client.Client
 	scheme              *runtime.Scheme
 }
 
-// Reconcile creates or updates the data connector for the endpoint
+// Reconcile creates or updates the data connector for the pipelineDeployment
 func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 
-	endpoint := dataConnectorReconciler.endpoint
+	pipelineDeployment := dataConnectorReconciler.pipelineDeployment
 	dataConnectorConfig := dataConnectorReconciler.dataConnectorConfig
 
-	kcName := strings.ToLower(fmt.Sprintf("%s-%s", endpoint.Spec.EndpointConfig.EndpointName, dataConnectorConfig.Name))
-	dcName := strings.ToLower(fmt.Sprintf("%s-%s-%d", endpoint.Spec.EndpointConfig.EndpointName, dataConnectorConfig.Name, dataConnectorConfig.Index))
+	kcName := strings.ToLower(fmt.Sprintf("%s-%s", pipelineDeployment.Spec.PipelineSpec.DeploymentName, dataConnectorConfig.Name))
+	dcName := strings.ToLower(fmt.Sprintf("%s-%s-%d", pipelineDeployment.Spec.PipelineSpec.DeploymentName, dataConnectorConfig.Name, dataConnectorConfig.Index))
 	// Set the image name
 	var imageName string
 	if dataConnectorConfig.ImageTag == "" || dataConnectorConfig.ImageTag == "latest" {
@@ -82,7 +82,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 				"version":          "2.1.0",
 				"replicas":         1,
 				"image":            imageName,
-				"bootstrapServers": endpoint.Spec.KafkaBrokers,
+				"bootstrapServers": pipelineDeployment.Spec.KafkaBrokers,
 				"metrics": map[string]interface{}{
 					"lowercaseOutputName":       true,
 					"lowercaseOutputLabelNames": true,
@@ -117,8 +117,8 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 			Version: "v1alpha1",
 		})
 
-		// Set Endpoint instance as the owner and controller
-		if err := controllerutil.SetControllerReference(endpoint, newDc, dataConnectorReconciler.scheme); err != nil {
+		// Set PipelineDeployment instance as the owner and controller
+		if err := controllerutil.SetControllerReference(pipelineDeployment, newDc, dataConnectorReconciler.scheme); err != nil {
 			log.Error(err, "Failed setting the kafka connect cluster controller owner")
 		}
 
@@ -161,7 +161,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 
 			// If Sink. need to add the source topics
 			if strings.ToLower(dataConnectorConfig.DataConnectorType) == "sink" {
-				topicConfig, err := dataConnectorReconciler.getDcSourceTopic(endpoint, dataConnectorConfig)
+				topicConfig, err := dataConnectorReconciler.getDcSourceTopic(pipelineDeployment, dataConnectorConfig)
 				dcConfig["topics"] = topicConfig.Name
 
 				if err != nil {
@@ -188,9 +188,9 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 	return nil
 }
 
-func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(endpoint *algov1alpha1.Endpoint, dataConnectorConfig *algov1alpha1.DataConnectorConfig) (TopicConfig, error) {
+func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelineDeployment *algov1alpha1.PipelineDeployment, dataConnectorConfig *algov1alpha1.DataConnectorConfig) (TopicConfig, error) {
 
-	config := endpoint.Spec.EndpointConfig
+	config := pipelineDeployment.Spec.PipelineSpec
 
 	for _, pipe := range config.Pipes {
 
@@ -199,7 +199,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(endpoin
 		if pipe.DestName == dcName {
 
 			// Get the source topic connected to this pipe
-			for _, topic := range endpoint.Spec.EndpointConfig.TopicConfigs {
+			for _, topic := range config.TopicConfigs {
 				if pipe.SourceName == topic.SourceName &&
 					pipe.SourceOutputName == topic.SourceOutputName {
 					newTopicConfig, err := BuildTopic(config, &topic)

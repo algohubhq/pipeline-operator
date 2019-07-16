@@ -13,17 +13,17 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"endpoint-operator/pkg/apis/algo/v1alpha1.Endpoint":       schema_pkg_apis_algo_v1alpha1_Endpoint(ref),
-		"endpoint-operator/pkg/apis/algo/v1alpha1.EndpointSpec":   schema_pkg_apis_algo_v1alpha1_EndpointSpec(ref),
-		"endpoint-operator/pkg/apis/algo/v1alpha1.EndpointStatus": schema_pkg_apis_algo_v1alpha1_EndpointStatus(ref),
+		"pipeline-operator/pkg/apis/algo/v1alpha1.PipelineDeployment":       schema_pkg_apis_algo_v1alpha1_PipelineDeployment(ref),
+		"pipeline-operator/pkg/apis/algo/v1alpha1.PipelineDeploymentSpec":   schema_pkg_apis_algo_v1alpha1_PipelineDeploymentSpec(ref),
+		"pipeline-operator/pkg/apis/algo/v1alpha1.PipelineDeploymentStatus": schema_pkg_apis_algo_v1alpha1_PipelineDeploymentStatus(ref),
 	}
 }
 
-func schema_pkg_apis_algo_v1alpha1_Endpoint(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_algo_v1alpha1_PipelineDeployment(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Endpoint is the Schema for the endpoints API",
+				Description: "PipelineDeployment is the Schema for the PipelineDeployments API",
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
@@ -46,27 +46,27 @@ func schema_pkg_apis_algo_v1alpha1_Endpoint(ref common.ReferenceCallback) common
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("endpoint-operator/pkg/apis/algo/v1alpha1.EndpointSpec"),
+							Ref: ref("pipeline-operator/pkg/apis/algo/v1alpha1.PipelineDeploymentSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("endpoint-operator/pkg/apis/algo/v1alpha1.EndpointStatus"),
+							Ref: ref("pipeline-operator/pkg/apis/algo/v1alpha1.PipelineDeploymentStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"endpoint-operator/pkg/apis/algo/v1alpha1.EndpointSpec", "endpoint-operator/pkg/apis/algo/v1alpha1.EndpointStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "pipeline-operator/pkg/apis/algo/v1alpha1.PipelineDeploymentSpec", "pipeline-operator/pkg/apis/algo/v1alpha1.PipelineDeploymentStatus"},
 	}
 }
 
-func schema_pkg_apis_algo_v1alpha1_EndpointSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_algo_v1alpha1_PipelineDeploymentSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "EndpointSpec defines the desired state of Endpoint",
+				Description: "PipelineDeploymentSpec defines the desired state of the PipelineDeployment",
 				Properties: map[string]spec.Schema{
 					"imagePullPolicy": {
 						SchemaProps: spec.SchemaProps{
@@ -80,32 +80,32 @@ func schema_pkg_apis_algo_v1alpha1_EndpointSpec(ref common.ReferenceCallback) co
 							Format: "",
 						},
 					},
-					"endpointConfig": {
+					"pipelineSpec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("endpoint-operator/pkg/apis/algo/v1alpha1.EndpointConfig"),
+							Ref: ref("pipeline-operator/pkg/apis/algo/v1alpha1.PipelineSpec"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"endpoint-operator/pkg/apis/algo/v1alpha1.EndpointConfig"},
+			"pipeline-operator/pkg/apis/algo/v1alpha1.PipelineSpec"},
 	}
 }
 
-func schema_pkg_apis_algo_v1alpha1_EndpointStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_algo_v1alpha1_PipelineDeploymentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "EndpointStatus defines the observed state of Endpoint",
+				Description: "PipelineDeploymentStatus defines the observed state of PipelineDeployment",
 				Properties: map[string]spec.Schema{
-					"endpointOwnerUserName": {
+					"deploymentOwnerUserName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"endpointName": {
+					"deploymentName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -123,7 +123,7 @@ func schema_pkg_apis_algo_v1alpha1_EndpointStatus(ref common.ReferenceCallback) 
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("endpoint-operator/pkg/apis/algo/v1alpha1.AlgoDeploymentStatus"),
+										Ref: ref("pipeline-operator/pkg/apis/algo/v1alpha1.AlgoDeploymentStatus"),
 									},
 								},
 							},
@@ -135,7 +135,7 @@ func schema_pkg_apis_algo_v1alpha1_EndpointStatus(ref common.ReferenceCallback) 
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("endpoint-operator/pkg/apis/algo/v1alpha1.AlgoPodStatus"),
+										Ref: ref("pipeline-operator/pkg/apis/algo/v1alpha1.AlgoPodStatus"),
 									},
 								},
 							},
@@ -145,6 +145,6 @@ func schema_pkg_apis_algo_v1alpha1_EndpointStatus(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"endpoint-operator/pkg/apis/algo/v1alpha1.AlgoDeploymentStatus", "endpoint-operator/pkg/apis/algo/v1alpha1.AlgoPodStatus"},
+			"pipeline-operator/pkg/apis/algo/v1alpha1.AlgoDeploymentStatus", "pipeline-operator/pkg/apis/algo/v1alpha1.AlgoPodStatus"},
 	}
 }

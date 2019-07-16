@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	utils "endpoint-operator/internal/utilities"
-	"endpoint-operator/pkg/apis/algo/v1alpha1"
-	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
+	utils "pipeline-operator/internal/utilities"
+	"pipeline-operator/pkg/apis/algo/v1alpha1"
+	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
 
 	"github.com/go-test/deep"
 	appsv1 "k8s.io/api/apps/v1"
@@ -25,31 +25,31 @@ import (
 
 // AlgoReconciler reconciles an AlgoConfig object
 type AlgoReconciler struct {
-	endpoint   *algov1alpha1.Endpoint
-	algoConfig *v1alpha1.AlgoConfig
-	request    *reconcile.Request
-	client     client.Client
-	scheme     *runtime.Scheme
+	pipelineDeployment *algov1alpha1.PipelineDeployment
+	algoConfig         *v1alpha1.AlgoConfig
+	request            *reconcile.Request
+	client             client.Client
+	scheme             *runtime.Scheme
 }
 
 var log = logf.Log.WithName("reconciler")
 
 // NewAlgoReconciler returns a new AlgoReconciler
-func NewAlgoReconciler(endpoint *algov1alpha1.Endpoint,
+func NewAlgoReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
 	algoConfig *v1alpha1.AlgoConfig,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme) AlgoReconciler {
 	return AlgoReconciler{
-		endpoint:   endpoint,
-		algoConfig: algoConfig,
-		request:    request,
-		client:     client,
-		scheme:     scheme,
+		pipelineDeployment: pipelineDeployment,
+		algoConfig:         algoConfig,
+		request:            request,
+		client:             client,
+		scheme:             scheme,
 	}
 }
 
-// Reconcile creates or updates all algos for the endpoint
+// Reconcile creates or updates all algos for the pipelineDeployment
 func (algoReconciler *AlgoReconciler) ReconcileService() error {
 
 	deplUtil := utils.NewDeploymentUtil(algoReconciler.client)
@@ -67,7 +67,7 @@ func (algoReconciler *AlgoReconciler) ReconcileService() error {
 	if existingService == nil {
 
 		// Generate the service for the all algos
-		algoService, err := algoReconciler.createMetricServiceSpec(algoReconciler.endpoint)
+		algoService, err := algoReconciler.createMetricServiceSpec(algoReconciler.pipelineDeployment)
 		if err != nil {
 			log.Error(err, "Failed to create algo metrics / health service spec")
 			return err
@@ -84,11 +84,11 @@ func (algoReconciler *AlgoReconciler) ReconcileService() error {
 
 }
 
-// Reconcile creates or updates all algos for the endpoint
+// Reconcile creates or updates all algos for the pipelineDeployment
 func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 	algoConfig := algoReconciler.algoConfig
-	endpoint := algoReconciler.endpoint
+	pipelineDeployment := algoReconciler.pipelineDeployment
 	request := algoReconciler.request
 
 	logData := map[string]interface{}{
@@ -105,25 +105,25 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	name := strings.TrimRight(utils.Short(algoConfig.AlgoName, 20), "-")
 
 	labels := map[string]string{
-		"system":        "algorun",
-		"tier":          "algo",
-		"endpointowner": endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
-		"endpoint":      endpoint.Spec.EndpointConfig.EndpointName,
-		"pipeline":      endpoint.Spec.EndpointConfig.PipelineName,
-		"algoowner":     algoConfig.AlgoOwnerUserName,
-		"algo":          algoConfig.AlgoName,
-		"algoversion":   algoConfig.AlgoVersionTag,
-		"algoindex":     strconv.Itoa(int(algoConfig.AlgoIndex)),
-		"env":           "production",
+		"system":                  "algorun",
+		"tier":                    "algo",
+		"pipelinedeploymentowner": pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		"pipelinedeployment":      pipelineDeployment.Spec.PipelineSpec.DeploymentName,
+		"pipeline":                pipelineDeployment.Spec.PipelineSpec.PipelineName,
+		"algoowner":               algoConfig.AlgoOwnerUserName,
+		"algo":                    algoConfig.AlgoName,
+		"algoversion":             algoConfig.AlgoVersionTag,
+		"algoindex":               strconv.Itoa(int(algoConfig.AlgoIndex)),
+		"env":                     "production",
 	}
 
 	deplUtil := utils.NewDeploymentUtil(algoReconciler.client)
 
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s, algoowner=%s, algo=%s, algoversion=%s, algoindex=%v",
-		endpoint.Spec.EndpointConfig.EndpointOwnerUserName,
-		endpoint.Spec.EndpointConfig.EndpointName,
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, pipelinedeploymentowner=%s, pipelinedeployment=%s, algoowner=%s, algo=%s, algoversion=%s, algoindex=%v",
+		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		pipelineDeployment.Spec.PipelineSpec.DeploymentName,
 		algoConfig.AlgoOwnerUserName,
 		algoConfig.AlgoName,
 		algoConfig.AlgoVersionTag,
@@ -143,8 +143,8 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		return err
 	}
 
-	// Set Endpoint instance as the owner and controller
-	if err := controllerutil.SetControllerReference(endpoint, algoDeployment, algoReconciler.scheme); err != nil {
+	// Set PipelineDeployment instance as the owner and controller
+	if err := controllerutil.SetControllerReference(pipelineDeployment, algoDeployment, algoReconciler.scheme); err != nil {
 		return err
 	}
 
@@ -191,7 +191,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 }
 
-func (algoReconciler *AlgoReconciler) createMetricServiceSpec(endpoint *algov1alpha1.Endpoint) (*corev1.Service, error) {
+func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment *algov1alpha1.PipelineDeployment) (*corev1.Service, error) {
 
 	labels := map[string]string{
 		"system": "algorun",
@@ -201,7 +201,7 @@ func (algoReconciler *AlgoReconciler) createMetricServiceSpec(endpoint *algov1al
 
 	algoServiceSpec := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: endpoint.Namespace,
+			Namespace: pipelineDeployment.Namespace,
 			Name:      "algo-metrics-service",
 			Labels:    labels,
 		},
@@ -227,9 +227,9 @@ func (algoReconciler *AlgoReconciler) createMetricServiceSpec(endpoint *algov1al
 // CreateDeploymentSpec generates the k8s spec for the algo deployment
 func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels map[string]string, update bool) (*appsv1.Deployment, error) {
 
-	endpoint := algoReconciler.endpoint
+	pipelineDeployment := algoReconciler.pipelineDeployment
 	algoConfig := algoReconciler.algoConfig
-	runnerConfig := algoReconciler.createRunnerConfig(&endpoint.Spec, algoConfig)
+	runnerConfig := algoReconciler.createRunnerConfig(&pipelineDeployment.Spec, algoConfig)
 
 	// Set the image name
 	var imageName string
@@ -252,7 +252,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	}
 
 	var imagePullPolicy corev1.PullPolicy
-	switch endpoint.Spec.ImagePullPolicy {
+	switch pipelineDeployment.Spec.ImagePullPolicy {
 	case "Never":
 		imagePullPolicy = corev1.PullNever
 	case "PullAlways":
@@ -313,7 +313,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 				"chmod +x /algo-runner-dest/algo-runner",
 		}
 
-		algoEnvVars = algoReconciler.createEnvVars(endpoint, runnerConfig, algoConfig)
+		algoEnvVars = algoReconciler.createEnvVars(pipelineDeployment, runnerConfig, algoConfig)
 
 		initContainer := corev1.Container{
 			Name:                     "algo-runner-init",
@@ -359,7 +359,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 		algoCommand = []string{entrypoint[0]}
 		algoArgs = entrypoint[1:]
 
-		algoEnvVars = algoReconciler.createEnvVars(endpoint, runnerConfig, algoConfig)
+		algoEnvVars = algoReconciler.createEnvVars(pipelineDeployment, runnerConfig, algoConfig)
 
 		// TODO: Add user defined liveness/readiness probes to algo
 
@@ -372,7 +372,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 
 		sidecarCommand := []string{"/algo-runner/algo-runner"}
 
-		sidecarEnvVars = algoReconciler.createEnvVars(endpoint, runnerConfig, algoConfig)
+		sidecarEnvVars = algoReconciler.createEnvVars(pipelineDeployment, runnerConfig, algoConfig)
 
 		sidecarReadinessProbe = &corev1.Probe{
 			Handler:             handler,
@@ -446,14 +446,14 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	var nameMeta metav1.ObjectMeta
 	if update {
 		nameMeta = metav1.ObjectMeta{
-			Namespace: endpoint.Namespace,
+			Namespace: pipelineDeployment.Namespace,
 			Name:      algoConfig.DeploymentName,
 			Labels:    labels,
 			// Annotations: annotations,
 		}
 	} else {
 		nameMeta = metav1.ObjectMeta{
-			Namespace:    endpoint.Namespace,
+			Namespace:    pipelineDeployment.Namespace,
 			GenerateName: name,
 			Labels:       labels,
 			// Annotations: annotations,
@@ -527,7 +527,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 
 }
 
-func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1alpha1.Endpoint, runnerConfig *v1alpha1.AlgoRunnerConfig, algoConfig *v1alpha1.AlgoConfig) []corev1.EnvVar {
+func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1alpha1.PipelineDeployment, runnerConfig *v1alpha1.AlgoRunnerConfig, algoConfig *v1alpha1.AlgoConfig) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
 
@@ -636,27 +636,27 @@ func (algoReconciler *AlgoReconciler) createResources(algoConfig *v1alpha1.AlgoC
 }
 
 // CreateRunnerConfig creates the config struct to be sent to the runner
-func (algoReconciler *AlgoReconciler) createRunnerConfig(endpointSpec *algov1alpha1.EndpointSpec, algoConfig *v1alpha1.AlgoConfig) *v1alpha1.AlgoRunnerConfig {
+func (algoReconciler *AlgoReconciler) createRunnerConfig(pipelineDeploymentSpec *algov1alpha1.PipelineDeploymentSpec, algoConfig *v1alpha1.AlgoConfig) *v1alpha1.AlgoRunnerConfig {
 
 	runnerConfig := &v1alpha1.AlgoRunnerConfig{
-		EndpointOwnerUserName: endpointSpec.EndpointConfig.EndpointOwnerUserName,
-		EndpointName:          endpointSpec.EndpointConfig.EndpointName,
-		PipelineOwnerUserName: endpointSpec.EndpointConfig.PipelineOwnerUserName,
-		PipelineName:          endpointSpec.EndpointConfig.PipelineName,
-		Pipes:                 endpointSpec.EndpointConfig.Pipes,
-		TopicConfigs:          endpointSpec.EndpointConfig.TopicConfigs,
-		AlgoOwnerUserName:     algoConfig.AlgoOwnerUserName,
-		AlgoName:              algoConfig.AlgoName,
-		AlgoVersionTag:        algoConfig.AlgoVersionTag,
-		AlgoIndex:             algoConfig.AlgoIndex,
-		Entrypoint:            algoConfig.Entrypoint,
-		ServerType:            algoConfig.ServerType,
-		AlgoParams:            algoConfig.AlgoParams,
-		Inputs:                algoConfig.Inputs,
-		Outputs:               algoConfig.Outputs,
-		WriteAllOutputs:       algoConfig.WriteAllOutputs,
-		GpuEnabled:            algoConfig.GpuEnabled,
-		TimeoutSeconds:        algoConfig.TimeoutSeconds,
+		DeploymentOwnerUserName: pipelineDeploymentSpec.PipelineSpec.DeploymentOwnerUserName,
+		DeploymentName:          pipelineDeploymentSpec.PipelineSpec.DeploymentName,
+		PipelineOwnerUserName:   pipelineDeploymentSpec.PipelineSpec.PipelineOwnerUserName,
+		PipelineName:            pipelineDeploymentSpec.PipelineSpec.PipelineName,
+		Pipes:                   pipelineDeploymentSpec.PipelineSpec.Pipes,
+		TopicConfigs:            pipelineDeploymentSpec.PipelineSpec.TopicConfigs,
+		AlgoOwnerUserName:       algoConfig.AlgoOwnerUserName,
+		AlgoName:                algoConfig.AlgoName,
+		AlgoVersionTag:          algoConfig.AlgoVersionTag,
+		AlgoIndex:               algoConfig.AlgoIndex,
+		Entrypoint:              algoConfig.Entrypoint,
+		ServerType:              algoConfig.ServerType,
+		AlgoParams:              algoConfig.AlgoParams,
+		Inputs:                  algoConfig.Inputs,
+		Outputs:                 algoConfig.Outputs,
+		WriteAllOutputs:         algoConfig.WriteAllOutputs,
+		GpuEnabled:              algoConfig.GpuEnabled,
+		TimeoutSeconds:          algoConfig.TimeoutSeconds,
 	}
 
 	return runnerConfig

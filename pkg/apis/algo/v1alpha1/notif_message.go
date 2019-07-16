@@ -30,5 +30,5 @@ type NotifMessage struct {
 
 	Type_ string `json:"type,omitempty"`
 
-	EndpointStatusMessage *EndpointStatusMessage `json:"endpointStatusMessage,omitempty"`
+	DeploymentStatusMessage *DeploymentStatusMessage `json:"deploymentStatusMessage,omitempty"`
 }

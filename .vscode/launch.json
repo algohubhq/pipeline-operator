@@ -11,7 +11,7 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/manager/main.go",
             "env": { 
-                "OPERATOR_NAME":"endpoint-operator", 
+                "OPERATOR_NAME":"pipeline-operator", 
                 "WATCH_NAMESPACE":"algorun", 
                 "KUBERNETES_CONFIG": "$HOME/.kube/config",
                 "NOTIF_URL":"https://localhost:5043/api/v1/notify" 

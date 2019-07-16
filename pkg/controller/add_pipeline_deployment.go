@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"endpoint-operator/pkg/controller/endpoint"
+	"pipeline-operator/pkg/controller/pipeline_deployment"
 )
 
 func init() {
 	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerFuncs = append(AddToManagerFuncs, endpoint.Add)
+	AddToManagerFuncs = append(AddToManagerFuncs, pipeline_deployment.Add)
 }

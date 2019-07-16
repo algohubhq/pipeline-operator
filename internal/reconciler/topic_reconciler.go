@@ -2,10 +2,10 @@ package reconciler
 
 import (
 	"context"
-	utils "endpoint-operator/internal/utilities"
-	"endpoint-operator/pkg/apis/algo/v1alpha1"
-	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
 	"fmt"
+	utils "pipeline-operator/internal/utilities"
+	"pipeline-operator/pkg/apis/algo/v1alpha1"
+	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
 	"reflect"
 	"strings"
 
@@ -20,27 +20,27 @@ import (
 )
 
 // NewTopicReconciler returns a new TopicReconciler
-func NewTopicReconciler(endpoint *algov1alpha1.Endpoint,
+func NewTopicReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
 	topicConfig *v1alpha1.TopicConfigModel,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme) TopicReconciler {
 	return TopicReconciler{
-		endpoint:    endpoint,
-		topicConfig: topicConfig,
-		request:     request,
-		client:      client,
-		scheme:      scheme,
+		pipelineDeployment: pipelineDeployment,
+		topicConfig:        topicConfig,
+		request:            request,
+		client:             client,
+		scheme:             scheme,
 	}
 }
 
 // TopicReconciler reconciles an Topic object
 type TopicReconciler struct {
-	endpoint    *algov1alpha1.Endpoint
-	topicConfig *v1alpha1.TopicConfigModel
-	request     *reconcile.Request
-	client      client.Client
-	scheme      *runtime.Scheme
+	pipelineDeployment *algov1alpha1.PipelineDeployment
+	topicConfig        *v1alpha1.TopicConfigModel
+	request            *reconcile.Request
+	client             client.Client
+	scheme             *runtime.Scheme
 }
 
 type TopicConfig struct {
@@ -52,9 +52,9 @@ type TopicConfig struct {
 
 func (topicReconciler *TopicReconciler) Reconcile() {
 
-	endpointSpec := topicReconciler.endpoint.Spec
+	pipelineDeploymentSpec := topicReconciler.pipelineDeployment.Spec
 
-	newTopicConfig, err := BuildTopic(endpointSpec.EndpointConfig, topicReconciler.topicConfig)
+	newTopicConfig, err := BuildTopic(pipelineDeploymentSpec.PipelineSpec, topicReconciler.topicConfig)
 	if err != nil {
 		log.Error(err, "Error creating new topic config")
 	}
@@ -89,8 +89,8 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 			Version: "v1alpha1",
 		})
 
-		// Set Endpoint instance as the owner and controller
-		if err := controllerutil.SetControllerReference(topicReconciler.endpoint, newTopic, topicReconciler.scheme); err != nil {
+		// Set PipelineDeployment instance as the owner and controller
+		if err := controllerutil.SetControllerReference(topicReconciler.pipelineDeployment, newTopic, topicReconciler.scheme); err != nil {
 			log.Error(err, "Failed setting the topic controller owner")
 		}
 
@@ -150,11 +150,11 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 
 }
 
-func BuildTopic(endpointConfig algov1alpha1.EndpointConfig, topicConfig *algov1alpha1.TopicConfigModel) (TopicConfig, error) {
+func BuildTopic(pipelineSpec algov1alpha1.PipelineSpec, topicConfig *algov1alpha1.TopicConfigModel) (TopicConfig, error) {
 
-	// Replace the endpoint username and name in the topic string
-	topicName := strings.ToLower(strings.Replace(topicConfig.TopicName, "{endpointownerusername}", endpointConfig.EndpointOwnerUserName, -1))
-	topicName = strings.ToLower(strings.Replace(topicName, "{endpointname}", endpointConfig.EndpointName, -1))
+	// Replace the pipelineDeployment username and name in the topic string
+	topicName := strings.ToLower(strings.Replace(topicConfig.TopicName, "{pipelinedeploymentownerusername}", pipelineSpec.DeploymentOwnerUserName, -1))
+	topicName = strings.ToLower(strings.Replace(topicName, "{pipelineDeploymentname}", pipelineSpec.DeploymentName, -1))
 
 	logData := map[string]interface{}{
 		"Topic": topicName,
@@ -164,14 +164,14 @@ func BuildTopic(endpointConfig algov1alpha1.EndpointConfig, topicConfig *algov1a
 	var topicPartitions int64 = 1
 	if topicConfig.TopicAutoPartition {
 		// Set the topic partitions based on the max destination instance count
-		for _, pipe := range endpointConfig.Pipes {
+		for _, pipe := range pipelineSpec.Pipes {
 
 			// Match the Source Pipe
 			if pipe.SourceName == topicConfig.SourceName &&
 				pipe.SourceOutputName == topicConfig.SourceOutputName {
 
 				// Find the destination Algo
-				for _, algoConfig := range endpointConfig.AlgoConfigs {
+				for _, algoConfig := range pipelineSpec.AlgoConfigs {
 					algoName := fmt.Sprintf("%s/%s:%s[%d]", algoConfig.AlgoOwnerUserName, algoConfig.AlgoName, algoConfig.AlgoVersionTag, algoConfig.AlgoIndex)
 					if algoName == pipe.DestName {
 						topicPartitions = utils.Max(int64(algoConfig.MinInstances), topicPartitions)

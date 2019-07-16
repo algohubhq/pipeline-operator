@@ -1,4 +1,4 @@
-package endpoint
+package pipeline_deployment
 
 import (
 	"context"
@@ -9,10 +9,10 @@ import (
 
 	"github.com/go-test/deep"
 
-	recon "endpoint-operator/internal/reconciler"
-	utils "endpoint-operator/internal/utilities"
-	"endpoint-operator/pkg/apis/algo/v1alpha1"
-	algov1alpha1 "endpoint-operator/pkg/apis/algo/v1alpha1"
+	recon "pipeline-operator/internal/reconciler"
+	utils "pipeline-operator/internal/utilities"
+	"pipeline-operator/pkg/apis/algo/v1alpha1"
+	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -27,9 +27,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_endpoint")
+var log = logf.Log.WithName("controller_pipeline_deployment")
 
-// Add creates a new Endpoint Controller and adds it to the Manager. The Manager will set fields on the Controller
+// Add creates a new PipelineDeployment Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
@@ -37,35 +37,35 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileEndpoint{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcilePipelineDeployment{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("endpoint-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("pipeline_deployment-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to primary resource Endpoint
-	err = c.Watch(&source.Kind{Type: &algov1alpha1.Endpoint{}}, &handler.EnqueueRequestForObject{})
+	// Watch for changes to primary resource PipelineDeployment
+	err = c.Watch(&source.Kind{Type: &algov1alpha1.PipelineDeployment{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
 	// Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner Endpoint
+	// Watch for changes to secondary resource Pods and requeue the owner PipelineDeployment
 	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &algov1alpha1.Endpoint{},
+		OwnerType:    &algov1alpha1.PipelineDeployment{},
 	})
 	if err != nil {
 		return err
 	}
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &algov1alpha1.Endpoint{},
+		OwnerType:    &algov1alpha1.PipelineDeployment{},
 	})
 	if err != nil {
 		return err
@@ -74,64 +74,64 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-var _ reconcile.Reconciler = &ReconcileEndpoint{}
+var _ reconcile.Reconciler = &ReconcilePipelineDeployment{}
 
-// ReconcileEndpoint reconciles a Endpoint object
-type ReconcileEndpoint struct {
+// ReconcilePipelineDeployment reconciles a PipelineDeployment object
+type ReconcilePipelineDeployment struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a Endpoint object and makes changes based on the state read
-// and what is in the Endpoint.Spec
+// Reconcile reads that state of the cluster for a PipelineDeployment object and makes changes based on the state read
+// and what is in the PipelineDeployment.Spec
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 
 	logData := map[string]interface{}{
 		"Request.Namespace": request.Namespace,
 		"Request.Name":      request.Name,
 	}
 	reqLogger := log.WithValues("data", logData)
-	reqLogger.Info("Reconciling Endpoint")
+	reqLogger.Info("Reconciling PipelineDeployment")
 
-	// Fetch the Endpoint instance
-	instance := &algov1alpha1.Endpoint{}
+	// Fetch the PipelineDeployment instance
+	instance := &algov1alpha1.PipelineDeployment{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			reqLogger.Info("Endpoint resource not found. Ignoring since object must be deleted.")
-			// Sending a notification that an endpoint was deleted. Just not sure which one!
+			reqLogger.Info("PipelineDeployment resource not found. Ignoring since object must be deleted.")
+			// Sending a notification that an pipelineDeployment was deleted. Just not sure which one!
 			notifMessage := &v1alpha1.NotifMessage{
 				MessageTimestamp: time.Now(),
 				Level:            "Info",
-				Type_:            "EndpointDeleted",
+				Type_:            "PipelineDeploymentDeleted",
 			}
 			utils.Notify(notifMessage)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		reqLogger.Info("Error reading the Endpoint Instance object - requeuing the request")
+		reqLogger.Info("Error reading the PipelineDeployment Instance object - requeuing the request")
 		return reconcile.Result{}, err
 	}
 
 	// Check if the APP CR was marked to be deleted
-	isEndpointMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
-	if isEndpointMarkedToBeDeleted {
+	isPipelineDeploymentMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
+	if isPipelineDeploymentMarkedToBeDeleted {
 
-		// This endpoint is queued for deletion. Update the guages
-		utils.EndpointCountGuage.Sub(1)
-		topicCount := len(instance.Spec.EndpointConfig.TopicConfigs)
+		// This pipelineDeployment is queued for deletion. Update the guages
+		utils.PipelineDeploymentCountGuage.Sub(1)
+		topicCount := len(instance.Spec.PipelineSpec.TopicConfigs)
 		utils.TopicCountGuage.Sub(float64(topicCount))
-		algoCount := len(instance.Spec.EndpointConfig.AlgoConfigs)
+		algoCount := len(instance.Spec.PipelineSpec.AlgoConfigs)
 		utils.AlgoCountGuage.Sub(float64(algoCount))
-		dataConnectorCount := len(instance.Spec.EndpointConfig.DataConnectorConfigs)
+		dataConnectorCount := len(instance.Spec.PipelineSpec.DataConnectorConfigs)
 		utils.DataConnectorCountGuage.Sub(float64(dataConnectorCount))
 
 		// Update finalizer to allow delete CR
@@ -155,7 +155,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	// Create / update the kafka topics
 	reqLogger.Info("Reconciling Kakfa Topics")
 	// Iterate the topics
-	for _, topicConfig := range instance.Spec.EndpointConfig.TopicConfigs {
+	for _, topicConfig := range instance.Spec.PipelineSpec.TopicConfigs {
 		wg.Add(1)
 		go func(currentTopicConfig algov1alpha1.TopicConfigModel) {
 			topicReconciler := recon.NewTopicReconciler(instance, &currentTopicConfig, &request, r.client, r.scheme)
@@ -167,7 +167,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	// Reconcile all algo deployments
 	reqLogger.Info("Reconciling Algos")
 	// Iterate the AlgoConfigs
-	for _, algoConfig := range instance.Spec.EndpointConfig.AlgoConfigs {
+	for _, algoConfig := range instance.Spec.PipelineSpec.AlgoConfigs {
 		wg.Add(1)
 		go func(currentAlgoConfig algov1alpha1.AlgoConfig) {
 			algoReconciler := recon.NewAlgoReconciler(instance, &currentAlgoConfig, &request, r.client, r.scheme)
@@ -191,7 +191,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	// Reconcile all data connectors
 	reqLogger.Info("Reconciling Data Connectors")
 	// Iterate the DataConnectors
-	for _, dcConfig := range instance.Spec.EndpointConfig.DataConnectorConfigs {
+	for _, dcConfig := range instance.Spec.PipelineSpec.DataConnectorConfigs {
 		wg.Add(1)
 		go func(currentDcConfig algov1alpha1.DataConnectorConfig) {
 			dcReconciler := recon.NewDataConnectorReconciler(instance, &currentDcConfig, &request, r.client, r.scheme)
@@ -206,7 +206,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	// Reconcile hook container
 	reqLogger.Info("Reconciling Hooks")
 	wg.Add(1)
-	go func(endpoint *algov1alpha1.Endpoint) {
+	go func(pipelineDeployment *algov1alpha1.PipelineDeployment) {
 		hookReconciler := recon.NewHookReconciler(instance, &request, r.client, r.scheme)
 		err = hookReconciler.Reconcile()
 		if err != nil {
@@ -218,26 +218,26 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	// Wait for algo, data connector and topic reconciliation to complete
 	wg.Wait()
 
-	endpointStatus, err := r.getStatus(instance, request)
+	pipelineDeploymentStatus, err := r.getStatus(instance, request)
 	if err != nil {
-		reqLogger.Error(err, "Failed to get Endpoint status.")
+		reqLogger.Error(err, "Failed to get PipelineDeployment status.")
 		return reconcile.Result{}, err
 	}
 
 	statusChanged := false
 
-	if instance.Status.Status != endpointStatus.Status {
-		instance.Status.Status = endpointStatus.Status
+	if instance.Status.Status != pipelineDeploymentStatus.Status {
+		instance.Status.Status = pipelineDeploymentStatus.Status
 		statusChanged = true
 
 		notifMessage := &v1alpha1.NotifMessage{
 			MessageTimestamp: time.Now(),
 			Level:            "Info",
-			Type_:            "EndpointStatus",
-			EndpointStatusMessage: &v1alpha1.EndpointStatusMessage{
-				EndpointOwnerUserName: instance.Spec.EndpointConfig.EndpointOwnerUserName,
-				EndpointName:          instance.Spec.EndpointConfig.EndpointName,
-				Status:                instance.Status.Status,
+			Type_:            "PipelineDeploymentStatus",
+			DeploymentStatusMessage: &v1alpha1.DeploymentStatusMessage{
+				DeploymentOwnerUserName: instance.Spec.PipelineSpec.DeploymentOwnerUserName,
+				DeploymentName:          instance.Spec.PipelineSpec.DeploymentName,
+				Status:                  instance.Status.Status,
 			},
 		}
 
@@ -246,7 +246,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 
 	// Iterate the existing deployment statuses and update if changed
 	for _, deplStatus := range instance.Status.AlgoDeploymentStatuses {
-		for _, newDeplStatus := range endpointStatus.AlgoDeploymentStatuses {
+		for _, newDeplStatus := range pipelineDeploymentStatus.AlgoDeploymentStatuses {
 			if newDeplStatus.Name == deplStatus.Name {
 
 				if diff := deep.Equal(deplStatus, newDeplStatus); diff != nil {
@@ -256,11 +256,11 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 					notifMessage := &v1alpha1.NotifMessage{
 						MessageTimestamp: time.Now(),
 						Level:            "Info",
-						Type_:            "EndpointDeployment",
-						EndpointStatusMessage: &v1alpha1.EndpointStatusMessage{
-							EndpointOwnerUserName: instance.Spec.EndpointConfig.EndpointOwnerUserName,
-							EndpointName:          instance.Spec.EndpointConfig.EndpointName,
-							Status:                instance.Status.Status,
+						Type_:            "PipelineDeploymentDeployment",
+						DeploymentStatusMessage: &v1alpha1.DeploymentStatusMessage{
+							DeploymentOwnerUserName: instance.Spec.PipelineSpec.DeploymentOwnerUserName,
+							DeploymentName:          instance.Spec.PipelineSpec.DeploymentName,
+							Status:                  instance.Status.Status,
 						},
 					}
 
@@ -273,7 +273,7 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 
 	// Iterate the existing pod statuses and update if changed
 	for _, podStatus := range instance.Status.AlgoPodStatuses {
-		for _, newPodStatus := range endpointStatus.AlgoPodStatuses {
+		for _, newPodStatus := range pipelineDeploymentStatus.AlgoPodStatuses {
 			if newPodStatus.Name == podStatus.Name {
 
 				if diff := deep.Equal(podStatus, newPodStatus); diff != nil {
@@ -283,11 +283,11 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 					notifMessage := &v1alpha1.NotifMessage{
 						MessageTimestamp: time.Now(),
 						Level:            "Info",
-						Type_:            "EndpointPod",
-						EndpointStatusMessage: &v1alpha1.EndpointStatusMessage{
-							EndpointOwnerUserName: instance.Spec.EndpointConfig.EndpointOwnerUserName,
-							EndpointName:          instance.Spec.EndpointConfig.EndpointName,
-							Status:                instance.Status.Status,
+						Type_:            "PipelineDeploymentPod",
+						DeploymentStatusMessage: &v1alpha1.DeploymentStatusMessage{
+							DeploymentOwnerUserName: instance.Spec.PipelineSpec.DeploymentOwnerUserName,
+							DeploymentName:          instance.Spec.PipelineSpec.DeploymentName,
+							Status:                  instance.Status.Status,
 						},
 					}
 
@@ -299,11 +299,11 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	if statusChanged {
-		instance.Status = *endpointStatus
+		instance.Status = *pipelineDeploymentStatus
 
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update Endpoint status.")
+			reqLogger.Error(err, "Failed to update PipelineDeployment status.")
 			return reconcile.Result{}, err
 		}
 	}
@@ -312,27 +312,27 @@ func (r *ReconcileEndpoint) Reconcile(request reconcile.Request) (reconcile.Resu
 
 }
 
-//addFinalizer will add this attribute to the Endpoint CR
-func (r *ReconcileEndpoint) addFinalizer(endpoint *algov1alpha1.Endpoint) error {
-	if len(endpoint.GetFinalizers()) < 1 && endpoint.GetDeletionTimestamp() == nil {
-		log.Info("Adding Finalizer for the Endpoint")
-		endpoint.SetFinalizers([]string{"finalizer.endpoint.algo.run"})
+//addFinalizer will add this attribute to the PipelineDeployment CR
+func (r *ReconcilePipelineDeployment) addFinalizer(pipelineDeployment *algov1alpha1.PipelineDeployment) error {
+	if len(pipelineDeployment.GetFinalizers()) < 1 && pipelineDeployment.GetDeletionTimestamp() == nil {
+		log.Info("Adding Finalizer for the PipelineDeployment")
+		pipelineDeployment.SetFinalizers([]string{"finalizer.pipelineDeployment.algo.run"})
 
 		// Update CR
-		err := r.client.Update(context.TODO(), endpoint)
+		err := r.client.Update(context.TODO(), pipelineDeployment)
 		if err != nil {
-			log.Error(err, "Failed to update Endpoint with finalizer")
+			log.Error(err, "Failed to update PipelineDeployment with finalizer")
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *ReconcileEndpoint) getStatus(cr *algov1alpha1.Endpoint, request reconcile.Request) (*algov1alpha1.EndpointStatus, error) {
+func (r *ReconcilePipelineDeployment) getStatus(cr *algov1alpha1.PipelineDeployment, request reconcile.Request) (*algov1alpha1.PipelineDeploymentStatus, error) {
 
-	endpointStatus := algov1alpha1.EndpointStatus{
-		EndpointOwnerUserName: cr.Spec.EndpointConfig.EndpointOwnerUserName,
-		EndpointName:          cr.Spec.EndpointConfig.EndpointName,
+	pipelineDeploymentStatus := algov1alpha1.PipelineDeploymentStatus{
+		DeploymentOwnerUserName: cr.Spec.PipelineSpec.DeploymentOwnerUserName,
+		DeploymentName:          cr.Spec.PipelineSpec.DeploymentName,
 	}
 
 	logData := map[string]interface{}{
@@ -347,15 +347,15 @@ func (r *ReconcileEndpoint) getStatus(cr *algov1alpha1.Endpoint, request reconci
 		return nil, err
 	}
 
-	endpointStatus.AlgoDeploymentStatuses = deploymentStatuses
+	pipelineDeploymentStatus.AlgoDeploymentStatuses = deploymentStatuses
 
-	// Calculate endpoint status
-	endpointStatusString, err := calculateStatus(cr, &deploymentStatuses)
+	// Calculate pipelineDeployment status
+	pipelineDeploymentStatusString, err := calculateStatus(cr, &deploymentStatuses)
 	if err != nil {
-		reqLogger.Error(err, "Failed to calculate Endpoint status.")
+		reqLogger.Error(err, "Failed to calculate PipelineDeployment status.")
 	}
 
-	endpointStatus.Status = endpointStatusString
+	pipelineDeploymentStatus.Status = pipelineDeploymentStatusString
 
 	podStatuses, err := r.getPodStatuses(cr, request)
 	if err != nil {
@@ -363,19 +363,19 @@ func (r *ReconcileEndpoint) getStatus(cr *algov1alpha1.Endpoint, request reconci
 		return nil, err
 	}
 
-	endpointStatus.AlgoPodStatuses = podStatuses
+	pipelineDeploymentStatus.AlgoPodStatuses = podStatuses
 
-	return &endpointStatus, nil
+	return &pipelineDeploymentStatus, nil
 
 }
 
-func (r *ReconcileEndpoint) getDeploymentStatuses(cr *algov1alpha1.Endpoint, request reconcile.Request) ([]algov1alpha1.AlgoDeploymentStatus, error) {
+func (r *ReconcilePipelineDeployment) getDeploymentStatuses(cr *algov1alpha1.PipelineDeployment, request reconcile.Request) ([]algov1alpha1.AlgoDeploymentStatus, error) {
 
 	// Watch all algo deployments
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s",
-		cr.Spec.EndpointConfig.EndpointOwnerUserName,
-		cr.Spec.EndpointConfig.EndpointName))
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+		cr.Spec.PipelineSpec.DeploymentOwnerUserName,
+		cr.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
 
 	deploymentList := &appsv1.DeploymentList{}
@@ -413,13 +413,13 @@ func (r *ReconcileEndpoint) getDeploymentStatuses(cr *algov1alpha1.Endpoint, req
 
 }
 
-func (r *ReconcileEndpoint) getPodStatuses(cr *algov1alpha1.Endpoint, request reconcile.Request) ([]algov1alpha1.AlgoPodStatus, error) {
+func (r *ReconcilePipelineDeployment) getPodStatuses(cr *algov1alpha1.PipelineDeployment, request reconcile.Request) ([]algov1alpha1.AlgoPodStatus, error) {
 
-	// Get all algo pods for this endpoint
+	// Get all algo pods for this pipelineDeployment
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, endpointowner=%s, endpoint=%s",
-		cr.Spec.EndpointConfig.EndpointOwnerUserName,
-		cr.Spec.EndpointConfig.EndpointName))
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+		cr.Spec.PipelineSpec.DeploymentOwnerUserName,
+		cr.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
 
 	podList := &corev1.PodList{}
@@ -472,10 +472,10 @@ func (r *ReconcileEndpoint) getPodStatuses(cr *algov1alpha1.Endpoint, request re
 
 }
 
-func calculateStatus(cr *algov1alpha1.Endpoint, deploymentStatuses *[]algov1alpha1.AlgoDeploymentStatus) (string, error) {
+func calculateStatus(cr *algov1alpha1.PipelineDeployment, deploymentStatuses *[]algov1alpha1.AlgoDeploymentStatus) (string, error) {
 
 	var unreadyDeployments int
-	algoCount := len(cr.Spec.EndpointConfig.AlgoConfigs)
+	algoCount := len(cr.Spec.PipelineSpec.AlgoConfigs)
 	deploymentCount := len(*deploymentStatuses)
 
 	// iterate the deployments for any unready
