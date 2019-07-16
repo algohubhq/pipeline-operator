@@ -81,7 +81,7 @@ func (customMetrics *CustomMetrics) createMetricServiceSpec() (*corev1.Service, 
 	metricsServiceSpec := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: customMetrics.namespace,
-			Name:      "pipeline_deployment-custom-metrics",
+			Name:      "pipeline-deployment-custom-metrics",
 			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{

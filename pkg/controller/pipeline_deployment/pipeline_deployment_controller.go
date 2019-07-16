@@ -142,6 +142,9 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
+		// TODO: Send the delete notification
+
 		return reconcile.Result{}, nil
 	}
 
