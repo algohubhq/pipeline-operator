@@ -108,15 +108,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info("Registering and serving custom metrics")
-	customMetrics := utils.NewCustomMetrics(mgr.GetClient(), namespace)
-	customMetrics.ServeCustomMetrics()
-
 	// Create Service object to expose the metrics port.
 	_, err = metrics.ExposeMetricsPort(ctx, metricsPort)
 	if err != nil {
 		log.Info(err.Error())
 	}
+
+	log.Info("Registering and serving custom metrics")
+	customMetrics := utils.NewCustomMetrics(mgr.GetClient(), namespace)
+	customMetrics.ServeCustomMetrics()
 
 	log.Info("Starting the Cmd.")
 
