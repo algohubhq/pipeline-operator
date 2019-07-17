@@ -259,7 +259,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 					notifMessage := &v1alpha1.NotifMessage{
 						MessageTimestamp: time.Now(),
 						Level:            "Info",
-						Type_:            "PipelineDeploymentDeployment",
+						Type_:            "PipelineDeployment",
 						DeploymentStatusMessage: &v1alpha1.DeploymentStatusMessage{
 							DeploymentOwnerUserName: instance.Spec.PipelineSpec.DeploymentOwnerUserName,
 							DeploymentName:          instance.Spec.PipelineSpec.DeploymentName,
