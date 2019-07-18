@@ -51,20 +51,20 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 
 	hookLogger.Info("Reconciling Hook")
 
-	name := "pipelineDeployment-hook"
+	name := "pipeline-deployment-hook"
 
 	labels := map[string]string{
 		"system":                  "algorun",
-		"tier":                    "hook",
+		"tier":                    "backend",
+		"component":               "hook",
 		"pipelinedeploymentowner": pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 		"pipelinedeployment":      pipelineDeployment.Spec.PipelineSpec.DeploymentName,
 		"pipeline":                pipelineDeployment.Spec.PipelineSpec.PipelineName,
-		"env":                     "production",
 	}
 
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=hook, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=hook, pipelinedeploymentowner=%s, pipelinedeployment=%s",
 		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)

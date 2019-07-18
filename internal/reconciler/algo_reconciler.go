@@ -49,14 +49,14 @@ func NewAlgoReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
 	}
 }
 
-// Reconcile creates or updates all algos for the pipelineDeployment
+// ReconcileService creates or updates all services for the algos
 func (algoReconciler *AlgoReconciler) ReconcileService() error {
 
 	deplUtil := utils.NewDeploymentUtil(algoReconciler.client)
 
 	// Check to see if the metrics / health service is already created (All algos share the same service port)
 	srvListOptions := &client.ListOptions{}
-	srvListOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo"))
+	srvListOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=algo"))
 	srvListOptions.InNamespace(algoReconciler.request.NamespacedName.Namespace)
 
 	existingService, err := deplUtil.CheckForService(srvListOptions)
@@ -106,7 +106,8 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 	labels := map[string]string{
 		"system":                  "algorun",
-		"tier":                    "algo",
+		"tier":                    "backend",
+		"component":               "algo",
 		"pipelinedeploymentowner": pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 		"pipelinedeployment":      pipelineDeployment.Spec.PipelineSpec.DeploymentName,
 		"pipeline":                pipelineDeployment.Spec.PipelineSpec.PipelineName,
@@ -114,14 +115,13 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		"algo":                    algoConfig.AlgoName,
 		"algoversion":             algoConfig.AlgoVersionTag,
 		"algoindex":               strconv.Itoa(int(algoConfig.AlgoIndex)),
-		"env":                     "production",
 	}
 
 	deplUtil := utils.NewDeploymentUtil(algoReconciler.client)
 
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, pipelinedeploymentowner=%s, pipelinedeployment=%s, algoowner=%s, algo=%s, algoversion=%s, algoindex=%v",
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=algo, pipelinedeploymentowner=%s, pipelinedeployment=%s, algoowner=%s, algo=%s, algoversion=%s, algoindex=%v",
 		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 		pipelineDeployment.Spec.PipelineSpec.DeploymentName,
 		algoConfig.AlgoOwnerUserName,
@@ -154,7 +154,6 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 			algoLogger.Error(err, "Failed to create algo deployment")
 			return err
 		}
-		utils.AlgoCountGuage.Add(1)
 	} else {
 		var deplChanged bool
 
@@ -194,9 +193,8 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment *algov1alpha1.PipelineDeployment) (*corev1.Service, error) {
 
 	labels := map[string]string{
-		"system": "algorun",
-		"tier":   "algo",
-		"env":    "production",
+		"system":    "algorun",
+		"component": "algo",
 	}
 
 	algoServiceSpec := &corev1.Service{
@@ -213,9 +211,8 @@ func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment
 				},
 			},
 			Selector: map[string]string{
-				"system": "algorun",
-				"tier":   "algo",
-				"env":    "production",
+				"system":    "algorun",
+				"component": "algo",
 			},
 		},
 	}

@@ -16,8 +16,8 @@ import (
 // Global metrics variables
 var (
 	PipelineDeploymentCountGuage = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pipeline_operator_running_pipeline_deployments",
-		Help: "Total running pipeline_deployments",
+		Name: "pipeline_operator_running_deployments",
+		Help: "Total running pipeline deployments",
 	})
 	AlgoCountGuage = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "pipeline_operator_running_algos",

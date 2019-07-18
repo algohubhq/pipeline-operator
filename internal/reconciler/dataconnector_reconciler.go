@@ -4,7 +4,6 @@ import (
 	"context"
 	errorsbase "errors"
 	"fmt"
-	utils "pipeline-operator/internal/utilities"
 	"pipeline-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
 	"strconv"
@@ -74,6 +73,14 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 	if err != nil && errors.IsNotFound(err) {
 		// Create the connector cluster
 		// Using a unstructured object to submit a strimzi topic creation.
+		labels := map[string]string{
+			"system":                  "algorun",
+			"tier":                    "backend",
+			"component":               "dataconnector",
+			"pipelinedeploymentowner": pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			"pipelinedeployment":      pipelineDeployment.Spec.PipelineSpec.DeploymentName,
+			"pipeline":                pipelineDeployment.Spec.PipelineSpec.PipelineName,
+		}
 		newDc := &unstructured.Unstructured{}
 		newDc.Object = map[string]interface{}{
 			"name":      kcName,
@@ -109,8 +116,10 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 				},
 			},
 		}
+
 		newDc.SetName(kcName)
 		newDc.SetNamespace(dataConnectorReconciler.request.NamespacedName.Namespace)
+		newDc.SetLabels(labels)
 		newDc.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "kafka.strimzi.io",
 			Kind:    "KafkaConnect",
@@ -125,8 +134,6 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 		err := dataConnectorReconciler.client.Create(context.TODO(), newDc)
 		if err != nil {
 			log.Error(err, "Failed creating kafka connect cluster")
-		} else {
-			utils.DataConnectorCountGuage.Add(1)
 		}
 
 	} else if err != nil {

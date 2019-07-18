@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/go-test/deep"
 
 	recon "pipeline-operator/internal/reconciler"
@@ -102,6 +104,9 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	instance := &algov1alpha1.PipelineDeployment{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
+
+		r.updateMetrics(&request)
+
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -125,14 +130,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	isPipelineDeploymentMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
 	if isPipelineDeploymentMarkedToBeDeleted {
 
-		// This pipelineDeployment is queued for deletion. Update the guages
-		utils.PipelineDeploymentCountGuage.Sub(1)
-		topicCount := len(instance.Spec.PipelineSpec.TopicConfigs)
-		utils.TopicCountGuage.Sub(float64(topicCount))
-		algoCount := len(instance.Spec.PipelineSpec.AlgoConfigs)
-		utils.AlgoCountGuage.Sub(float64(algoCount))
-		dataConnectorCount := len(instance.Spec.PipelineSpec.DataConnectorConfigs)
-		utils.DataConnectorCountGuage.Sub(float64(dataConnectorCount))
+		// This pipelineDeployment is queued for deletion.
 
 		// Update finalizer to allow delete CR
 		instance.SetFinalizers(nil)
@@ -220,6 +218,8 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 
 	// Wait for algo, data connector and topic reconciliation to complete
 	wg.Wait()
+
+	r.updateMetrics(&request)
 
 	pipelineDeploymentStatus, err := r.getStatus(instance, request)
 	if err != nil {
@@ -376,7 +376,7 @@ func (r *ReconcilePipelineDeployment) getDeploymentStatuses(cr *algov1alpha1.Pip
 
 	// Watch all algo deployments
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=algo, pipelinedeploymentowner=%s, pipelinedeployment=%s",
 		cr.Spec.PipelineSpec.DeploymentOwnerUserName,
 		cr.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
@@ -420,7 +420,7 @@ func (r *ReconcilePipelineDeployment) getPodStatuses(cr *algov1alpha1.PipelineDe
 
 	// Get all algo pods for this pipelineDeployment
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, tier=algo, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=algo, pipelinedeploymentowner=%s, pipelinedeployment=%s",
 		cr.Spec.PipelineSpec.DeploymentOwnerUserName,
 		cr.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
@@ -499,5 +499,107 @@ func calculateStatus(cr *algov1alpha1.PipelineDeployment, deploymentStatuses *[]
 	}
 
 	return "Stopped", nil
+
+}
+
+func (r *ReconcilePipelineDeployment) updateMetrics(request *reconcile.Request) error {
+
+	pipelineDeploymentCount, err := r.getPipelineDeploymentCount(request)
+	utils.PipelineDeploymentCountGuage.Set(float64(pipelineDeploymentCount))
+
+	algoCount, err := r.getAlgoCount(request)
+	utils.AlgoCountGuage.Set(float64(algoCount))
+
+	dcCount, err := r.getDataConnectorCount(request)
+	utils.DataConnectorCountGuage.Set(float64(dcCount))
+
+	topicCount, err := r.getTopicCount(request)
+	utils.TopicCountGuage.Set(float64(topicCount))
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func (r *ReconcilePipelineDeployment) getPipelineDeploymentCount(request *reconcile.Request) (int, error) {
+
+	listOptions := &client.ListOptions{}
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=pipelinedeployment"))
+	listOptions.InNamespace(request.Namespace)
+
+	list := &unstructured.UnstructuredList{}
+	ctx := context.TODO()
+	err := r.client.List(ctx, listOptions, list)
+
+	if err != nil && errors.IsNotFound(err) {
+		return 0, nil
+	} else if err != nil {
+		return 0, err
+	}
+
+	return len(list.Items), nil
+
+}
+
+func (r *ReconcilePipelineDeployment) getAlgoCount(request *reconcile.Request) (int, error) {
+
+	listOptions := &client.ListOptions{}
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=algo"))
+	listOptions.InNamespace(request.Namespace)
+
+	deploymentList := &appsv1.DeploymentList{}
+	ctx := context.TODO()
+	err := r.client.List(ctx, listOptions, deploymentList)
+
+	if err != nil && errors.IsNotFound(err) {
+		return 0, nil
+	} else if err != nil {
+		return 0, err
+	}
+
+	return len(deploymentList.Items), nil
+
+}
+
+func (r *ReconcilePipelineDeployment) getDataConnectorCount(request *reconcile.Request) (int, error) {
+
+	listOptions := &client.ListOptions{}
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=dataconnector"))
+	listOptions.InNamespace(request.Namespace)
+
+	list := &unstructured.UnstructuredList{}
+	ctx := context.TODO()
+	err := r.client.List(ctx, listOptions, list)
+
+	if err != nil && errors.IsNotFound(err) {
+		return 0, nil
+	} else if err != nil {
+		return 0, err
+	}
+
+	return len(list.Items), nil
+
+}
+
+func (r *ReconcilePipelineDeployment) getTopicCount(request *reconcile.Request) (int, error) {
+
+	listOptions := &client.ListOptions{}
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=topic"))
+	listOptions.InNamespace(request.Namespace)
+
+	list := &unstructured.UnstructuredList{}
+	ctx := context.TODO()
+	err := r.client.List(ctx, listOptions, list)
+
+	if err != nil && errors.IsNotFound(err) {
+		return 0, nil
+	} else if err != nil {
+		return 0, err
+	}
+
+	return len(list.Items), nil
 
 }

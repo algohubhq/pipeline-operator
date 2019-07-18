@@ -71,6 +71,14 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 	if err != nil && errors.IsNotFound(err) {
 		// Create the topic
 		// Using a unstructured object to submit a strimzi topic creation.
+		labels := map[string]string{
+			"system":                  "algorun",
+			"tier":                    "backend",
+			"component":               "topic",
+			"pipelinedeploymentowner": pipelineDeploymentSpec.PipelineSpec.DeploymentOwnerUserName,
+			"pipelinedeployment":      pipelineDeploymentSpec.PipelineSpec.DeploymentName,
+			"pipeline":                pipelineDeploymentSpec.PipelineSpec.PipelineName,
+		}
 		newTopic := &unstructured.Unstructured{}
 		newTopic.Object = map[string]interface{}{
 			"name":      newTopicConfig.Name,
@@ -83,6 +91,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		}
 		newTopic.SetName(newTopicConfig.Name)
 		newTopic.SetNamespace(topicReconciler.request.NamespacedName.Namespace)
+		newTopic.SetLabels(labels)
 		newTopic.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "kafka.strimzi.io",
 			Kind:    "KafkaTopic",
@@ -97,8 +106,6 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		err := topicReconciler.client.Create(context.TODO(), newTopic)
 		if err != nil {
 			log.Error(err, "Failed creating topic")
-		} else {
-			utils.TopicCountGuage.Add(1)
 		}
 	} else if err != nil {
 		log.Error(err, "Failed to check if Kafka topic exists.")
@@ -153,8 +160,8 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 func BuildTopic(pipelineSpec algov1alpha1.PipelineSpec, topicConfig *algov1alpha1.TopicConfigModel) (TopicConfig, error) {
 
 	// Replace the pipelineDeployment username and name in the topic string
-	topicName := strings.ToLower(strings.Replace(topicConfig.TopicName, "{pipelinedeploymentownerusername}", pipelineSpec.DeploymentOwnerUserName, -1))
-	topicName = strings.ToLower(strings.Replace(topicName, "{pipelineDeploymentname}", pipelineSpec.DeploymentName, -1))
+	topicName := strings.ToLower(strings.Replace(topicConfig.TopicName, "{deploymentownerusername}", pipelineSpec.DeploymentOwnerUserName, -1))
+	topicName = strings.ToLower(strings.Replace(topicName, "{deploymentname}", pipelineSpec.DeploymentName, -1))
 
 	logData := map[string]interface{}{
 		"Topic": topicName,
