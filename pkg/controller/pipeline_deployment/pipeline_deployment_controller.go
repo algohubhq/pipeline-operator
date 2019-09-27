@@ -1,4 +1,4 @@
-package pipeline_deployment
+package pipelinedeploymentcontroller
 
 import (
 	"context"
@@ -152,6 +152,18 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	}
 
 	var wg sync.WaitGroup
+
+	// Create the storage bucket
+	reqLogger.Info("Reconciling the Storage Bucket")
+	wg.Add(1)
+	go func(pipelineDeployment *algov1alpha1.PipelineDeployment) {
+		bucketReconciler := recon.NewBucketReconciler(instance, &request, r.client)
+		err = bucketReconciler.Reconcile()
+		if err != nil {
+			reqLogger.Error(err, "Error in Bucket reconcile.")
+		}
+		wg.Done()
+	}(instance)
 
 	// Create / update the kafka topics
 	reqLogger.Info("Reconciling Kakfa Topics")
