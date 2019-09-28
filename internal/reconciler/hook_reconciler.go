@@ -193,12 +193,6 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 		ReadinessProbe:           readinessProbe,
 		TerminationMessagePath:   "/dev/termination-log",
 		TerminationMessagePolicy: "File",
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "algorun-data-volume",
-				MountPath: "/data",
-			},
-		},
 	}
 	containers = append(containers, hookContainer)
 
@@ -255,18 +249,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 					//	FSGroup: int64p(1431),
 					// },
 					// NodeSelector: nodeSelector,
-					Containers: containers,
-					Volumes: []corev1.Volume{
-						{
-							Name: "algorun-data-volume",
-							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "algorun-data-pv-claim",
-									ReadOnly:  false,
-								},
-							},
-						},
-					},
+					Containers:    containers,
 					RestartPolicy: corev1.RestartPolicyAlways,
 					DNSPolicy:     corev1.DNSClusterFirst,
 				},

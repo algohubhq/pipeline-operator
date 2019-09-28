@@ -50,24 +50,31 @@ func (bucketReconciler *BucketReconciler) Reconcile() error {
 		return err
 	}
 	// Parse the secret
-	endpoint, accessKey, secret, err := parseEnvURLStr(storageSecret.StringData["mc"])
+	endpoint, accessKey, secret, err := parseEnvURLStr(string(storageSecret.Data["mc"]))
 	if err != nil {
 		return err
 	}
 
 	// Create the bucket
-	minioClient, err := minio.New(endpoint.String(), accessKey, secret, endpoint.Scheme == "https")
+	minioClient, err := minio.New(endpoint.Host, accessKey, secret, endpoint.Scheme == "https")
 	if err != nil {
 		return err
 	}
 
-	bucketName := fmt.Sprintf("%s/%s",
+	bucketName := fmt.Sprintf("%s.%s",
 		strings.ToLower(bucketReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName),
 		strings.ToLower(bucketReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName))
 
-	err = minioClient.MakeBucket(bucketName, "us-east-1")
+	exists, err := minioClient.BucketExists(bucketName)
 	if err != nil {
 		return err
+	}
+
+	if !exists {
+		err = minioClient.MakeBucket(bucketName, "us-east-1")
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

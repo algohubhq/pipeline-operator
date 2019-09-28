@@ -183,12 +183,12 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	for _, algoConfig := range instance.Spec.PipelineSpec.AlgoConfigs {
 		wg.Add(1)
 		go func(currentAlgoConfig algov1alpha1.AlgoConfig) {
+			defer wg.Done()
 			algoReconciler := recon.NewAlgoReconciler(instance, &currentAlgoConfig, &request, r.client, r.scheme)
 			err = algoReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in AlgoConfig reconcile loop.")
 			}
-			wg.Done()
 		}(algoConfig)
 	}
 
