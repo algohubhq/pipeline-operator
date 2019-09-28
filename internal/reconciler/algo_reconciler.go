@@ -554,6 +554,17 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1alpha1.PipelineDep
 		Value: cr.Spec.KafkaBrokers,
 	})
 
+	// Append the required kafka servers
+	envVars = append(envVars, corev1.EnvVar{
+		Name: "MC_HOST_algorun",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "storage-endpoint"},
+				Key:                  "mc",
+			},
+		},
+	})
+
 	// for k, v := range algoConfig.EnvVars {
 	// 	envVars = append(envVars, corev1.EnvVar{
 	// 		Name:  k,
