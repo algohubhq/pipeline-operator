@@ -3,6 +3,7 @@ package reconciler
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -239,10 +240,15 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	// Set the algo-runner-sidecar name
 	var sidecarImageName string
 	if algoConfig.AlgoRunnerImage == "" {
-		sidecarImageName = "algohub/algo-runner:latest"
+		algoRunnerImage := os.Getenv("ALGORUNNER_IMAGE")
+		if algoRunnerImage == "" {
+			sidecarImageName = "algohub/algo-runner:latest"
+		} else {
+			sidecarImageName = algoRunnerImage
+		}
 	} else {
-		if algoConfig.AlgoRunnerImageTag == "" || algoConfig.AlgoRunnerImageTag == "latest" {
-			sidecarImageName = fmt.Sprintf("%s:latest", algoConfig.ImageRepository)
+		if algoConfig.AlgoRunnerImageTag == "" {
+			sidecarImageName = fmt.Sprintf("%s:latest", algoConfig.AlgoRunnerImage)
 		} else {
 			sidecarImageName = fmt.Sprintf("%s:%s", algoConfig.AlgoRunnerImage, algoConfig.AlgoRunnerImageTag)
 		}
@@ -307,7 +313,9 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 		initCommand := []string{"/bin/sh", "-c"}
 		initArgs := []string{
 			"cp /algo-runner/algo-runner /algo-runner-dest/algo-runner && " +
-				"chmod +x /algo-runner-dest/algo-runner",
+				"cp /algo-runner/mc /algo-runner-dest/mc && " +
+				"chmod +x /algo-runner-dest/algo-runner && " +
+				"chmod +x /algo-runner-dest/mc",
 		}
 
 		algoEnvVars = algoReconciler.createEnvVars(pipelineDeployment, runnerConfig, algoConfig)
@@ -554,7 +562,7 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1alpha1.PipelineDep
 		Value: cr.Spec.KafkaBrokers,
 	})
 
-	// Append the required kafka servers
+	// Append the storage server connection
 	envVars = append(envVars, corev1.EnvVar{
 		Name: "MC_HOST_algorun",
 		ValueFrom: &corev1.EnvVarSource{
@@ -563,6 +571,12 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1alpha1.PipelineDep
 				Key:                  "mc",
 			},
 		},
+	})
+
+	// Append the path to mc
+	envVars = append(envVars, corev1.EnvVar{
+		Name:  "MC_PATH",
+		Value: "/algo-runner/mc",
 	})
 
 	// for k, v := range algoConfig.EnvVars {

@@ -5,4 +5,6 @@ VERSION=$(git describe --all --exact-match `git rev-parse HEAD` | grep tags | se
 
 operator-sdk build algohub/pipeline-operator:$GIT_COMMIT
 
+docker tag algohub/pipeline-operator:$GIT_COMMIT algohub/pipeline-operator:latest
+
 sed -i "s|algohub/pipeline-operator.*|algohub/pipeline-operator:$GIT_COMMIT|g" deploy/operator.yaml
