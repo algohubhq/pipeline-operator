@@ -10,8 +10,6 @@ spec:
     plural: pipelinedeployments
     singular: pipelinedeployment
   scope: Namespaced
-  subresources:
-    status: {}
   validation:
     openAPIV3Schema:
       properties:
@@ -146,6 +144,8 @@ spec:
                                     type: string
                                   groupName:
                                     type: string
+                                  iconClass:
+                                    type: string
                                   name:
                                     type: string
                                   rfc:
@@ -168,7 +168,6 @@ spec:
                               type: string
                           required:
                           - name
-                          - isRequired
                           - inputDeliveryType
                           - mediaTypes
                           type: object
@@ -209,6 +208,8 @@ spec:
                                 fileExtension:
                                   type: string
                                 groupName:
+                                  type: string
+                                iconClass:
                                   type: string
                                 name:
                                   type: string
@@ -315,6 +316,57 @@ spec:
                   type: string
                 deploymentOwnerUserName:
                   type: string
+                endpointConfig:
+                  properties:
+                    deploymentName:
+                      type: string
+                    deploymentOwnerUserName:
+                      type: string
+                    outputs:
+                      items:
+                        properties:
+                          connectionString:
+                            type: string
+                          description:
+                            type: string
+                          endpointType:
+                            type: string
+                          isDefault:
+                            type: boolean
+                          mediaType:
+                            properties:
+                              encoding:
+                                type: string
+                              fileExtension:
+                                type: string
+                              groupName:
+                                type: string
+                              iconClass:
+                                type: string
+                              name:
+                                type: string
+                              rfc:
+                                type: string
+                              rfcUrl:
+                                type: string
+                              subTypeName:
+                                type: string
+                              title:
+                                type: string
+                              url:
+                                type: string
+                            type: object
+                          messageDataType:
+                            type: string
+                          name:
+                            type: string
+                        type: object
+                      type: array
+                    pipelineName:
+                      type: string
+                    pipelineOwnerUserName:
+                      type: string
+                  type: object
                 hookConfig:
                   properties:
                     imageRepository:

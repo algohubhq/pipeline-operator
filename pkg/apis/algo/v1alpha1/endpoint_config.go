@@ -10,7 +10,7 @@
 
 package v1alpha1
 
-type PipelineSpec struct {
+type EndpointConfig struct {
 
 	DeploymentOwnerUserName string `json:"deploymentOwnerUserName,omitempty"`
 
@@ -20,17 +20,5 @@ type PipelineSpec struct {
 
 	PipelineName string `json:"pipelineName,omitempty"`
 
-	PipelineVersionTag string `json:"pipelineVersionTag,omitempty"`
-
-	EndpointConfig *EndpointConfig `json:"endpointConfig,omitempty"`
-
-	AlgoConfigs []AlgoConfig `json:"algoConfigs,omitempty"`
-
-	DataConnectorConfigs []DataConnectorConfig `json:"dataConnectorConfigs,omitempty"`
-
-	HookConfig *HookConfig `json:"hookConfig,omitempty"`
-
-	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
-
-	Pipes []PipeModel `json:"pipes,omitempty"`
+	Outputs []EndpointOutputModel `json:"outputs,omitempty"`
 }
