@@ -12,6 +12,14 @@ package v1alpha1
 
 type HookConfig struct {
 
+	DeploymentOwnerUserName string `json:"deploymentOwnerUserName,omitempty"`
+
+	DeploymentName string `json:"deploymentName,omitempty"`
+
+	PipelineOwnerUserName string `json:"pipelineOwnerUserName,omitempty"`
+
+	PipelineName string `json:"pipelineName,omitempty"`
+
 	ImageRepository string `json:"imageRepository,omitempty"`
 
 	ImageTag string `json:"imageTag,omitempty"`
@@ -19,4 +27,8 @@ type HookConfig struct {
 	Instances int32 `json:"instances,omitempty"`
 
 	WebHooks []WebHookModel `json:"webHooks,omitempty"`
+
+	Pipes []PipeModel `json:"pipes,omitempty"`
+
+	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
 }

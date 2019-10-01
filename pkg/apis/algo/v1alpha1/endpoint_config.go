@@ -20,5 +20,11 @@ type EndpointConfig struct {
 
 	PipelineName string `json:"pipelineName,omitempty"`
 
+	ImageRepository string `json:"imageRepository,omitempty"`
+
+	ImageTag string `json:"imageTag,omitempty"`
+
+	Instances int32 `json:"instances,omitempty"`
+
 	Outputs []EndpointOutputModel `json:"outputs,omitempty"`
 }

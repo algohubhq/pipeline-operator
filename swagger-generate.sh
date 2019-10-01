@@ -33,5 +33,7 @@ cp ./algorun-go-client/data_connector_option_model.go ./pkg/apis/algo/v1alpha1/
 
 rm -rf ./algorun-go-client/
 
+export GOROOT=$(go env GOROOT)
+
 GO111MODULE=on operator-sdk generate k8s
 GO111MODULE=on operator-sdk generate openapi

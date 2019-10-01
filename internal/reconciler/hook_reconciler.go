@@ -126,8 +126,15 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels map[string]string, existingDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 
 	pipelineDeployment := hookReconciler.pipelineDeployment
-	hookConfig := hookReconciler.pipelineDeployment.Spec.PipelineSpec.HookConfig
-	hookRunnerConfig := hookReconciler.createHookRunnerConfig(&pipelineDeployment.Spec)
+	pipelineSpec := hookReconciler.pipelineDeployment.Spec.PipelineSpec
+	hookConfig := pipelineSpec.HookConfig
+	hookConfig.DeploymentOwnerUserName = pipelineSpec.DeploymentOwnerUserName
+	hookConfig.DeploymentName = pipelineSpec.DeploymentName
+	hookConfig.PipelineOwnerUserName = pipelineSpec.PipelineOwnerUserName
+	hookConfig.PipelineName = pipelineSpec.PipelineName
+	hookConfig.WebHooks = pipelineSpec.HookConfig.WebHooks
+	hookConfig.Pipes = pipelineSpec.Pipes
+	hookConfig.TopicConfigs = pipelineSpec.TopicConfigs
 
 	// Set the image name
 	var imageName string
@@ -161,7 +168,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 	var containers []corev1.Container
 
 	hookCommand := []string{"/hook-runner/hook-runner"}
-	hookEnvVars := hookReconciler.createEnvVars(pipelineDeployment, hookRunnerConfig)
+	hookEnvVars := hookReconciler.createEnvVars(pipelineDeployment, hookConfig)
 
 	readinessProbe := &corev1.Probe{
 		Handler:             handler,
@@ -265,14 +272,14 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 
 }
 
-func (hookReconciler *HookReconciler) createEnvVars(cr *algov1alpha1.PipelineDeployment, hookConfig *v1alpha1.HookRunnerConfig) []corev1.EnvVar {
+func (hookReconciler *HookReconciler) createEnvVars(cr *algov1alpha1.PipelineDeployment, hookConfig *v1alpha1.HookConfig) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
 
 	// serialize the runner config to json string
 	hookConfigBytes, err := json.Marshal(hookConfig)
 	if err != nil {
-		log.Error(err, "Failed deserializing runner config")
+		log.Error(err, "Failed deserializing hook config")
 	}
 
 	// Append the algo instance name
@@ -322,21 +329,4 @@ func (hookReconciler *HookReconciler) createSelector(constraints []string) map[s
 	}
 
 	return selector
-}
-
-// CreateRunnerConfig creates the config struct to be sent to the runner
-func (hookReconciler *HookReconciler) createHookRunnerConfig(pipelineDeploymentSpec *algov1alpha1.PipelineDeploymentSpec) *v1alpha1.HookRunnerConfig {
-
-	hookConfig := &v1alpha1.HookRunnerConfig{
-		DeploymentOwnerUserName: pipelineDeploymentSpec.PipelineSpec.DeploymentOwnerUserName,
-		DeploymentName:          pipelineDeploymentSpec.PipelineSpec.DeploymentName,
-		PipelineOwnerUserName:   pipelineDeploymentSpec.PipelineSpec.PipelineOwnerUserName,
-		PipelineName:            pipelineDeploymentSpec.PipelineSpec.PipelineName,
-		WebHooks:                pipelineDeploymentSpec.PipelineSpec.HookConfig.WebHooks,
-		Pipes:                   pipelineDeploymentSpec.PipelineSpec.Pipes,
-		TopicConfigs:            pipelineDeploymentSpec.PipelineSpec.TopicConfigs,
-	}
-
-	return hookConfig
-
 }

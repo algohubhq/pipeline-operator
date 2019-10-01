@@ -12,6 +12,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -21,11 +22,13 @@ import (
 // NewEndpointReconciler returns a new EndpointReconciler
 func NewEndpointReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
 	request *reconcile.Request,
-	client client.Client) EndpointReconciler {
+	client client.Client,
+	scheme *runtime.Scheme) EndpointReconciler {
 	return EndpointReconciler{
 		pipelineDeployment: pipelineDeployment,
 		request:            request,
 		client:             client,
+		scheme:             scheme,
 	}
 }
 
@@ -34,6 +37,7 @@ type EndpointReconciler struct {
 	pipelineDeployment *algov1alpha1.PipelineDeployment
 	request            *reconcile.Request
 	client             client.Client
+	scheme             *runtime.Scheme
 }
 
 func (endpointReconciler *EndpointReconciler) Reconcile() error {
@@ -41,11 +45,11 @@ func (endpointReconciler *EndpointReconciler) Reconcile() error {
 	pipelineDeployment := endpointReconciler.pipelineDeployment
 	request := endpointReconciler.request
 
-	hookLogger := log
+	endpointLogger := log
 
-	hookLogger.Info("Reconciling Endpoint")
+	endpointLogger.Info("Reconciling Endpoint")
 
-	name := "pipeline-deployment-endpoint"
+	name := "deployment-endpoint"
 
 	labels := map[string]string{
 		"system":                  "algorun",
@@ -58,7 +62,7 @@ func (endpointReconciler *EndpointReconciler) Reconcile() error {
 
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=hook, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=endpoint, pipelinedeploymentowner=%s, pipelinedeployment=%s",
 		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
@@ -68,45 +72,45 @@ func (endpointReconciler *EndpointReconciler) Reconcile() error {
 	existingDeployment, err := deplUtil.CheckForDeployment(listOptions)
 
 	// Generate the k8s deployment
-	hookDeployment, err := endpointReconciler.createDeploymentSpec(name, labels, existingDeployment)
+	endpointDeployment, err := endpointReconciler.createDeploymentSpec(name, labels, existingDeployment)
 	if err != nil {
-		hookLogger.Error(err, "Failed to create hook deployment spec")
+		endpointLogger.Error(err, "Failed to create endpoint deployment spec")
 		return err
 	}
 
 	// Set PipelineDeployment instance as the owner and controller
-	if err := controllerutil.SetControllerReference(pipelineDeployment, hookDeployment, hookReconciler.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(pipelineDeployment, endpointDeployment, endpointReconciler.scheme); err != nil {
 		return err
 	}
 
 	if existingDeployment == nil {
-		err := deplUtil.CreateDeployment(hookDeployment)
+		err := deplUtil.CreateDeployment(endpointDeployment)
 		if err != nil {
-			hookLogger.Error(err, "Failed to create hook deployment")
+			endpointLogger.Error(err, "Failed to create hook deployment")
 			return err
 		}
 	} else {
 		var deplChanged bool
 
 		// Set some values that are defaulted by k8s but shouldn't trigger a change
-		hookDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds = existingDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds
-		hookDeployment.Spec.Template.Spec.SecurityContext = existingDeployment.Spec.Template.Spec.SecurityContext
-		hookDeployment.Spec.Template.Spec.SchedulerName = existingDeployment.Spec.Template.Spec.SchedulerName
+		endpointDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds = existingDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds
+		endpointDeployment.Spec.Template.Spec.SecurityContext = existingDeployment.Spec.Template.Spec.SecurityContext
+		endpointDeployment.Spec.Template.Spec.SchedulerName = existingDeployment.Spec.Template.Spec.SchedulerName
 
-		if *existingDeployment.Spec.Replicas != *hookDeployment.Spec.Replicas {
-			hookLogger.Info("Hook Replica Count Changed. Updating deployment.",
+		if *existingDeployment.Spec.Replicas != *endpointDeployment.Spec.Replicas {
+			endpointLogger.Info("Hook Replica Count Changed. Updating deployment.",
 				"Old Replicas", existingDeployment.Spec.Replicas,
-				"New Replicas", hookDeployment.Spec.Replicas)
+				"New Replicas", endpointDeployment.Spec.Replicas)
 			deplChanged = true
-		} else if diff := deep.Equal(existingDeployment.Spec.Template.Spec, hookDeployment.Spec.Template.Spec); diff != nil {
-			hookLogger.Info("Hook Changed. Updating deployment.", "Differences", diff)
+		} else if diff := deep.Equal(existingDeployment.Spec.Template.Spec, endpointDeployment.Spec.Template.Spec); diff != nil {
+			endpointLogger.Info("Hook Changed. Updating deployment.", "Differences", diff)
 			deplChanged = true
 
 		}
 		if deplChanged {
-			err := deplUtil.UpdateDeployment(hookDeployment)
+			err := deplUtil.UpdateDeployment(endpointDeployment)
 			if err != nil {
-				hookLogger.Error(err, "Failed to update hook deployment")
+				endpointLogger.Error(err, "Failed to update hook deployment")
 				return err
 			}
 		}
@@ -120,14 +124,20 @@ func (endpointReconciler *EndpointReconciler) Reconcile() error {
 func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, labels map[string]string, existingDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 
 	pipelineDeployment := endpointReconciler.pipelineDeployment
-	endpointConfig := endpointReconciler.pipelineDeployment.Spec.PipelineSpec.EndpointConfig
+	pipelineSpec := endpointReconciler.pipelineDeployment.Spec.PipelineSpec
+	endpointConfig := pipelineSpec.EndpointConfig
+	endpointConfig.DeploymentOwnerUserName = pipelineSpec.DeploymentOwnerUserName
+	endpointConfig.DeploymentName = pipelineSpec.DeploymentName
+	endpointConfig.PipelineOwnerUserName = pipelineSpec.PipelineOwnerUserName
+	endpointConfig.PipelineName = pipelineSpec.PipelineName
+	endpointConfig.Outputs = pipelineSpec.EndpointConfig.Outputs
 
 	// Set the image name
 	var imageName string
-	if hookConfig.ImageTag == "" || hookConfig.ImageTag == "latest" {
-		imageName = fmt.Sprintf("%s:latest", hookConfig.ImageRepository)
+	if endpointConfig.ImageTag == "" || endpointConfig.ImageTag == "latest" {
+		imageName = fmt.Sprintf("%s:latest", endpointConfig.ImageRepository)
 	} else {
-		imageName = fmt.Sprintf("%s:%s", hookConfig.ImageRepository, hookConfig.ImageTag)
+		imageName = fmt.Sprintf("%s:%s", endpointConfig.ImageRepository, endpointConfig.ImageTag)
 	}
 
 	var imagePullPolicy corev1.PullPolicy
@@ -154,7 +164,7 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 	var containers []corev1.Container
 
 	hookCommand := []string{"/hook-runner/hook-runner"}
-	hookEnvVars := hookReconciler.createEnvVars(pipelineDeployment, hookRunnerConfig)
+	hookEnvVars := endpointReconciler.createEnvVars(pipelineDeployment, endpointConfig)
 
 	readinessProbe := &corev1.Probe{
 		Handler:             handler,
@@ -220,7 +230,7 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Replicas: &hookConfig.Instances,
+			Replicas: &endpointConfig.Instances,
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{
@@ -258,45 +268,21 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 
 }
 
-func (endpointReconciler *EndpointReconciler) createEnvVars(cr *algov1alpha1.PipelineDeployment, hookConfig *v1alpha1.HookRunnerConfig) []corev1.EnvVar {
+func (endpointReconciler *EndpointReconciler) createEnvVars(cr *algov1alpha1.PipelineDeployment, endpointConfig *v1alpha1.EndpointConfig) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
 
 	// serialize the runner config to json string
-	hookConfigBytes, err := json.Marshal(hookConfig)
+	endpointConfigBytes, err := json.Marshal(endpointConfig)
 	if err != nil {
-		log.Error(err, "Failed deserializing runner config")
+		log.Error(err, "Failed deserializing endpoint config")
 	}
-
-	// Append the algo instance name
-	envVars = append(envVars, corev1.EnvVar{
-		Name: "INSTANCE-NAME",
-		ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{
-				APIVersion: "v1",
-				FieldPath:  "metadata.name",
-			},
-		},
-	})
 
 	// Append the required runner config
 	envVars = append(envVars, corev1.EnvVar{
-		Name:  "HOOK-RUNNER-CONFIG",
-		Value: string(hookConfigBytes),
+		Name:  "ENDPOINT-CONFIG",
+		Value: string(endpointConfigBytes),
 	})
-
-	// Append the required kafka servers
-	envVars = append(envVars, corev1.EnvVar{
-		Name:  "KAFKA-BROKERS",
-		Value: cr.Spec.KafkaBrokers,
-	})
-
-	// for k, v := range algoConfig.EnvVars {
-	// 	envVars = append(envVars, corev1.EnvVar{
-	// 		Name:  k,
-	// 		Value: v,
-	// 	})
-	// }
 
 	return envVars
 }

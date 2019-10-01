@@ -322,6 +322,13 @@ spec:
                       type: string
                     deploymentOwnerUserName:
                       type: string
+                    imageRepository:
+                      type: string
+                    imageTag:
+                      type: string
+                    instances:
+                      format: int32
+                      type: integer
                     outputs:
                       items:
                         properties:
@@ -369,6 +376,10 @@ spec:
                   type: object
                 hookConfig:
                   properties:
+                    deploymentName:
+                      type: string
+                    deploymentOwnerUserName:
+                      type: string
                     imageRepository:
                       type: string
                     imageTag:
@@ -376,6 +387,63 @@ spec:
                     instances:
                       format: int32
                       type: integer
+                    pipelineName:
+                      type: string
+                    pipelineOwnerUserName:
+                      type: string
+                    pipes:
+                      items:
+                        properties:
+                          destInputMessageDataType:
+                            type: string
+                          destInputName:
+                            type: string
+                          destName:
+                            type: string
+                          destNodeType:
+                            type: string
+                          sourceName:
+                            type: string
+                          sourceNodeType:
+                            type: string
+                          sourceOutputMessageDataType:
+                            type: string
+                          sourceOutputName:
+                            type: string
+                        type: object
+                      type: array
+                    topicConfigs:
+                      items:
+                        properties:
+                          nodeType:
+                            type: string
+                          sourceName:
+                            type: string
+                          sourceOutputName:
+                            type: string
+                          topicAutoName:
+                            type: boolean
+                          topicAutoPartition:
+                            type: boolean
+                          topicName:
+                            type: string
+                          topicParams:
+                            items:
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  type: string
+                              type: object
+                            type: array
+                          topicPartitions:
+                            format: int32
+                            type: integer
+                          topicReplicationFactor:
+                            format: int32
+                            type: integer
+                        type: object
+                      type: array
                     webHooks:
                       items:
                         properties:
