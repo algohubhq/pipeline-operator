@@ -217,28 +217,32 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	}
 
 	// Reconcile hook container
-	reqLogger.Info("Reconciling Hooks")
-	wg.Add(1)
-	go func(pipelineDeployment *algov1alpha1.PipelineDeployment) {
-		hookReconciler := recon.NewHookReconciler(instance, &request, r.client, r.scheme)
-		err = hookReconciler.Reconcile()
-		if err != nil {
-			reqLogger.Error(err, "Error in Hook reconcile.")
-		}
-		wg.Done()
-	}(instance)
+	if instance.Spec.PipelineSpec.HookConfig != nil {
+		reqLogger.Info("Reconciling Hooks")
+		wg.Add(1)
+		go func(pipelineDeployment *algov1alpha1.PipelineDeployment) {
+			hookReconciler := recon.NewHookReconciler(instance, &request, r.client, r.scheme)
+			err = hookReconciler.Reconcile()
+			if err != nil {
+				reqLogger.Error(err, "Error in Hook reconcile.")
+			}
+			wg.Done()
+		}(instance)
+	}
 
 	// Reconcile endpoint container
-	reqLogger.Info("Reconciling Endpoints")
-	wg.Add(1)
-	go func(pipelineDeployment *algov1alpha1.PipelineDeployment) {
-		endpointReconciler := recon.NewEndpointReconciler(instance, &request, r.client, r.scheme)
-		err = endpointReconciler.Reconcile()
-		if err != nil {
-			reqLogger.Error(err, "Error in Endpoint reconcile.")
-		}
-		wg.Done()
-	}(instance)
+	if instance.Spec.PipelineSpec.EndpointConfig != nil {
+		reqLogger.Info("Reconciling Endpoints")
+		wg.Add(1)
+		go func(pipelineDeployment *algov1alpha1.PipelineDeployment) {
+			endpointReconciler := recon.NewEndpointReconciler(instance, &request, r.client, r.scheme)
+			err = endpointReconciler.Reconcile()
+			if err != nil {
+				reqLogger.Error(err, "Error in Endpoint reconcile.")
+			}
+			wg.Done()
+		}(instance)
+	}
 
 	// Wait for algo, data connector and topic reconciliation to complete
 	wg.Wait()
