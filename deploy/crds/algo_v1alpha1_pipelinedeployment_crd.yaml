@@ -329,6 +329,13 @@ spec:
                     instances:
                       format: int32
                       type: integer
+                    kafka:
+                      properties:
+                        brokers:
+                          items:
+                            type: string
+                          type: array
+                      type: object
                     outputs:
                       items:
                         properties:
@@ -373,6 +380,53 @@ spec:
                       type: string
                     pipelineOwnerUserName:
                       type: string
+                    producer:
+                      properties:
+                        cb:
+                          properties:
+                            fails:
+                              format: int32
+                              type: integer
+                            interval:
+                              format: int32
+                              type: integer
+                            requests:
+                              format: int32
+                              type: integer
+                            timeout:
+                              type: string
+                          type: object
+                        resend:
+                          properties:
+                            period:
+                              type: string
+                          type: object
+                        wal:
+                          properties:
+                            mode:
+                              type: string
+                            path:
+                              type: string
+                          type: object
+                      type: object
+                    server:
+                      properties:
+                        grpc:
+                          properties:
+                            listen:
+                              type: string
+                          type: object
+                        http:
+                          properties:
+                            listen:
+                              type: string
+                          type: object
+                        monitoring:
+                          properties:
+                            listen:
+                              type: string
+                          type: object
+                      type: object
                   type: object
                 hookConfig:
                   properties:

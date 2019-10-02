@@ -278,15 +278,14 @@ func (endpointReconciler *EndpointReconciler) createEnvVars(cr *algov1alpha1.Pip
 		log.Error(err, "Failed deserializing endpoint config")
 	}
 
-	// TODO: Iterate each config section in endpointConfig which viper will read
-
 	// Append the required runner config
 	envVars = append(envVars, corev1.EnvVar{
-		Name:  "ENDPOINT-CONFIG",
+		Name:  "ENDPOINT_CONFIG",
 		Value: string(endpointConfigBytes),
 	})
 
 	return envVars
+
 }
 
 func (endpointReconciler *EndpointReconciler) createSelector(constraints []string) map[string]string {

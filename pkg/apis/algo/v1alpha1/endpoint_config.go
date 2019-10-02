@@ -27,4 +27,10 @@ type EndpointConfig struct {
 	Instances int32 `json:"instances,omitempty"`
 
 	Outputs []EndpointOutputModel `json:"outputs,omitempty"`
+
+	Server *EndpointServerConfig `json:"server,omitempty"`
+
+	Producer *EndpointProducerConfig `json:"producer,omitempty"`
+
+	Kafka *EndpointKafkaConfig `json:"kafka,omitempty"`
 }
