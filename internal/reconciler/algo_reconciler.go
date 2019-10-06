@@ -74,7 +74,7 @@ func (algoReconciler *AlgoReconciler) ReconcileService() error {
 			return err
 		}
 
-		err = deplUtil.CreateService(algoService)
+		_, err = deplUtil.CreateService(algoService)
 		if err != nil {
 			log.Error(err, "Failed to create algo metrics / health service")
 			return err

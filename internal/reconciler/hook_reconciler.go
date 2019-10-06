@@ -51,7 +51,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 
 	hookLogger.Info("Reconciling Hook")
 
-	name := "pipeline-deployment-hook"
+	name := "pipe-depl-hook"
 
 	labels := map[string]string{
 		"system":                  "algorun",

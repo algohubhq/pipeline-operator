@@ -1,18 +1,24 @@
 package reconciler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	utils "pipeline-operator/internal/utilities"
 	"pipeline-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
+	"strconv"
 	"strings"
 
 	"github.com/go-test/deep"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -40,7 +46,80 @@ type EndpointReconciler struct {
 	scheme             *runtime.Scheme
 }
 
+// mappingService holds the service name and port for ambassador
+type mappingService struct {
+	serviceSpec *corev1.Service
+	serviceName string
+	httpPort    int32
+	gRPCPort    int32
+}
+
 func (endpointReconciler *EndpointReconciler) Reconcile() error {
+
+	err := endpointReconciler.reconcileDeployment()
+	if err != nil {
+		return err
+	}
+
+	ms, err := endpointReconciler.reconcileService()
+	if err != nil {
+		return err
+	}
+
+	err = endpointReconciler.reconcileHttpMapping(ms)
+	err = endpointReconciler.reconcileGRPCMapping(ms)
+
+	return err
+
+}
+
+func (endpointReconciler *EndpointReconciler) reconcileService() (*mappingService, error) {
+
+	deplUtil := utils.NewDeploymentUtil(endpointReconciler.client)
+
+	// Check to see if the endpoint service is already created (All algos share the same service port)
+	srvListOptions := &client.ListOptions{}
+	srvListOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=endpoint, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+		endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName))
+	srvListOptions.InNamespace(endpointReconciler.request.NamespacedName.Namespace)
+
+	existingService, err := deplUtil.CheckForService(srvListOptions)
+	if err != nil {
+		log.Error(err, "Failed to check for existing endpoint service")
+		return nil, err
+	}
+	if existingService == nil {
+
+		// Generate the service for the endpoint
+		ms, err := endpointReconciler.createServiceSpec(endpointReconciler.pipelineDeployment)
+		if err != nil {
+			log.Error(err, "Failed to create pipeline deployment endpoint service spec")
+			return nil, err
+		}
+
+		serviceName, err := deplUtil.CreateService(ms.serviceSpec)
+		if err != nil {
+			log.Error(err, "Failed to create pipeline deployment endpoint service")
+			return nil, err
+		}
+		ms.serviceName = serviceName
+
+		return ms, nil
+	}
+
+	ms, err := endpointReconciler.createServiceSpec(endpointReconciler.pipelineDeployment)
+	if err != nil {
+		log.Error(err, "Failed to create pipeline deployment endpoint service spec")
+		return nil, err
+	}
+	ms.serviceName = existingService.GetName()
+
+	return ms, nil
+
+}
+
+func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 
 	pipelineDeployment := endpointReconciler.pipelineDeployment
 	request := endpointReconciler.request
@@ -49,7 +128,7 @@ func (endpointReconciler *EndpointReconciler) Reconcile() error {
 
 	endpointLogger.Info("Reconciling Endpoint")
 
-	name := "deployment-endpoint"
+	name := "pipe-depl-ep"
 
 	labels := map[string]string{
 		"system":                  "algorun",
@@ -86,7 +165,7 @@ func (endpointReconciler *EndpointReconciler) Reconcile() error {
 	if existingDeployment == nil {
 		err := deplUtil.CreateDeployment(endpointDeployment)
 		if err != nil {
-			endpointLogger.Error(err, "Failed to create hook deployment")
+			endpointLogger.Error(err, "Failed to create endpoint deployment")
 			return err
 		}
 	} else {
@@ -98,20 +177,135 @@ func (endpointReconciler *EndpointReconciler) Reconcile() error {
 		endpointDeployment.Spec.Template.Spec.SchedulerName = existingDeployment.Spec.Template.Spec.SchedulerName
 
 		if *existingDeployment.Spec.Replicas != *endpointDeployment.Spec.Replicas {
-			endpointLogger.Info("Hook Replica Count Changed. Updating deployment.",
+			endpointLogger.Info("Endpoint Replica Count Changed. Updating deployment.",
 				"Old Replicas", existingDeployment.Spec.Replicas,
 				"New Replicas", endpointDeployment.Spec.Replicas)
 			deplChanged = true
 		} else if diff := deep.Equal(existingDeployment.Spec.Template.Spec, endpointDeployment.Spec.Template.Spec); diff != nil {
-			endpointLogger.Info("Hook Changed. Updating deployment.", "Differences", diff)
+			endpointLogger.Info("Endpoint Changed. Updating deployment.", "Differences", diff)
 			deplChanged = true
 
 		}
 		if deplChanged {
 			err := deplUtil.UpdateDeployment(endpointDeployment)
 			if err != nil {
-				endpointLogger.Error(err, "Failed to update hook deployment")
+				endpointLogger.Error(err, "Failed to update endpoint deployment")
 				return err
+			}
+		}
+	}
+
+	return nil
+
+}
+
+func (endpointReconciler *EndpointReconciler) reconcileHttpMapping(ms *mappingService) error {
+
+	serviceName := fmt.Sprintf("http://%s:%d", ms.serviceName, ms.httpPort)
+	endpointReconciler.reconcileMapping(ms, serviceName, "http")
+
+	return nil
+}
+
+func (endpointReconciler *EndpointReconciler) reconcileGRPCMapping(ms *mappingService) error {
+
+	serviceName := fmt.Sprintf("%s:%d", ms.serviceName, ms.gRPCPort)
+	endpointReconciler.reconcileMapping(ms, serviceName, "grpc")
+
+	return nil
+}
+
+func (endpointReconciler *EndpointReconciler) reconcileMapping(ms *mappingService, serviceName string, protocol string) error {
+
+	pipelineDeployment := endpointReconciler.pipelineDeployment
+	request := endpointReconciler.request
+
+	// check to see if mapping already exists
+	// Check to make sure the algo isn't already created
+	listOptions := &client.ListOptions{}
+	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=mapping, proto=%s, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+		protocol,
+		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
+	listOptions.InNamespace(request.NamespacedName.Namespace)
+
+	deplUtil := utils.NewDeploymentUtil(endpointReconciler.client)
+	existingMapping, err := deplUtil.CheckForUnstructured(listOptions, schema.GroupVersionKind{
+		Group:   "getambassador.io",
+		Kind:    "Mapping",
+		Version: "v1",
+	})
+
+	var prefix string
+	if protocol == "grpc" {
+		prefix = "/run/grpc/"
+	} else {
+		prefix = "/run/http/"
+	}
+
+	if (err == nil && existingMapping == nil) || (err != nil && errors.IsNotFound(err)) {
+		// Create the topic
+		// Using a unstructured object to submit a strimzi topic creation.
+		labels := map[string]string{
+			"system":                  "algorun",
+			"tier":                    "backend",
+			"component":               "mapping",
+			"proto":                   protocol,
+			"pipelinedeploymentowner": pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+			"pipelinedeployment":      pipelineDeployment.Spec.PipelineSpec.DeploymentName,
+			"pipeline":                pipelineDeployment.Spec.PipelineSpec.PipelineName,
+		}
+
+		newMapping := &unstructured.Unstructured{}
+		newMapping.Object = map[string]interface{}{
+			"namespace": request.NamespacedName.Namespace,
+			"spec": map[string]interface{}{
+				"prefix":  prefix,
+				"rewrite": "/",
+				"grpc":    protocol == "grpc",
+				"service": serviceName,
+			},
+		}
+		newMapping.SetGenerateName("pipe-depl-ep-mapping")
+		newMapping.SetNamespace(endpointReconciler.request.NamespacedName.Namespace)
+		newMapping.SetLabels(labels)
+		newMapping.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "getambassador.io",
+			Kind:    "Mapping",
+			Version: "v1",
+		})
+
+		// Set PipelineDeployment instance as the owner and controller
+		if err := controllerutil.SetControllerReference(endpointReconciler.pipelineDeployment, newMapping, endpointReconciler.scheme); err != nil {
+			log.Error(err, "Failed setting the pipeline deployment endpoint mapping controller owner")
+		}
+
+		err := endpointReconciler.client.Create(context.TODO(), newMapping)
+		if err != nil {
+			log.Error(err, "Failed creating pipeline deployment endpoint mapping")
+		}
+	} else if err != nil {
+		log.Error(err, "Failed to check if pipeline deployment endpoint mapping exists.")
+	} else {
+		// Update the endpoint mapping if changed
+		var prefixCurrent, serviceCurrent string
+		spec, ok := existingMapping.Object["spec"].(map[string]interface{})
+		if ok {
+			prefixCurrent = spec["prefix"].(string)
+			serviceCurrent = spec["service"].(string)
+		}
+
+		if prefixCurrent != prefix ||
+			serviceCurrent != serviceName {
+
+			spec["prefix"] = prefix
+			spec["service"] = serviceName
+
+			existingMapping.Object["spec"] = spec
+
+			err := endpointReconciler.client.Update(context.TODO(), existingMapping)
+			if err != nil {
+				log.Error(err, "Failed updating pipeline deployment endpoint mapping")
 			}
 		}
 	}
@@ -153,36 +347,36 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 	}
 
 	// Configure the readiness and liveness
-	handler := corev1.Handler{
-		HTTPGet: &corev1.HTTPGetAction{
-			Scheme: "HTTP",
-			Path:   "/health",
-			Port:   intstr.FromInt(10080),
-		},
-	}
+	// handler := corev1.Handler{
+	// 	HTTPGet: &corev1.HTTPGetAction{
+	// 		Scheme: "HTTP",
+	// 		Path:   "/health",
+	// 		Port:   intstr.FromInt(10080),
+	// 	},
+	// }
 
 	var containers []corev1.Container
 
-	hookCommand := []string{"/hook-runner/hook-runner"}
+	hookCommand := []string{"/bin/deployment-endpoint"}
 	hookEnvVars := endpointReconciler.createEnvVars(pipelineDeployment, endpointConfig)
 
-	readinessProbe := &corev1.Probe{
-		Handler:             handler,
-		InitialDelaySeconds: 10,
-		TimeoutSeconds:      10,
-		PeriodSeconds:       20,
-		SuccessThreshold:    1,
-		FailureThreshold:    3,
-	}
+	// readinessProbe := &corev1.Probe{
+	// 	Handler:             handler,
+	// 	InitialDelaySeconds: 10,
+	// 	TimeoutSeconds:      10,
+	// 	PeriodSeconds:       20,
+	// 	SuccessThreshold:    1,
+	// 	FailureThreshold:    3,
+	// }
 
-	livenessProbe := &corev1.Probe{
-		Handler:             handler,
-		InitialDelaySeconds: 10,
-		TimeoutSeconds:      10,
-		PeriodSeconds:       20,
-		SuccessThreshold:    1,
-		FailureThreshold:    3,
-	}
+	// livenessProbe := &corev1.Probe{
+	// 	Handler:             handler,
+	// 	InitialDelaySeconds: 10,
+	// 	TimeoutSeconds:      10,
+	// 	PeriodSeconds:       20,
+	// 	SuccessThreshold:    1,
+	// 	FailureThreshold:    3,
+	// }
 
 	// Algo container
 	hookContainer := corev1.Container{
@@ -191,9 +385,9 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 		Command: hookCommand,
 		Env:     hookEnvVars,
 		// Resources:                *resources,
-		ImagePullPolicy:          imagePullPolicy,
-		LivenessProbe:            livenessProbe,
-		ReadinessProbe:           readinessProbe,
+		ImagePullPolicy: imagePullPolicy,
+		// LivenessProbe:            livenessProbe,
+		// ReadinessProbe:           readinessProbe,
 		TerminationMessagePath:   "/dev/termination-log",
 		TerminationMessagePolicy: "File",
 	}
@@ -302,4 +496,76 @@ func (endpointReconciler *EndpointReconciler) createSelector(constraints []strin
 	}
 
 	return selector
+}
+
+func (endpointReconciler *EndpointReconciler) createServiceSpec(pipelineDeployment *algov1alpha1.PipelineDeployment) (*mappingService, error) {
+
+	ms := &mappingService{}
+	labels := map[string]string{
+		"system":                  "algorun",
+		"tier":                    "backend",
+		"component":               "endpoint",
+		"pipelinedeploymentowner": pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		"pipelinedeployment":      pipelineDeployment.Spec.PipelineSpec.DeploymentName,
+		"pipeline":                pipelineDeployment.Spec.PipelineSpec.PipelineName,
+	}
+
+	var httpPort int32
+	var gRPCPort int32
+	if pipelineDeployment.Spec.PipelineSpec.EndpointConfig.Server != nil {
+		u, err := url.Parse(pipelineDeployment.Spec.PipelineSpec.EndpointConfig.Server.Http.Listen)
+		if err != nil || u == nil {
+			httpPort = 18080
+		} else {
+			i64, err := strconv.Atoi(u.Port())
+			if err != nil {
+				httpPort = 18080
+			}
+			httpPort = int32(i64)
+		}
+
+		uGrpc, err := url.Parse(pipelineDeployment.Spec.PipelineSpec.EndpointConfig.Server.Grpc.Listen)
+		if err != nil || uGrpc == nil {
+			gRPCPort = 18282
+		} else {
+			i64, err := strconv.Atoi(uGrpc.Port())
+			if err != nil {
+				gRPCPort = 18282
+			}
+			gRPCPort = int32(i64)
+		}
+
+	} else {
+		httpPort = 18080
+		gRPCPort = 18282
+	}
+
+	ms.httpPort = httpPort
+	ms.gRPCPort = gRPCPort
+
+	endpointServiceSpec := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:    pipelineDeployment.Namespace,
+			GenerateName: "pipe-depl-ep-service",
+			Labels:       labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				corev1.ServicePort{
+					Name: "http",
+					Port: httpPort,
+				},
+				corev1.ServicePort{
+					Name: "grpc",
+					Port: gRPCPort,
+				},
+			},
+			Selector: labels,
+		},
+	}
+
+	ms.serviceSpec = endpointServiceSpec
+
+	return ms, nil
+
 }

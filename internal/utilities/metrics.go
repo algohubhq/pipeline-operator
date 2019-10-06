@@ -75,7 +75,7 @@ func (customMetrics *CustomMetrics) ServeCustomMetrics() {
 				log.Error(err, "Failed to create custom metrics service spec")
 			}
 
-			err = deplUtil.CreateService(metricsService)
+			_, err = deplUtil.CreateService(metricsService)
 			if err != nil {
 				log.Error(err, "Failed to create custom metrics service")
 			}
