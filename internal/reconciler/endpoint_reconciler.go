@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -315,7 +314,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(ms *mappingServic
 }
 
 // CreateDeploymentSpec generates the k8s spec for the endpoint deployment
-func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, labels map[string]string, existingDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
+func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, labels map[string]string, existingSf *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
 
 	pipelineDeployment := endpointReconciler.pipelineDeployment
 	pipelineSpec := endpointReconciler.pipelineDeployment.Spec.PipelineSpec
@@ -325,6 +324,9 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 	endpointConfig.PipelineOwnerUserName = pipelineSpec.PipelineOwnerUserName
 	endpointConfig.PipelineName = pipelineSpec.PipelineName
 	endpointConfig.Outputs = pipelineSpec.EndpointConfig.Outputs
+	endpointConfig.Kafka = &algov1alpha1.EndpointKafkaConfig{
+		Brokers: []string{endpointReconciler.pipelineDeployment.Spec.KafkaBrokers},
+	}
 
 	// Set the image name
 	var imageName string
@@ -378,8 +380,8 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 	// 	FailureThreshold:    3,
 	// }
 
-	// Algo container
-	hookContainer := corev1.Container{
+	// Endpoint container
+	endpointContainer := corev1.Container{
 		Name:    name,
 		Image:   imageName,
 		Command: hookCommand,
@@ -390,17 +392,23 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 		// ReadinessProbe:           readinessProbe,
 		TerminationMessagePath:   "/dev/termination-log",
 		TerminationMessagePolicy: "File",
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "wal-data-volume",
+				MountPath: "/output",
+			},
+		},
 	}
-	containers = append(containers, hookContainer)
+	containers = append(containers, endpointContainer)
 
 	// nodeSelector := createSelector(request.Constraints)
 
 	// If this is an update, need to set the existing deployment name
 	var nameMeta metav1.ObjectMeta
-	if existingDeployment != nil {
+	if existingSf != nil {
 		nameMeta = metav1.ObjectMeta{
 			Namespace: pipelineDeployment.Namespace,
-			Name:      existingDeployment.Name,
+			Name:      existingSf.Name,
 			Labels:    labels,
 			// Annotations: annotations,
 		}
@@ -414,30 +422,17 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 	}
 
 	// annotations := buildAnnotations(request)
-	deploymentSpec := &appsv1.Deployment{
+	sfSpec := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
 			APIVersion: "apps/v1",
 		},
 		ObjectMeta: nameMeta,
-		Spec: appsv1.DeploymentSpec{
+		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Replicas: &endpointConfig.Instances,
-			Strategy: appsv1.DeploymentStrategy{
-				Type: appsv1.RollingUpdateDeploymentStrategyType,
-				RollingUpdate: &appsv1.RollingUpdateDeployment{
-					MaxUnavailable: &intstr.IntOrString{
-						Type:   intstr.Int,
-						IntVal: int32(0),
-					},
-					MaxSurge: &intstr.IntOrString{
-						Type:   intstr.Int,
-						IntVal: int32(1),
-					},
-				},
-			},
+			Replicas:             &endpointConfig.Instances,
 			RevisionHistoryLimit: utils.Int32p(10),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: nameMeta,
@@ -446,11 +441,23 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 					//	FSGroup: int64p(1431),
 					// },
 					// NodeSelector: nodeSelector,
-					Containers:    containers,
+					Containers: containers,
+					Volumes: []corev1.Volume{
+						{
+							Name: "wal-data-volume",
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "depl-endpoint-wal-pvc",
+									ReadOnly:  false,
+								},
+							},
+						},
+					},
 					RestartPolicy: corev1.RestartPolicyAlways,
 					DNSPolicy:     corev1.DNSClusterFirst,
 				},
 			},
+			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{},
 		},
 	}
 
@@ -458,7 +465,7 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 	// 	return nil, err
 	// }
 
-	return deploymentSpec, nil
+	return sfSpec, nil
 
 }
 
@@ -476,6 +483,12 @@ func (endpointReconciler *EndpointReconciler) createEnvVars(cr *algov1alpha1.Pip
 	envVars = append(envVars, corev1.EnvVar{
 		Name:  "ENDPOINT_CONFIG",
 		Value: string(endpointConfigBytes),
+	})
+
+	// Append the required kafka servers
+	envVars = append(envVars, corev1.EnvVar{
+		Name:  "KAFKA-BROKERS",
+		Value: cr.Spec.KafkaBrokers,
 	})
 
 	return envVars
