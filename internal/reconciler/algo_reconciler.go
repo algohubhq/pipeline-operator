@@ -53,14 +53,14 @@ func NewAlgoReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
 // ReconcileService creates or updates all services for the algos
 func (algoReconciler *AlgoReconciler) ReconcileService() error {
 
-	deplUtil := utils.NewDeploymentUtil(algoReconciler.client)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.client)
 
 	// Check to see if the metrics / health service is already created (All algos share the same service port)
 	srvListOptions := &client.ListOptions{}
 	srvListOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=algo"))
 	srvListOptions.InNamespace(algoReconciler.request.NamespacedName.Namespace)
 
-	existingService, err := deplUtil.CheckForService(srvListOptions)
+	existingService, err := kubeUtil.CheckForService(srvListOptions)
 	if err != nil {
 		log.Error(err, "Failed to check for existing algo metric service")
 		return err
@@ -74,7 +74,7 @@ func (algoReconciler *AlgoReconciler) ReconcileService() error {
 			return err
 		}
 
-		_, err = deplUtil.CreateService(algoService)
+		_, err = kubeUtil.CreateService(algoService)
 		if err != nil {
 			log.Error(err, "Failed to create algo metrics / health service")
 			return err
@@ -118,7 +118,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		"algoindex":               strconv.Itoa(int(algoConfig.AlgoIndex)),
 	}
 
-	deplUtil := utils.NewDeploymentUtil(algoReconciler.client)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.client)
 
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
@@ -131,7 +131,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		algoConfig.AlgoIndex))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
 
-	existingDeployment, err := deplUtil.CheckForDeployment(listOptions)
+	existingDeployment, err := kubeUtil.CheckForDeployment(listOptions)
 
 	if existingDeployment != nil {
 		algoConfig.DeploymentName = existingDeployment.GetName()
@@ -150,7 +150,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	}
 
 	if existingDeployment == nil {
-		err := deplUtil.CreateDeployment(algoDeployment)
+		_, err := kubeUtil.CreateDeployment(algoDeployment)
 		if err != nil {
 			algoLogger.Error(err, "Failed to create algo deployment")
 			return err
@@ -174,7 +174,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 		}
 		if deplChanged {
-			err := deplUtil.UpdateDeployment(algoDeployment)
+			_, err := kubeUtil.UpdateDeployment(algoDeployment)
 			if err != nil {
 				algoLogger.Error(err, "Failed to update algo deployment")
 				return err

@@ -11,10 +11,11 @@
 package v1alpha1
 
 type ProducerWal struct {
-
 	Mode string `json:"mode,omitempty"`
 
 	Path string `json:"path,omitempty"`
+
+	Size string `json:"size,omitempty"`
 
 	AlwaysTopics []string `json:"always_topics,omitempty"`
 

@@ -15,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,7 +75,7 @@ func (endpointReconciler *EndpointReconciler) Reconcile() error {
 
 func (endpointReconciler *EndpointReconciler) reconcileService() (*mappingService, error) {
 
-	deplUtil := utils.NewDeploymentUtil(endpointReconciler.client)
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.client)
 
 	// Check to see if the endpoint service is already created (All algos share the same service port)
 	srvListOptions := &client.ListOptions{}
@@ -83,7 +84,7 @@ func (endpointReconciler *EndpointReconciler) reconcileService() (*mappingServic
 		endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName))
 	srvListOptions.InNamespace(endpointReconciler.request.NamespacedName.Namespace)
 
-	existingService, err := deplUtil.CheckForService(srvListOptions)
+	existingService, err := kubeUtil.CheckForService(srvListOptions)
 	if err != nil {
 		log.Error(err, "Failed to check for existing endpoint service")
 		return nil, err
@@ -97,7 +98,7 @@ func (endpointReconciler *EndpointReconciler) reconcileService() (*mappingServic
 			return nil, err
 		}
 
-		serviceName, err := deplUtil.CreateService(ms.serviceSpec)
+		serviceName, err := kubeUtil.CreateService(ms.serviceSpec)
 		if err != nil {
 			log.Error(err, "Failed to create pipeline deployment endpoint service")
 			return nil, err
@@ -145,48 +146,48 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
 
-	deplUtil := utils.NewDeploymentUtil(endpointReconciler.client)
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.client)
 
-	existingDeployment, err := deplUtil.CheckForDeployment(listOptions)
+	existingSf, err := kubeUtil.CheckForStatefulSet(listOptions)
 
 	// Generate the k8s deployment
-	endpointDeployment, err := endpointReconciler.createDeploymentSpec(name, labels, existingDeployment)
+	endpointSf, err := endpointReconciler.createSpec(name, labels, existingSf)
 	if err != nil {
 		endpointLogger.Error(err, "Failed to create endpoint deployment spec")
 		return err
 	}
 
 	// Set PipelineDeployment instance as the owner and controller
-	if err := controllerutil.SetControllerReference(pipelineDeployment, endpointDeployment, endpointReconciler.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(pipelineDeployment, endpointSf, endpointReconciler.scheme); err != nil {
 		return err
 	}
 
-	if existingDeployment == nil {
-		err := deplUtil.CreateDeployment(endpointDeployment)
+	if existingSf == nil {
+		_, err := kubeUtil.CreateStatefulSet(endpointSf)
 		if err != nil {
-			endpointLogger.Error(err, "Failed to create endpoint deployment")
+			endpointLogger.Error(err, "Failed to create endpoint statefulset")
 			return err
 		}
 	} else {
 		var deplChanged bool
 
 		// Set some values that are defaulted by k8s but shouldn't trigger a change
-		endpointDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds = existingDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds
-		endpointDeployment.Spec.Template.Spec.SecurityContext = existingDeployment.Spec.Template.Spec.SecurityContext
-		endpointDeployment.Spec.Template.Spec.SchedulerName = existingDeployment.Spec.Template.Spec.SchedulerName
+		endpointSf.Spec.Template.Spec.TerminationGracePeriodSeconds = existingSf.Spec.Template.Spec.TerminationGracePeriodSeconds
+		endpointSf.Spec.Template.Spec.SecurityContext = existingSf.Spec.Template.Spec.SecurityContext
+		endpointSf.Spec.Template.Spec.SchedulerName = existingSf.Spec.Template.Spec.SchedulerName
 
-		if *existingDeployment.Spec.Replicas != *endpointDeployment.Spec.Replicas {
+		if *existingSf.Spec.Replicas != *endpointSf.Spec.Replicas {
 			endpointLogger.Info("Endpoint Replica Count Changed. Updating deployment.",
-				"Old Replicas", existingDeployment.Spec.Replicas,
-				"New Replicas", endpointDeployment.Spec.Replicas)
+				"Old Replicas", existingSf.Spec.Replicas,
+				"New Replicas", endpointSf.Spec.Replicas)
 			deplChanged = true
-		} else if diff := deep.Equal(existingDeployment.Spec.Template.Spec, endpointDeployment.Spec.Template.Spec); diff != nil {
+		} else if diff := deep.Equal(existingSf.Spec.Template.Spec, endpointSf.Spec.Template.Spec); diff != nil {
 			endpointLogger.Info("Endpoint Changed. Updating deployment.", "Differences", diff)
 			deplChanged = true
 
 		}
 		if deplChanged {
-			err := deplUtil.UpdateDeployment(endpointDeployment)
+			_, err := kubeUtil.UpdateStatefulSet(endpointSf)
 			if err != nil {
 				endpointLogger.Error(err, "Failed to update endpoint deployment")
 				return err
@@ -228,8 +229,8 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(ms *mappingServic
 		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
 
-	deplUtil := utils.NewDeploymentUtil(endpointReconciler.client)
-	existingMapping, err := deplUtil.CheckForUnstructured(listOptions, schema.GroupVersionKind{
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.client)
+	existingMapping, err := kubeUtil.CheckForUnstructured(listOptions, schema.GroupVersionKind{
 		Group:   "getambassador.io",
 		Kind:    "Mapping",
 		Version: "v1",
@@ -313,8 +314,8 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(ms *mappingServic
 
 }
 
-// CreateDeploymentSpec generates the k8s spec for the endpoint deployment
-func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, labels map[string]string, existingSf *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
+// createSpec generates the k8s spec for the endpoint deployment
+func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map[string]string, existingSf *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
 
 	pipelineDeployment := endpointReconciler.pipelineDeployment
 	pipelineSpec := endpointReconciler.pipelineDeployment.Spec.PipelineSpec
@@ -394,8 +395,8 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 		TerminationMessagePolicy: "File",
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      "wal-data-volume",
-				MountPath: "/output",
+				Name:      "endpoint-wal-data",
+				MountPath: "/data/wal",
 			},
 		},
 	}
@@ -421,6 +422,17 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 		}
 	}
 
+	walSize := resource.MustParse("1Gi")
+	if endpointConfig.Producer != nil &&
+		endpointConfig.Producer.Wal != nil &&
+		endpointConfig.Producer.Wal.Size != "" {
+		var err error
+		walSize, err = resource.ParseQuantity(endpointConfig.Producer.Wal.Size)
+		if err != nil {
+			walSize = resource.MustParse("1Gi")
+		}
+	}
+
 	// annotations := buildAnnotations(request)
 	sfSpec := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
@@ -441,23 +453,28 @@ func (endpointReconciler *EndpointReconciler) createDeploymentSpec(name string, 
 					//	FSGroup: int64p(1431),
 					// },
 					// NodeSelector: nodeSelector,
-					Containers: containers,
-					Volumes: []corev1.Volume{
-						{
-							Name: "wal-data-volume",
-							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "depl-endpoint-wal-pvc",
-									ReadOnly:  false,
-								},
-							},
-						},
-					},
+					Containers:    containers,
 					RestartPolicy: corev1.RestartPolicyAlways,
 					DNSPolicy:     corev1.DNSClusterFirst,
 				},
 			},
-			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{},
+			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "endpoint-wal-data",
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{
+							"ReadWriteOnce",
+						},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: walSize,
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -485,10 +502,15 @@ func (endpointReconciler *EndpointReconciler) createEnvVars(cr *algov1alpha1.Pip
 		Value: string(endpointConfigBytes),
 	})
 
-	// Append the required kafka servers
+	// Append the storage server connection
 	envVars = append(envVars, corev1.EnvVar{
-		Name:  "KAFKA-BROKERS",
-		Value: cr.Spec.KafkaBrokers,
+		Name: "EP_UPLOADER_HOST",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "storage-endpoint"},
+				Key:                  "mc",
+			},
+		},
 	})
 
 	return envVars

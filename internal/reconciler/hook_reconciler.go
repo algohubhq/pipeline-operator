@@ -69,9 +69,9 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
 
-	deplUtil := utils.NewDeploymentUtil(hookReconciler.client)
+	kubeUtil := utils.NewKubeUtil(hookReconciler.client)
 
-	existingDeployment, err := deplUtil.CheckForDeployment(listOptions)
+	existingDeployment, err := kubeUtil.CheckForDeployment(listOptions)
 
 	// Generate the k8s deployment
 	hookDeployment, err := hookReconciler.createDeploymentSpec(name, labels, existingDeployment)
@@ -86,7 +86,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 	}
 
 	if existingDeployment == nil {
-		err := deplUtil.CreateDeployment(hookDeployment)
+		_, err := kubeUtil.CreateDeployment(hookDeployment)
 		if err != nil {
 			hookLogger.Error(err, "Failed to create hook deployment")
 			return err
@@ -110,7 +110,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 
 		}
 		if deplChanged {
-			err := deplUtil.UpdateDeployment(hookDeployment)
+			_, err := kubeUtil.UpdateDeployment(hookDeployment)
 			if err != nil {
 				hookLogger.Error(err, "Failed to update hook deployment")
 				return err

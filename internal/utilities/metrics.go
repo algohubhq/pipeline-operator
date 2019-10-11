@@ -58,7 +58,7 @@ func (customMetrics *CustomMetrics) ServeCustomMetrics() {
 
 	http.Handle("/metrics", promhttp.Handler())
 
-	deplUtil := NewDeploymentUtil(customMetrics.client)
+	kubeUtil := NewKubeUtil(customMetrics.client)
 	// Generate the custom metrics service if it doesn't exist
 	existingService := &corev1.Service{}
 	err := customMetrics.client.Get(context.Background(),
@@ -75,7 +75,7 @@ func (customMetrics *CustomMetrics) ServeCustomMetrics() {
 				log.Error(err, "Failed to create custom metrics service spec")
 			}
 
-			_, err = deplUtil.CreateService(metricsService)
+			_, err = kubeUtil.CreateService(metricsService)
 			if err != nil {
 				log.Error(err, "Failed to create custom metrics service")
 			}
