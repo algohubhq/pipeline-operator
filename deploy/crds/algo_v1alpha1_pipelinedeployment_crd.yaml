@@ -407,6 +407,8 @@ spec:
                               type: string
                             path:
                               type: string
+                            size:
+                              type: string
                           type: object
                       type: object
                     server:

@@ -438,7 +438,11 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 				MountPath: "/algo-runner",
 			},
 			{
-				Name:      "algorun-data-volume",
+				Name:      "algorun-input-volume",
+				MountPath: "/input",
+			},
+			{
+				Name:      "algorun-output-volume",
 				MountPath: "/output",
 			},
 		},
@@ -508,7 +512,13 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 							},
 						},
 						{
-							Name: "algorun-data-volume",
+							Name: "algorun-input-volume",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "algorun-output-volume",
 							VolumeSource: corev1.VolumeSource{
 								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
