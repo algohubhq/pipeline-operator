@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -44,10 +45,11 @@ type EndpointReconciler struct {
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
+	serviceConfig      *serviceConfig
 }
 
-// mappingService holds the service name and port for ambassador
-type mappingService struct {
+// serviceConfig holds the service name and port for ambassador
+type serviceConfig struct {
 	serviceSpec *corev1.Service
 	serviceName string
 	httpPort    int32
@@ -56,24 +58,25 @@ type mappingService struct {
 
 func (endpointReconciler *EndpointReconciler) Reconcile() error {
 
-	err := endpointReconciler.reconcileDeployment()
+	sc, err := endpointReconciler.reconcileService()
 	if err != nil {
 		return err
 	}
+	endpointReconciler.serviceConfig = sc
 
-	ms, err := endpointReconciler.reconcileService()
+	err = endpointReconciler.reconcileHttpMapping()
+	err = endpointReconciler.reconcileGRPCMapping()
+
+	err = endpointReconciler.reconcileDeployment()
 	if err != nil {
 		return err
 	}
-
-	err = endpointReconciler.reconcileHttpMapping(ms)
-	err = endpointReconciler.reconcileGRPCMapping(ms)
 
 	return err
 
 }
 
-func (endpointReconciler *EndpointReconciler) reconcileService() (*mappingService, error) {
+func (endpointReconciler *EndpointReconciler) reconcileService() (*serviceConfig, error) {
 
 	kubeUtil := utils.NewKubeUtil(endpointReconciler.client)
 
@@ -199,23 +202,23 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 
 }
 
-func (endpointReconciler *EndpointReconciler) reconcileHttpMapping(ms *mappingService) error {
+func (endpointReconciler *EndpointReconciler) reconcileHttpMapping() error {
 
-	serviceName := fmt.Sprintf("http://%s:%d", ms.serviceName, ms.httpPort)
-	endpointReconciler.reconcileMapping(ms, serviceName, "http")
-
-	return nil
-}
-
-func (endpointReconciler *EndpointReconciler) reconcileGRPCMapping(ms *mappingService) error {
-
-	serviceName := fmt.Sprintf("%s:%d", ms.serviceName, ms.gRPCPort)
-	endpointReconciler.reconcileMapping(ms, serviceName, "grpc")
+	serviceName := fmt.Sprintf("http://%s:%d", endpointReconciler.serviceConfig.serviceName, endpointReconciler.serviceConfig.httpPort)
+	endpointReconciler.reconcileMapping(serviceName, "http")
 
 	return nil
 }
 
-func (endpointReconciler *EndpointReconciler) reconcileMapping(ms *mappingService, serviceName string, protocol string) error {
+func (endpointReconciler *EndpointReconciler) reconcileGRPCMapping() error {
+
+	serviceName := fmt.Sprintf("%s:%d", endpointReconciler.serviceConfig.serviceName, endpointReconciler.serviceConfig.gRPCPort)
+	endpointReconciler.reconcileMapping(serviceName, "grpc")
+
+	return nil
+}
+
+func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName string, protocol string) error {
 
 	pipelineDeployment := endpointReconciler.pipelineDeployment
 	request := endpointReconciler.request
@@ -314,7 +317,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(ms *mappingServic
 
 }
 
-// createSpec generates the k8s spec for the endpoint deployment
+// createSpec generates the k8s spec for the endpoint statefulset
 func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map[string]string, existingSf *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
 
 	pipelineDeployment := endpointReconciler.pipelineDeployment
@@ -350,36 +353,36 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	}
 
 	// Configure the readiness and liveness
-	// handler := corev1.Handler{
-	// 	HTTPGet: &corev1.HTTPGetAction{
-	// 		Scheme: "HTTP",
-	// 		Path:   "/health",
-	// 		Port:   intstr.FromInt(10080),
-	// 	},
-	// }
+	handler := corev1.Handler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Scheme: "HTTP",
+			Path:   "/health",
+			Port:   intstr.FromInt(int(endpointReconciler.serviceConfig.httpPort)),
+		},
+	}
 
 	var containers []corev1.Container
 
 	hookCommand := []string{"/bin/deployment-endpoint"}
 	hookEnvVars := endpointReconciler.createEnvVars(pipelineDeployment, endpointConfig)
 
-	// readinessProbe := &corev1.Probe{
-	// 	Handler:             handler,
-	// 	InitialDelaySeconds: 10,
-	// 	TimeoutSeconds:      10,
-	// 	PeriodSeconds:       20,
-	// 	SuccessThreshold:    1,
-	// 	FailureThreshold:    3,
-	// }
+	readinessProbe := &corev1.Probe{
+		Handler:             handler,
+		InitialDelaySeconds: 10,
+		TimeoutSeconds:      10,
+		PeriodSeconds:       20,
+		SuccessThreshold:    1,
+		FailureThreshold:    3,
+	}
 
-	// livenessProbe := &corev1.Probe{
-	// 	Handler:             handler,
-	// 	InitialDelaySeconds: 10,
-	// 	TimeoutSeconds:      10,
-	// 	PeriodSeconds:       20,
-	// 	SuccessThreshold:    1,
-	// 	FailureThreshold:    3,
-	// }
+	livenessProbe := &corev1.Probe{
+		Handler:             handler,
+		InitialDelaySeconds: 10,
+		TimeoutSeconds:      10,
+		PeriodSeconds:       20,
+		SuccessThreshold:    1,
+		FailureThreshold:    3,
+	}
 
 	// Endpoint container
 	endpointContainer := corev1.Container{
@@ -388,9 +391,9 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 		Command: hookCommand,
 		Env:     hookEnvVars,
 		// Resources:                *resources,
-		ImagePullPolicy: imagePullPolicy,
-		// LivenessProbe:            livenessProbe,
-		// ReadinessProbe:           readinessProbe,
+		ImagePullPolicy:          imagePullPolicy,
+		LivenessProbe:            livenessProbe,
+		ReadinessProbe:           readinessProbe,
 		TerminationMessagePath:   "/dev/termination-log",
 		TerminationMessagePolicy: "File",
 		VolumeMounts: []corev1.VolumeMount{
@@ -507,8 +510,8 @@ func (endpointReconciler *EndpointReconciler) createEnvVars(cr *algov1alpha1.Pip
 		Name: "EP_UPLOADER_HOST",
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: "storage-endpoint"},
-				Key:                  "mc",
+				LocalObjectReference: corev1.LocalObjectReference{Name: "storage-config"},
+				Key:                  "connection-string",
 			},
 		},
 	})
@@ -533,9 +536,9 @@ func (endpointReconciler *EndpointReconciler) createSelector(constraints []strin
 	return selector
 }
 
-func (endpointReconciler *EndpointReconciler) createServiceSpec(pipelineDeployment *algov1alpha1.PipelineDeployment) (*mappingService, error) {
+func (endpointReconciler *EndpointReconciler) createServiceSpec(pipelineDeployment *algov1alpha1.PipelineDeployment) (*serviceConfig, error) {
 
-	ms := &mappingService{}
+	ms := &serviceConfig{}
 	labels := map[string]string{
 		"system":                  "algorun",
 		"tier":                    "backend",
