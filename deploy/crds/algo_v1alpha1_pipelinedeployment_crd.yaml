@@ -336,7 +336,7 @@ spec:
                             type: string
                           type: array
                       type: object
-                    outputs:
+                    paths:
                       items:
                         properties:
                           connectionString:

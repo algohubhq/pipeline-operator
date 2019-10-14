@@ -327,7 +327,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	endpointConfig.DeploymentName = pipelineSpec.DeploymentName
 	endpointConfig.PipelineOwnerUserName = pipelineSpec.PipelineOwnerUserName
 	endpointConfig.PipelineName = pipelineSpec.PipelineName
-	endpointConfig.Outputs = pipelineSpec.EndpointConfig.Outputs
+	endpointConfig.Paths = pipelineSpec.EndpointConfig.Paths
 	endpointConfig.Kafka = &algov1alpha1.EndpointKafkaConfig{
 		Brokers: []string{endpointReconciler.pipelineDeployment.Spec.KafkaBrokers},
 	}

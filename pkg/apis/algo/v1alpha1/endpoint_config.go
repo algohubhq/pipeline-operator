@@ -26,7 +26,7 @@ type EndpointConfig struct {
 
 	Instances int32 `json:"instances,omitempty"`
 
-	Outputs []EndpointOutputModel `json:"outputs,omitempty"`
+	Paths []EndpointPathModel `json:"paths,omitempty"`
 
 	Server *EndpointServerConfig `json:"server,omitempty"`
 

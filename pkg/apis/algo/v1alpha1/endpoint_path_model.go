@@ -10,7 +10,7 @@
 
 package v1alpha1
 
-type EndpointOutputModel struct {
+type EndpointPathModel struct {
 
 	Name string `json:"name,omitempty"`
 

@@ -24,7 +24,7 @@ cp ./algorun-go-client/producer_wal.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/notif_message.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/deployment_status_message.go ./pkg/apis/algo/v1alpha1/
 
-cp ./algorun-go-client/endpoint_output_model.go ./pkg/apis/algo/v1alpha1/
+cp ./algorun-go-client/endpoint_path_model.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/algo_param_model.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/topic_config_model.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/topic_param_model.go ./pkg/apis/algo/v1alpha1/
