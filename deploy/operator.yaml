@@ -21,7 +21,7 @@ spec:
       containers:
         - name: pipeline-operator
           # Replace this with the built image name
-          image: algohub/pipeline-operator:63188464f3605951605b4ad60bcef2e9b8622773
+          image: algohub/pipeline-operator:a008f0b562ccd70a5dddac2fcc1c98c74b43b334
           command:
           - pipeline-operator
           imagePullPolicy: Always
