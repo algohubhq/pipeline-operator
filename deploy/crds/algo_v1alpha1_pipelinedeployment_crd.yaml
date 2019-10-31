@@ -118,24 +118,7 @@ spec:
                       inputs:
                         items:
                           properties:
-                            description:
-                              type: string
-                            environmentVariable:
-                              type: string
-                            httpHeaders:
-                              type: string
-                            httpPath:
-                              type: string
-                            httpPort:
-                              format: int32
-                              type: integer
-                            httpVerb:
-                              type: string
-                            inputDeliveryType:
-                              type: string
-                            isRequired:
-                              type: boolean
-                            mediaTypes:
+                            contentTypes:
                               items:
                                 properties:
                                   encoding:
@@ -160,6 +143,23 @@ spec:
                                     type: string
                                 type: object
                               type: array
+                            description:
+                              type: string
+                            environmentVariable:
+                              type: string
+                            httpHeaders:
+                              type: string
+                            httpPath:
+                              type: string
+                            httpPort:
+                              format: int32
+                              type: integer
+                            httpVerb:
+                              type: string
+                            inputDeliveryType:
+                              type: string
+                            isRequired:
+                              type: boolean
                             name:
                               type: string
                             parameter:
@@ -169,7 +169,7 @@ spec:
                           required:
                           - name
                           - inputDeliveryType
-                          - mediaTypes
+                          - contentTypes
                           type: object
                         type: array
                       instances:
@@ -199,9 +199,7 @@ spec:
                       outputs:
                         items:
                           properties:
-                            description:
-                              type: string
-                            mediaType:
+                            contentType:
                               properties:
                                 encoding:
                                   type: string
@@ -224,6 +222,8 @@ spec:
                                 url:
                                   type: string
                               type: object
+                            description:
+                              type: string
                             name:
                               type: string
                             outputDeliveryType:
@@ -233,7 +233,7 @@ spec:
                           required:
                           - name
                           - outputDeliveryType
-                          - mediaType
+                          - contentType
                           type: object
                         type: array
                       readinessInitialDelaySeconds:
@@ -341,13 +341,7 @@ spec:
                         properties:
                           connectionString:
                             type: string
-                          description:
-                            type: string
-                          endpointType:
-                            type: string
-                          isDefault:
-                            type: boolean
-                          mediaType:
+                          contentType:
                             properties:
                               encoding:
                                 type: string
@@ -370,6 +364,12 @@ spec:
                               url:
                                 type: string
                             type: object
+                          description:
+                            type: string
+                          endpointType:
+                            type: string
+                          isDefault:
+                            type: boolean
                           messageDataType:
                             type: string
                           name:
