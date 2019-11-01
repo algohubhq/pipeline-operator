@@ -10,7 +10,7 @@
 
 package v1alpha1
 
-type MediaTypeModel struct {
+type ContentTypeModel struct {
 
 	Title string `json:"title,omitempty"`
 

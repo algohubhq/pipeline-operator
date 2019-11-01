@@ -24,5 +24,5 @@ type EndpointPathModel struct {
 
 	MessageDataType string `json:"messageDataType,omitempty"`
 
-	MediaType *MediaTypeModel `json:"mediaType,omitempty"`
+	ContentType *ContentTypeModel `json:"contentType,omitempty"`
 }
