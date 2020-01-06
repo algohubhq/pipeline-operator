@@ -10,7 +10,7 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	utils "pipeline-operator/internal/utilities"
+	utils "pipeline-operator/pkg/utilities"
 	"pipeline-operator/pkg/apis"
 	"pipeline-operator/pkg/controller"
 

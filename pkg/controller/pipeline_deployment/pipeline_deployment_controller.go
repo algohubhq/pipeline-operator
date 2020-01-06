@@ -11,8 +11,8 @@ import (
 
 	"github.com/go-test/deep"
 
-	recon "pipeline-operator/internal/reconciler"
-	utils "pipeline-operator/internal/utilities"
+	recon "pipeline-operator/pkg/reconciler"
+	utils "pipeline-operator/pkg/utilities"
 	"pipeline-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
 

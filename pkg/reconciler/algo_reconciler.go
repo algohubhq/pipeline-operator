@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	utils "pipeline-operator/internal/utilities"
+	utils "pipeline-operator/pkg/utilities"
 	"pipeline-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
 
