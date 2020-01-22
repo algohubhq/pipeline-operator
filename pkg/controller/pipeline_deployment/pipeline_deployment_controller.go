@@ -555,7 +555,7 @@ func (r *ReconcilePipelineDeployment) updateMetrics(request *reconcile.Request) 
 func (r *ReconcilePipelineDeployment) getPipelineDeploymentCount(request *reconcile.Request) (int, error) {
 
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=pipelinedeployment"))
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=pipeline-deployment"))
 	listOptions.InNamespace(request.Namespace)
 
 	list := &unstructured.UnstructuredList{}
