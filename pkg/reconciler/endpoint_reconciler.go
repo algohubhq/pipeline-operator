@@ -82,7 +82,7 @@ func (endpointReconciler *EndpointReconciler) reconcileService() (*serviceConfig
 
 	// Check to see if the endpoint service is already created (All algos share the same service port)
 	srvListOptions := &client.ListOptions{}
-	srvListOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=endpoint, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+	srvListOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=endpoint, algo.run/pipeline-deployment=%s/%s",
 		endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 		endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName))
 	srvListOptions.InNamespace(endpointReconciler.request.NamespacedName.Namespace)
@@ -134,17 +134,18 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 	name := "pipe-depl-ep"
 
 	labels := map[string]string{
-		"system":                  "algorun",
-		"tier":                    "backend",
-		"component":               "endpoint",
-		"pipelinedeploymentowner": pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-		"pipelinedeployment":      pipelineDeployment.Spec.PipelineSpec.DeploymentName,
-		"pipeline":                pipelineDeployment.Spec.PipelineSpec.PipelineName,
+		"app.kubernetes.io/part-of":    "algo.run",
+		"app.kubernetes.io/component":  "algo.run/endpoint",
+		"app.kubernetes.io/managed-by": "algo.run/pipeline-operator",
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+		"algo.run/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.PipelineName),
 	}
 
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=endpoint, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=endpoint, algo.run/pipeline-deployment=%s/%s",
 		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
@@ -226,7 +227,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 	// check to see if mapping already exists
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=mapping, proto=%s, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=mapping, algo.run/mapping-protocol=%s, algo.run/pipeline-deployment=%s/%s",
 		protocol,
 		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
@@ -248,15 +249,17 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 
 	if (err == nil && existingMapping == nil) || (err != nil && errors.IsNotFound(err)) {
 		// Create the topic
-		// Using a unstructured object to submit a strimzi topic creation.
+		// Using a unstructured object to submit a ambassador mapping.
+
 		labels := map[string]string{
-			"system":                  "algorun",
-			"tier":                    "backend",
-			"component":               "mapping",
-			"proto":                   protocol,
-			"pipelinedeploymentowner": pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
-			"pipelinedeployment":      pipelineDeployment.Spec.PipelineSpec.DeploymentName,
-			"pipeline":                pipelineDeployment.Spec.PipelineSpec.PipelineName,
+			"app.kubernetes.io/part-of":    "algo.run",
+			"app.kubernetes.io/component":  "algo.run/mapping",
+			"app.kubernetes.io/managed-by": "algo.run/pipeline-operator",
+			"algo.run/mapping-protocol":    protocol,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+				pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+			"algo.run/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+				pipelineDeployment.Spec.PipelineSpec.PipelineName),
 		}
 
 		newMapping := &unstructured.Unstructured{}
@@ -546,13 +549,15 @@ func (endpointReconciler *EndpointReconciler) createSelector(constraints []strin
 func (endpointReconciler *EndpointReconciler) createServiceSpec(pipelineDeployment *algov1alpha1.PipelineDeployment) (*serviceConfig, error) {
 
 	ms := &serviceConfig{}
+
 	labels := map[string]string{
-		"system":                  "algorun",
-		"tier":                    "backend",
-		"component":               "endpoint",
-		"pipelinedeploymentowner": pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-		"pipelinedeployment":      pipelineDeployment.Spec.PipelineSpec.DeploymentName,
-		"pipeline":                pipelineDeployment.Spec.PipelineSpec.PipelineName,
+		"app.kubernetes.io/part-of":    "algo.run",
+		"app.kubernetes.io/component":  "algo.run/endpoint",
+		"app.kubernetes.io/managed-by": "algo.run/pipeline-operator",
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+		"algo.run/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.PipelineName),
 	}
 
 	var httpPort int32

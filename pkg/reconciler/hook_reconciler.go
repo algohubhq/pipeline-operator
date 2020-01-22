@@ -54,17 +54,18 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 	name := "pipe-depl-hook"
 
 	labels := map[string]string{
-		"system":                  "algorun",
-		"tier":                    "backend",
-		"component":               "hook",
-		"pipelinedeploymentowner": pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-		"pipelinedeployment":      pipelineDeployment.Spec.PipelineSpec.DeploymentName,
-		"pipeline":                pipelineDeployment.Spec.PipelineSpec.PipelineName,
+		"app.kubernetes.io/part-of":    "algo.run",
+		"app.kubernetes.io/component":  "algo.run/hook",
+		"app.kubernetes.io/managed-by": "algo.run/pipeline-operator",
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+		"algo.run/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.PipelineName),
 	}
 
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=hook, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=hook, algo.run/pipeline-deployment=%s/%s",
 		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)

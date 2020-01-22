@@ -56,7 +56,7 @@ func (algoReconciler *AlgoReconciler) ReconcileService() error {
 
 	// Check to see if the metrics / health service is already created (All algos share the same service port)
 	srvListOptions := &client.ListOptions{}
-	srvListOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=algo"))
+	srvListOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=algo"))
 	srvListOptions.InNamespace(algoReconciler.request.NamespacedName.Namespace)
 
 	existingService, err := kubeUtil.CheckForService(srvListOptions)
@@ -105,23 +105,24 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	name := strings.TrimRight(utils.Short(algoConfig.AlgoName, 20), "-")
 
 	labels := map[string]string{
-		"system":                  "algorun",
-		"tier":                    "backend",
-		"component":               "algo",
-		"pipelinedeploymentowner": pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-		"pipelinedeployment":      pipelineDeployment.Spec.PipelineSpec.DeploymentName,
-		"pipeline":                pipelineDeployment.Spec.PipelineSpec.PipelineName,
-		"algoowner":               algoConfig.AlgoOwnerUserName,
-		"algo":                    algoConfig.AlgoName,
-		"algoversion":             algoConfig.AlgoVersionTag,
-		"algoindex":               strconv.Itoa(int(algoConfig.AlgoIndex)),
+		"app.kubernetes.io/part-of":    "algo.run",
+		"app.kubernetes.io/component":  "algo.run/algo",
+		"app.kubernetes.io/managed-by": "algo.run/pipeline-operator",
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+		"algo.run/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.PipelineName),
+		"algo.run/algo": fmt.Sprintf("%s/%s", algoConfig.AlgoOwnerUserName,
+			algoConfig.AlgoName),
+		"algo.run/algo-version": algoConfig.AlgoVersionTag,
+		"algo.run/index":        strconv.Itoa(int(algoConfig.AlgoIndex)),
 	}
 
 	kubeUtil := utils.NewKubeUtil(algoReconciler.client)
 
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=algo, pipelinedeploymentowner=%s, pipelinedeployment=%s, algoowner=%s, algo=%s, algoversion=%s, algoindex=%v",
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=algo, algo.run/pipeline-deployment=%s/%s, algo.run/algo=%s/%s, algo.run/algo-version=%s, algo.run/index=%v",
 		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 		pipelineDeployment.Spec.PipelineSpec.DeploymentName,
 		algoConfig.AlgoOwnerUserName,
@@ -193,8 +194,9 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment *algov1alpha1.PipelineDeployment) (*corev1.Service, error) {
 
 	labels := map[string]string{
-		"system":    "algorun",
-		"component": "algo",
+		"app.kubernetes.io/part-of":    "algo.run",
+		"app.kubernetes.io/component":  "algo.run/algo",
+		"app.kubernetes.io/managed-by": "algo.run/pipeline-operator",
 	}
 
 	algoServiceSpec := &corev1.Service{
@@ -211,8 +213,8 @@ func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment
 				},
 			},
 			Selector: map[string]string{
-				"system":    "algorun",
-				"component": "algo",
+				"app.kubernetes.io/part-of":   "algo.run",
+				"app.kubernetes.io/component": "algo.run/algo",
 			},
 		},
 	}

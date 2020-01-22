@@ -11,10 +11,10 @@ import (
 
 	"github.com/go-test/deep"
 
-	recon "pipeline-operator/pkg/reconciler"
-	utils "pipeline-operator/pkg/utilities"
 	"pipeline-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
+	recon "pipeline-operator/pkg/reconciler"
+	utils "pipeline-operator/pkg/utilities"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -404,7 +404,7 @@ func (r *ReconcilePipelineDeployment) getDeploymentStatuses(cr *algov1alpha1.Pip
 
 	// Watch all algo deployments
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=algo, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=algo, algo.run/pipeline-deployment=%s/%s",
 		cr.Spec.PipelineSpec.DeploymentOwnerUserName,
 		cr.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
@@ -448,7 +448,7 @@ func (r *ReconcilePipelineDeployment) getPodStatuses(cr *algov1alpha1.PipelineDe
 
 	// Get all algo pods for this pipelineDeployment
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=algo, pipelinedeploymentowner=%s, pipelinedeployment=%s",
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=algo, algo.run/pipeline-deployment=%s/%s",
 		cr.Spec.PipelineSpec.DeploymentOwnerUserName,
 		cr.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
@@ -555,7 +555,7 @@ func (r *ReconcilePipelineDeployment) updateMetrics(request *reconcile.Request) 
 func (r *ReconcilePipelineDeployment) getPipelineDeploymentCount(request *reconcile.Request) (int, error) {
 
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=pipelinedeployment"))
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=pipelinedeployment"))
 	listOptions.InNamespace(request.Namespace)
 
 	list := &unstructured.UnstructuredList{}
@@ -575,7 +575,7 @@ func (r *ReconcilePipelineDeployment) getPipelineDeploymentCount(request *reconc
 func (r *ReconcilePipelineDeployment) getAlgoCount(request *reconcile.Request) (int, error) {
 
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=algo"))
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=algo"))
 	listOptions.InNamespace(request.Namespace)
 
 	deploymentList := &appsv1.DeploymentList{}
@@ -595,7 +595,7 @@ func (r *ReconcilePipelineDeployment) getAlgoCount(request *reconcile.Request) (
 func (r *ReconcilePipelineDeployment) getDataConnectorCount(request *reconcile.Request) (int, error) {
 
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=dataconnector"))
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=dataconnector"))
 	listOptions.InNamespace(request.Namespace)
 
 	list := &unstructured.UnstructuredList{}
@@ -615,7 +615,7 @@ func (r *ReconcilePipelineDeployment) getDataConnectorCount(request *reconcile.R
 func (r *ReconcilePipelineDeployment) getTopicCount(request *reconcile.Request) (int, error) {
 
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("system=algorun, component=topic"))
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=topic"))
 	listOptions.InNamespace(request.Namespace)
 
 	list := &unstructured.UnstructuredList{}

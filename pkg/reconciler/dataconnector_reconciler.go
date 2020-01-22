@@ -72,15 +72,21 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 
 	if err != nil && errors.IsNotFound(err) {
 		// Create the connector cluster
-		// Using a unstructured object to submit a strimzi topic creation.
+		// Using a unstructured object to submit a data connector.
+
 		labels := map[string]string{
-			"system":                  "algorun",
-			"tier":                    "backend",
-			"component":               "dataconnector",
-			"pipelinedeploymentowner": pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-			"pipelinedeployment":      pipelineDeployment.Spec.PipelineSpec.DeploymentName,
-			"pipeline":                pipelineDeployment.Spec.PipelineSpec.PipelineName,
+			"app.kubernetes.io/part-of":    "algo.run",
+			"app.kubernetes.io/component":  "algo.run/dataconnector",
+			"app.kubernetes.io/managed-by": "algo.run/pipeline-operator",
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+				pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+			"algo.run/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+				pipelineDeployment.Spec.PipelineSpec.PipelineName),
+			"algo.run/dataconnector":         dataConnectorConfig.Name,
+			"algo.run/dataconnector-version": dataConnectorConfig.VersionTag,
+			"algo.run/index":                 strconv.Itoa(int(dataConnectorConfig.Index)),
 		}
+
 		newDc := &unstructured.Unstructured{}
 		newDc.Object = map[string]interface{}{
 			"name":      kcName,
