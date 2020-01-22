@@ -91,26 +91,14 @@ spec:
                         type: string
                       applied:
                         type: boolean
-                      autoScale:
-                        type: boolean
-                      autoScaleCPUPercent:
-                        format: int32
-                        type: integer
-                      cpuLimitUnits:
-                        format: double
-                        type: number
-                      cpuRequestUnits:
-                        format: double
-                        type: number
                       deploymentName:
                         type: string
                       entrypoint:
                         type: string
+                      executor:
+                        type: string
                       gpuEnabled:
                         type: boolean
-                      gpuLimitUnits:
-                        format: double
-                        type: number
                       imageRepository:
                         type: string
                       imageTag:
@@ -172,9 +160,6 @@ spec:
                           - contentTypes
                           type: object
                         type: array
-                      instances:
-                        format: int32
-                        type: integer
                       livenessInitialDelaySeconds:
                         format: int32
                         type: integer
@@ -182,18 +167,6 @@ spec:
                         format: int32
                         type: integer
                       livenessTimeoutSeconds:
-                        format: int32
-                        type: integer
-                      maxInstances:
-                        format: int32
-                        type: integer
-                      memoryLimitBytes:
-                        format: int64
-                        type: integer
-                      memoryRequestBytes:
-                        format: int64
-                        type: integer
-                      minInstances:
                         format: int32
                         type: integer
                       outputs:
@@ -245,8 +218,52 @@ spec:
                       readinessTimeoutSeconds:
                         format: int32
                         type: integer
-                      serverType:
-                        type: string
+                      resource:
+                        properties:
+                          autoScale:
+                            type: boolean
+                          cpuLimitUnits:
+                            format: double
+                            type: number
+                          cpuRequestUnits:
+                            format: double
+                            type: number
+                          gpuLimitUnits:
+                            format: double
+                            type: number
+                          instances:
+                            format: int32
+                            type: integer
+                          maxInstances:
+                            format: int32
+                            type: integer
+                          memoryLimitBytes:
+                            format: int64
+                            type: integer
+                          memoryRequestBytes:
+                            format: int64
+                            type: integer
+                          minInstances:
+                            format: int32
+                            type: integer
+                          scaleMetrics:
+                            items:
+                              properties:
+                                name:
+                                  type: string
+                                selector:
+                                  type: string
+                                sourceType:
+                                  type: string
+                                targetAverageUtilization:
+                                  format: int32
+                                  type: integer
+                                targetAverageValue:
+                                  format: double
+                                  type: number
+                              type: object
+                            type: array
+                        type: object
                       timeoutSeconds:
                         format: int32
                         type: integer
@@ -326,9 +343,6 @@ spec:
                       type: string
                     imageTag:
                       type: string
-                    instances:
-                      format: int32
-                      type: integer
                     kafka:
                       properties:
                         brokers:
@@ -411,6 +425,52 @@ spec:
                               type: string
                           type: object
                       type: object
+                    resource:
+                      properties:
+                        autoScale:
+                          type: boolean
+                        cpuLimitUnits:
+                          format: double
+                          type: number
+                        cpuRequestUnits:
+                          format: double
+                          type: number
+                        gpuLimitUnits:
+                          format: double
+                          type: number
+                        instances:
+                          format: int32
+                          type: integer
+                        maxInstances:
+                          format: int32
+                          type: integer
+                        memoryLimitBytes:
+                          format: int64
+                          type: integer
+                        memoryRequestBytes:
+                          format: int64
+                          type: integer
+                        minInstances:
+                          format: int32
+                          type: integer
+                        scaleMetrics:
+                          items:
+                            properties:
+                              name:
+                                type: string
+                              selector:
+                                type: string
+                              sourceType:
+                                type: string
+                              targetAverageUtilization:
+                                format: int32
+                                type: integer
+                              targetAverageValue:
+                                format: double
+                                type: number
+                            type: object
+                          type: array
+                      type: object
                     server:
                       properties:
                         grpc:
@@ -440,9 +500,6 @@ spec:
                       type: string
                     imageTag:
                       type: string
-                    instances:
-                      format: int32
-                      type: integer
                     pipelineName:
                       type: string
                     pipelineOwnerUserName:
@@ -450,8 +507,6 @@ spec:
                     pipes:
                       items:
                         properties:
-                          destInputMessageDataType:
-                            type: string
                           destInputName:
                             type: string
                           destName:
@@ -468,6 +523,52 @@ spec:
                             type: string
                         type: object
                       type: array
+                    resource:
+                      properties:
+                        autoScale:
+                          type: boolean
+                        cpuLimitUnits:
+                          format: double
+                          type: number
+                        cpuRequestUnits:
+                          format: double
+                          type: number
+                        gpuLimitUnits:
+                          format: double
+                          type: number
+                        instances:
+                          format: int32
+                          type: integer
+                        maxInstances:
+                          format: int32
+                          type: integer
+                        memoryLimitBytes:
+                          format: int64
+                          type: integer
+                        memoryRequestBytes:
+                          format: int64
+                          type: integer
+                        minInstances:
+                          format: int32
+                          type: integer
+                        scaleMetrics:
+                          items:
+                            properties:
+                              name:
+                                type: string
+                              selector:
+                                type: string
+                              sourceType:
+                                type: string
+                              targetAverageUtilization:
+                                format: int32
+                                type: integer
+                              targetAverageValue:
+                                format: double
+                                type: number
+                            type: object
+                          type: array
+                      type: object
                     topicConfigs:
                       items:
                         properties:
@@ -527,8 +628,6 @@ spec:
                 pipes:
                   items:
                     properties:
-                      destInputMessageDataType:
-                        type: string
                       destInputName:
                         type: string
                       destName:

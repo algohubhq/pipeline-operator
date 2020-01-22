@@ -24,7 +24,7 @@ type HookConfig struct {
 
 	ImageTag string `json:"imageTag,omitempty"`
 
-	Instances int32 `json:"instances,omitempty"`
+	Resource *ResourceModel `json:"resource,omitempty"`
 
 	WebHooks []WebHookModel `json:"webHooks,omitempty"`
 

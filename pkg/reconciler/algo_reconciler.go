@@ -7,14 +7,13 @@ import (
 	"strconv"
 	"strings"
 
-	utils "pipeline-operator/pkg/utilities"
 	"pipeline-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
+	utils "pipeline-operator/pkg/utilities"
 
 	"github.com/go-test/deep"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -183,7 +182,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	}
 
 	// TODO: Setup the horizontal pod autoscaler
-	if algoConfig.AutoScale {
+	if algoConfig.Resource.AutoScale {
 
 	}
 
@@ -306,7 +305,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	var algoLivenessProbe *corev1.Probe
 	var sidecarReadinessProbe *corev1.Probe
 	var sidecarLivenessProbe *corev1.Probe
-	if algoConfig.ServerType == "Serverless" {
+	if algoConfig.Executor == "Executable" {
 
 		algoCommand = []string{"/algo-runner/algo-runner"}
 
@@ -355,7 +354,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 			FailureThreshold:    3,
 		}
 
-	} else if algoConfig.ServerType == "Delegated" {
+	} else if algoConfig.Executor == "Delegated" {
 
 		// If delegated there is no sidecar or init container
 		// the entrypoint is ran "as is" and the kafka config is passed to the container
@@ -413,7 +412,8 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 
 	}
 
-	resources, resourceErr := algoReconciler.createResources(algoConfig)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.client)
+	resources, resourceErr := kubeUtil.CreateResourceReqs(algoConfig.Resource)
 
 	if resourceErr != nil {
 		return nil, resourceErr
@@ -480,7 +480,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Replicas: &algoConfig.Instances,
+			Replicas: &algoConfig.Resource.Instances,
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{
@@ -615,55 +615,6 @@ func (algoReconciler *AlgoReconciler) createSelector(constraints []string) map[s
 	return selector
 }
 
-func (algoReconciler *AlgoReconciler) createResources(algoConfig *v1alpha1.AlgoConfig) (*corev1.ResourceRequirements, error) {
-	resources := &corev1.ResourceRequirements{}
-
-	// Set Memory limits
-	if algoConfig.MemoryLimitBytes > 0 {
-		qty, err := resource.ParseQuantity(string(algoConfig.MemoryLimitBytes))
-		if err != nil {
-			return resources, err
-		}
-		resources.Limits[corev1.ResourceMemory] = qty
-	}
-
-	if algoConfig.MemoryRequestBytes > 0 {
-		qty, err := resource.ParseQuantity(string(algoConfig.MemoryRequestBytes))
-		if err != nil {
-			return resources, err
-		}
-		resources.Requests[corev1.ResourceMemory] = qty
-	}
-
-	// Set CPU limits
-	if algoConfig.CpuLimitUnits > 0 {
-		qty, err := resource.ParseQuantity(fmt.Sprintf("%f", algoConfig.CpuLimitUnits))
-		if err != nil {
-			return resources, err
-		}
-		resources.Limits[corev1.ResourceCPU] = qty
-	}
-
-	if algoConfig.CpuRequestUnits > 0 {
-		qty, err := resource.ParseQuantity(fmt.Sprintf("%f", algoConfig.CpuRequestUnits))
-		if err != nil {
-			return resources, err
-		}
-		resources.Requests[corev1.ResourceCPU] = qty
-	}
-
-	// Set GPU limits
-	if algoConfig.GpuLimitUnits > 0 {
-		qty, err := resource.ParseQuantity(fmt.Sprintf("%f", algoConfig.GpuLimitUnits))
-		if err != nil {
-			return resources, err
-		}
-		resources.Limits["nvidia.com/gpu"] = qty
-	}
-
-	return resources, nil
-}
-
 // CreateRunnerConfig creates the config struct to be sent to the runner
 func (algoReconciler *AlgoReconciler) createRunnerConfig(pipelineDeploymentSpec *algov1alpha1.PipelineDeploymentSpec, algoConfig *v1alpha1.AlgoConfig) *v1alpha1.AlgoRunnerConfig {
 
@@ -679,7 +630,7 @@ func (algoReconciler *AlgoReconciler) createRunnerConfig(pipelineDeploymentSpec 
 		AlgoVersionTag:          algoConfig.AlgoVersionTag,
 		AlgoIndex:               algoConfig.AlgoIndex,
 		Entrypoint:              algoConfig.Entrypoint,
-		ServerType:              algoConfig.ServerType,
+		Executor:                algoConfig.Executor,
 		AlgoParams:              algoConfig.AlgoParams,
 		Inputs:                  algoConfig.Inputs,
 		Outputs:                 algoConfig.Outputs,

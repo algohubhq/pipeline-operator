@@ -3,9 +3,9 @@ package reconciler
 import (
 	"context"
 	"fmt"
-	utils "pipeline-operator/pkg/utilities"
 	"pipeline-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
+	utils "pipeline-operator/pkg/utilities"
 	"reflect"
 	"strings"
 
@@ -181,8 +181,8 @@ func BuildTopic(pipelineSpec algov1alpha1.PipelineSpec, topicConfig *algov1alpha
 				for _, algoConfig := range pipelineSpec.AlgoConfigs {
 					algoName := fmt.Sprintf("%s/%s:%s[%d]", algoConfig.AlgoOwnerUserName, algoConfig.AlgoName, algoConfig.AlgoVersionTag, algoConfig.AlgoIndex)
 					if algoName == pipe.DestName {
-						topicPartitions = utils.Max(int64(algoConfig.MinInstances), topicPartitions)
-						topicPartitions = utils.Max(int64(algoConfig.Instances), topicPartitions)
+						topicPartitions = utils.Max(int64(algoConfig.Resource.MinInstances), topicPartitions)
+						topicPartitions = utils.Max(int64(algoConfig.Resource.Instances), topicPartitions)
 					}
 
 				}

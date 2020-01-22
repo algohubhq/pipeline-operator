@@ -24,7 +24,7 @@ type EndpointConfig struct {
 
 	ImageTag string `json:"imageTag,omitempty"`
 
-	Instances int32 `json:"instances,omitempty"`
+	Resource *ResourceModel `json:"resource,omitempty"`
 
 	Paths []EndpointPathModel `json:"paths,omitempty"`
 

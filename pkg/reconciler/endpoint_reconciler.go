@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	utils "pipeline-operator/pkg/utilities"
 	"pipeline-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
+	utils "pipeline-operator/pkg/utilities"
 	"strconv"
 	"strings"
 
@@ -384,13 +384,20 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 		FailureThreshold:    3,
 	}
 
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.client)
+	resources, resourceErr := kubeUtil.CreateResourceReqs(endpointConfig.Resource)
+
+	if resourceErr != nil {
+		return nil, resourceErr
+	}
+
 	// Endpoint container
 	endpointContainer := corev1.Container{
-		Name:    name,
-		Image:   imageName,
-		Command: hookCommand,
-		Env:     hookEnvVars,
-		// Resources:                *resources,
+		Name:                     name,
+		Image:                    imageName,
+		Command:                  hookCommand,
+		Env:                      hookEnvVars,
+		Resources:                *resources,
 		ImagePullPolicy:          imagePullPolicy,
 		LivenessProbe:            livenessProbe,
 		ReadinessProbe:           readinessProbe,
@@ -447,7 +454,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Replicas:             &endpointConfig.Instances,
+			Replicas:             &endpointConfig.Resource.Instances,
 			RevisionHistoryLimit: utils.Int32p(10),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: nameMeta,

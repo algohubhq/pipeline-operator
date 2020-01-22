@@ -9,6 +9,8 @@ cp ./algorun-go-client/data_connector_config.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/algo_runner_config.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/hook_config.go ./pkg/apis/algo/v1alpha1/
 cp ./algorun-go-client/algo_deployment_status.go ./pkg/apis/algo/v1alpha1/
+cp ./algorun-go-client/resource_model.go ./pkg/apis/algo/v1alpha1/
+cp ./algorun-go-client/scale_metric_model.go ./pkg/apis/algo/v1alpha1/
 # uncomment if algo pod status is updated but there will be manual edits
 # cp ./algorun-go-client/algo_pod_status.go ./pkg/apis/algo/v1alpha1/
 

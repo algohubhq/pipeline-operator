@@ -2,10 +2,13 @@ package utilities
 
 import (
 	"context"
+	"fmt"
+	"pipeline-operator/pkg/apis/algo/v1alpha1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -205,4 +208,53 @@ func (d *KubeUtil) CheckForUnstructured(listOptions *client.ListOptions, groupVe
 
 	return nil, nil
 
+}
+
+func (d *KubeUtil) CreateResourceReqs(r *v1alpha1.ResourceModel) (*corev1.ResourceRequirements, error) {
+	resources := &corev1.ResourceRequirements{}
+
+	// Set Memory limits
+	if r.MemoryLimitBytes > 0 {
+		qty, err := resource.ParseQuantity(string(r.MemoryLimitBytes))
+		if err != nil {
+			return resources, err
+		}
+		resources.Limits[corev1.ResourceMemory] = qty
+	}
+
+	if r.MemoryRequestBytes > 0 {
+		qty, err := resource.ParseQuantity(string(r.MemoryRequestBytes))
+		if err != nil {
+			return resources, err
+		}
+		resources.Requests[corev1.ResourceMemory] = qty
+	}
+
+	// Set CPU limits
+	if r.CpuLimitUnits > 0 {
+		qty, err := resource.ParseQuantity(fmt.Sprintf("%f", r.CpuLimitUnits))
+		if err != nil {
+			return resources, err
+		}
+		resources.Limits[corev1.ResourceCPU] = qty
+	}
+
+	if r.CpuRequestUnits > 0 {
+		qty, err := resource.ParseQuantity(fmt.Sprintf("%f", r.CpuRequestUnits))
+		if err != nil {
+			return resources, err
+		}
+		resources.Requests[corev1.ResourceCPU] = qty
+	}
+
+	// Set GPU limits
+	if r.GpuLimitUnits > 0 {
+		qty, err := resource.ParseQuantity(fmt.Sprintf("%f", r.GpuLimitUnits))
+		if err != nil {
+			return resources, err
+		}
+		resources.Limits["nvidia.com/gpu"] = qty
+	}
+
+	return resources, nil
 }

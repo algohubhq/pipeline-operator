@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	utils "pipeline-operator/pkg/utilities"
 	"pipeline-operator/pkg/apis/algo/v1alpha1"
 	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
+	utils "pipeline-operator/pkg/utilities"
 
 	"github.com/go-test/deep"
 	appsv1 "k8s.io/api/apps/v1"
@@ -188,13 +188,20 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 		FailureThreshold:    3,
 	}
 
-	// Algo container
+	kubeUtil := utils.NewKubeUtil(hookReconciler.client)
+	resources, resourceErr := kubeUtil.CreateResourceReqs(hookConfig.Resource)
+
+	if resourceErr != nil {
+		return nil, resourceErr
+	}
+
+	// Hook container
 	hookContainer := corev1.Container{
-		Name:    name,
-		Image:   imageName,
-		Command: hookCommand,
-		Env:     hookEnvVars,
-		// Resources:                *resources,
+		Name:                     name,
+		Image:                    imageName,
+		Command:                  hookCommand,
+		Env:                      hookEnvVars,
+		Resources:                *resources,
 		ImagePullPolicy:          imagePullPolicy,
 		LivenessProbe:            livenessProbe,
 		ReadinessProbe:           readinessProbe,
@@ -234,7 +241,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Replicas: &hookConfig.Instances,
+			Replicas: &hookConfig.Resource.Instances,
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{
