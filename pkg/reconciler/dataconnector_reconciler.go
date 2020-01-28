@@ -4,8 +4,8 @@ import (
 	"context"
 	errorsbase "errors"
 	"fmt"
-	"pipeline-operator/pkg/apis/algo/v1alpha1"
-	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
+	"pipeline-operator/pkg/apis/algorun/v1beta1"
+	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	"strconv"
 	"strings"
 
@@ -22,8 +22,8 @@ import (
 )
 
 // NewDataConnectorReconciler returns a new DataConnectorReconciler
-func NewDataConnectorReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
-	dataConnectorConfig *v1alpha1.DataConnectorConfig,
+func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
+	dataConnectorConfig *v1beta1.DataConnectorConfig,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme) DataConnectorReconciler {
@@ -38,8 +38,8 @@ func NewDataConnectorReconciler(pipelineDeployment *algov1alpha1.PipelineDeploym
 
 // DataConnectorReconciler reconciles an dataConnectorConfig object
 type DataConnectorReconciler struct {
-	pipelineDeployment  *algov1alpha1.PipelineDeployment
-	dataConnectorConfig *v1alpha1.DataConnectorConfig
+	pipelineDeployment  *algov1beta1.PipelineDeployment
+	dataConnectorConfig *v1beta1.DataConnectorConfig
 	request             *reconcile.Request
 	client              client.Client
 	scheme              *runtime.Scheme
@@ -66,7 +66,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 	existingDc.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "kafka.strimzi.io",
 		Kind:    "KafkaConnect",
-		Version: "v1alpha1",
+		Version: "v1beta1",
 	})
 	err := dataConnectorReconciler.client.Get(context.TODO(), types.NamespacedName{Name: kcName, Namespace: dataConnectorReconciler.request.NamespacedName.Namespace}, existingDc)
 
@@ -75,16 +75,16 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 		// Using a unstructured object to submit a data connector.
 
 		labels := map[string]string{
-			"app.kubernetes.io/part-of":    "algo.run",
-			"app.kubernetes.io/component":  "algo.run/dataconnector",
-			"app.kubernetes.io/managed-by": "algo.run/pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			"app.kubernetes.io/part-of":    "algorun",
+			"app.kubernetes.io/component":  "algorun/dataconnector",
+			"app.kubernetes.io/managed-by": "algorun/pipeline-operator",
+			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 				pipelineDeployment.Spec.PipelineSpec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+			"algorun/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
 				pipelineDeployment.Spec.PipelineSpec.PipelineName),
-			"algo.run/dataconnector":         dataConnectorConfig.Name,
-			"algo.run/dataconnector-version": dataConnectorConfig.VersionTag,
-			"algo.run/index":                 strconv.Itoa(int(dataConnectorConfig.Index)),
+			"algorun/dataconnector":         dataConnectorConfig.Name,
+			"algorun/dataconnector-version": dataConnectorConfig.VersionTag,
+			"algorun/index":                 strconv.Itoa(int(dataConnectorConfig.Index)),
 		}
 
 		newDc := &unstructured.Unstructured{}
@@ -129,7 +129,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 		newDc.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "kafka.strimzi.io",
 			Kind:    "KafkaConnect",
-			Version: "v1alpha1",
+			Version: "v1beta1",
 		})
 
 		// Set PipelineDeployment instance as the owner and controller
@@ -201,7 +201,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 	return nil
 }
 
-func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelineDeployment *algov1alpha1.PipelineDeployment, dataConnectorConfig *algov1alpha1.DataConnectorConfig) (TopicConfig, error) {
+func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelineDeployment *algov1beta1.PipelineDeployment, dataConnectorConfig *algov1beta1.DataConnectorConfig) (TopicConfig, error) {
 
 	config := pipelineDeployment.Spec.PipelineSpec
 

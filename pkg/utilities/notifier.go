@@ -4,18 +4,18 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
-	"pipeline-operator/pkg/apis/algo/v1alpha1"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	"strings"
 )
 
 var notifDisabled = false
 
-func Notify(notifMessage *v1alpha1.NotifMessage) {
+func Notify(notifMessage *v1beta1.NotifMessage) {
 
 	if !notifDisabled {
 

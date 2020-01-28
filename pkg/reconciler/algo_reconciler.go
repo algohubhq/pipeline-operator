@@ -7,13 +7,15 @@ import (
 	"strconv"
 	"strings"
 
-	"pipeline-operator/pkg/apis/algo/v1alpha1"
-	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
+	"pipeline-operator/pkg/apis/algorun/v1beta1"
+	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
 
 	"github.com/go-test/deep"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalev2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -25,8 +27,8 @@ import (
 
 // AlgoReconciler reconciles an AlgoConfig object
 type AlgoReconciler struct {
-	pipelineDeployment *algov1alpha1.PipelineDeployment
-	algoConfig         *v1alpha1.AlgoConfig
+	pipelineDeployment *algov1beta1.PipelineDeployment
+	algoConfig         *v1beta1.AlgoConfig
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
@@ -35,8 +37,8 @@ type AlgoReconciler struct {
 var log = logf.Log.WithName("reconciler")
 
 // NewAlgoReconciler returns a new AlgoReconciler
-func NewAlgoReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
-	algoConfig *v1alpha1.AlgoConfig,
+func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
+	algoConfig *v1beta1.AlgoConfig,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme) AlgoReconciler {
@@ -56,7 +58,7 @@ func (algoReconciler *AlgoReconciler) ReconcileService() error {
 
 	// Check to see if the metrics / health service is already created (All algos share the same service port)
 	srvListOptions := &client.ListOptions{}
-	srvListOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=algo"))
+	srvListOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=algo"))
 	srvListOptions.InNamespace(algoReconciler.request.NamespacedName.Namespace)
 
 	existingService, err := kubeUtil.CheckForService(srvListOptions)
@@ -105,24 +107,24 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	name := strings.TrimRight(utils.Short(algoConfig.AlgoName, 20), "-")
 
 	labels := map[string]string{
-		"app.kubernetes.io/part-of":    "algo.run",
-		"app.kubernetes.io/component":  "algo.run/algo",
-		"app.kubernetes.io/managed-by": "algo.run/pipeline-operator",
-		"algo.run/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		"app.kubernetes.io/part-of":    "algorun",
+		"app.kubernetes.io/component":  "algorun/algo",
+		"app.kubernetes.io/managed-by": "algorun/pipeline-operator",
+		"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 			pipelineDeployment.Spec.PipelineSpec.DeploymentName),
-		"algo.run/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+		"algorun/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
 			pipelineDeployment.Spec.PipelineSpec.PipelineName),
-		"algo.run/algo": fmt.Sprintf("%s/%s", algoConfig.AlgoOwnerUserName,
+		"algorun/algo": fmt.Sprintf("%s/%s", algoConfig.AlgoOwnerUserName,
 			algoConfig.AlgoName),
-		"algo.run/algo-version": algoConfig.AlgoVersionTag,
-		"algo.run/index":        strconv.Itoa(int(algoConfig.AlgoIndex)),
+		"algorun/algo-version": algoConfig.AlgoVersionTag,
+		"algorun/index":        strconv.Itoa(int(algoConfig.AlgoIndex)),
 	}
 
 	kubeUtil := utils.NewKubeUtil(algoReconciler.client)
 
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=algo, algo.run/pipeline-deployment=%s/%s, algo.run/algo=%s/%s, algo.run/algo-version=%s, algo.run/index=%v",
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=algo, algorun/pipeline-deployment=%s/%s, algorun/algo=%s/%s, algorun/algo-version=%s, algorun/index=%v",
 		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 		pipelineDeployment.Spec.PipelineSpec.DeploymentName,
 		algoConfig.AlgoOwnerUserName,
@@ -149,8 +151,9 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		return err
 	}
 
+	var algoName string
 	if existingDeployment == nil {
-		_, err := kubeUtil.CreateDeployment(algoDeployment)
+		algoName, err = kubeUtil.CreateDeployment(algoDeployment)
 		if err != nil {
 			algoLogger.Error(err, "Failed to create algo deployment")
 			return err
@@ -174,7 +177,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 		}
 		if deplChanged {
-			_, err := kubeUtil.UpdateDeployment(algoDeployment)
+			algoName, err = kubeUtil.UpdateDeployment(algoDeployment)
 			if err != nil {
 				algoLogger.Error(err, "Failed to update algo deployment")
 				return err
@@ -182,21 +185,147 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		}
 	}
 
-	// TODO: Setup the horizontal pod autoscaler
+	// Setup the horizontal pod autoscaler
 	if algoConfig.Resource.AutoScale {
-
+		hpaSpec, err := algoReconciler.createHpaSpec(algoName, pipelineDeployment)
+		if err != nil {
+			algoLogger.Error(err, "Failed to create Algo horizontal pod autoscaler spec")
+			return err
+		}
+		_, err = kubeUtil.CreateHorizontalPodAutoscaler(hpaSpec)
+		if err != nil {
+			algoLogger.Error(err, "Failed to create Algo horizontal pod autoscaler")
+			return err
+		}
 	}
 
 	return nil
 
 }
 
-func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment *algov1alpha1.PipelineDeployment) (*corev1.Service, error) {
+func (algoReconciler *AlgoReconciler) createHpaSpec(algoName string, pipelineDeployment *algov1beta1.PipelineDeployment) (*autoscalev2beta2.HorizontalPodAutoscaler, error) {
 
 	labels := map[string]string{
-		"app.kubernetes.io/part-of":    "algo.run",
-		"app.kubernetes.io/component":  "algo.run/algo",
-		"app.kubernetes.io/managed-by": "algo.run/pipeline-operator",
+		"app.kubernetes.io/part-of":    "algorun",
+		"app.kubernetes.io/component":  "algorun/hpa",
+		"app.kubernetes.io/managed-by": "algorun/pipeline-operator",
+		"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+		"algorun/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.PipelineName),
+		"algorun/algo": fmt.Sprintf("%s/%s", algoReconciler.algoConfig.AlgoOwnerUserName,
+			algoReconciler.algoConfig.AlgoName),
+		"algorun/algo-version": algoReconciler.algoConfig.AlgoVersionTag,
+		"algorun/index":        strconv.Itoa(int(algoReconciler.algoConfig.AlgoIndex)),
+	}
+
+	name := fmt.Sprintf("%s-hpa", strings.TrimRight(utils.Short(algoReconciler.algoConfig.AlgoName, 20), "-"))
+
+	var scaleMetrics []autoscalev2beta2.MetricSpec
+	for _, metric := range algoReconciler.algoConfig.Resource.ScaleMetrics {
+
+		metricSpec := autoscalev2beta2.MetricSpec{}
+
+		// Create the Metric target
+		metricTarget := autoscalev2beta2.MetricTarget{}
+		switch metric.TargetType {
+		case "Utilization":
+			metricTarget.Type = autoscalev2beta2.UtilizationMetricType
+			metricTarget.AverageUtilization = &metric.AverageUtilization
+		case "Value":
+			metricTarget.Type = autoscalev2beta2.ValueMetricType
+			qty, _ := resource.ParseQuantity(fmt.Sprintf("%f", metric.Value))
+			metricTarget.Value = &qty
+		case "AverageValue":
+			metricTarget.Type = autoscalev2beta2.AverageValueMetricType
+			qty, _ := resource.ParseQuantity(fmt.Sprintf("%f", metric.AverageValue))
+			metricTarget.AverageValue = &qty
+		default:
+			metricTarget.Type = autoscalev2beta2.UtilizationMetricType
+			metricTarget.AverageUtilization = utils.Int32p(90)
+		}
+
+		var metricSelector *metav1.LabelSelector
+		if metric.MetricSelector != "" {
+			metricSelector, _ = metav1.ParseToLabelSelector(metric.MetricSelector)
+		}
+
+		// Get the metric source type constant
+		var sourceType autoscalev2beta2.MetricSourceType
+		switch metric.SourceType {
+		case "Resource":
+			sourceType = autoscalev2beta2.ResourceMetricSourceType
+			metricSpec.Resource = &autoscalev2beta2.ResourceMetricSource{
+				Name:   corev1.ResourceName(metric.ResourceName),
+				Target: metricTarget,
+			}
+		case "Object":
+			sourceType = autoscalev2beta2.ObjectMetricSourceType
+			metricSpec.Object = &autoscalev2beta2.ObjectMetricSource{
+				DescribedObject: autoscalev2beta2.CrossVersionObjectReference{
+					APIVersion: metric.ObjectApiVersion,
+					Kind:       metric.ObjectKind,
+					Name:       metric.ObjectName,
+				},
+				Target: metricTarget,
+				Metric: autoscalev2beta2.MetricIdentifier{
+					Name:     metric.MetricName,
+					Selector: metricSelector,
+				},
+			}
+		case "Pods":
+			sourceType = autoscalev2beta2.PodsMetricSourceType
+			metricSpec.Pods = &autoscalev2beta2.PodsMetricSource{
+				Metric: autoscalev2beta2.MetricIdentifier{
+					Name:     metric.MetricName,
+					Selector: metricSelector,
+				},
+				Target: metricTarget,
+			}
+		case "External":
+			sourceType = autoscalev2beta2.ExternalMetricSourceType
+			metricSpec.External = &autoscalev2beta2.ExternalMetricSource{
+				Metric: autoscalev2beta2.MetricIdentifier{
+					Name:     metric.MetricName,
+					Selector: metricSelector,
+				},
+				Target: metricTarget,
+			}
+		}
+
+		scaleMetrics = append(scaleMetrics, autoscalev2beta2.MetricSpec{
+			Type: sourceType,
+		})
+	}
+
+	hpa := &autoscalev2beta2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pipelineDeployment.Namespace,
+			Name:      name,
+			Labels:    labels,
+		},
+		Spec: autoscalev2beta2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscalev2beta2.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       algoName,
+			},
+			MinReplicas: &algoReconciler.algoConfig.Resource.MinInstances,
+			MaxReplicas: algoReconciler.algoConfig.Resource.MaxInstances,
+			Metrics:     scaleMetrics,
+		},
+	}
+
+	return hpa, nil
+
+}
+
+func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment *algov1beta1.PipelineDeployment) (*corev1.Service, error) {
+
+	labels := map[string]string{
+		"app.kubernetes.io/part-of":    "algorun",
+		"app.kubernetes.io/component":  "algorun/algo",
+		"app.kubernetes.io/managed-by": "algorun/pipeline-operator",
 	}
 
 	algoServiceSpec := &corev1.Service{
@@ -213,8 +342,8 @@ func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment
 				},
 			},
 			Selector: map[string]string{
-				"app.kubernetes.io/part-of":   "algo.run",
-				"app.kubernetes.io/component": "algo.run/algo",
+				"app.kubernetes.io/part-of":   "algorun",
+				"app.kubernetes.io/component": "algorun/algo",
 			},
 		},
 	}
@@ -541,7 +670,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 
 }
 
-func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1alpha1.PipelineDeployment, runnerConfig *v1alpha1.AlgoRunnerConfig, algoConfig *v1alpha1.AlgoConfig) []corev1.EnvVar {
+func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, runnerConfig *v1beta1.AlgoRunnerConfig, algoConfig *v1beta1.AlgoConfig) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
 
@@ -618,9 +747,9 @@ func (algoReconciler *AlgoReconciler) createSelector(constraints []string) map[s
 }
 
 // CreateRunnerConfig creates the config struct to be sent to the runner
-func (algoReconciler *AlgoReconciler) createRunnerConfig(pipelineDeploymentSpec *algov1alpha1.PipelineDeploymentSpec, algoConfig *v1alpha1.AlgoConfig) *v1alpha1.AlgoRunnerConfig {
+func (algoReconciler *AlgoReconciler) createRunnerConfig(pipelineDeploymentSpec *algov1beta1.PipelineDeploymentSpec, algoConfig *v1beta1.AlgoConfig) *v1beta1.AlgoRunnerConfig {
 
-	runnerConfig := &v1alpha1.AlgoRunnerConfig{
+	runnerConfig := &v1beta1.AlgoRunnerConfig{
 		DeploymentOwnerUserName: pipelineDeploymentSpec.PipelineSpec.DeploymentOwnerUserName,
 		DeploymentName:          pipelineDeploymentSpec.PipelineSpec.DeploymentName,
 		PipelineOwnerUserName:   pipelineDeploymentSpec.PipelineSpec.PipelineOwnerUserName,

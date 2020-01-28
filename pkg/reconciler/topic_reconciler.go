@@ -3,8 +3,9 @@ package reconciler
 import (
 	"context"
 	"fmt"
-	"pipeline-operator/pkg/apis/algo/v1alpha1"
-	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
+	"math"
+	"pipeline-operator/pkg/apis/algorun/v1beta1"
+	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
 	"reflect"
 	"strings"
@@ -20,8 +21,8 @@ import (
 )
 
 // NewTopicReconciler returns a new TopicReconciler
-func NewTopicReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
-	topicConfig *v1alpha1.TopicConfigModel,
+func NewTopicReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
+	topicConfig *v1beta1.TopicConfigModel,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme) TopicReconciler {
@@ -36,8 +37,8 @@ func NewTopicReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
 
 // TopicReconciler reconciles an Topic object
 type TopicReconciler struct {
-	pipelineDeployment *algov1alpha1.PipelineDeployment
-	topicConfig        *v1alpha1.TopicConfigModel
+	pipelineDeployment *algov1beta1.PipelineDeployment
+	topicConfig        *v1beta1.TopicConfigModel
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
@@ -64,7 +65,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 	existingTopic.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "kafka.strimzi.io",
 		Kind:    "KafkaTopic",
-		Version: "v1alpha1",
+		Version: "v1beta1",
 	})
 	err = topicReconciler.client.Get(context.TODO(), types.NamespacedName{Name: newTopicConfig.Name, Namespace: topicReconciler.request.NamespacedName.Namespace}, existingTopic)
 
@@ -72,12 +73,12 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		// Create the topic
 		// Using a unstructured object to submit a strimzi topic creation.
 		labels := map[string]string{
-			"app.kubernetes.io/part-of":    "algo.run",
-			"app.kubernetes.io/component":  "algo.run/topic",
-			"app.kubernetes.io/managed-by": "algo.run/pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeploymentSpec.PipelineSpec.DeploymentOwnerUserName,
+			"app.kubernetes.io/part-of":    "algorun",
+			"app.kubernetes.io/component":  "algorun/topic",
+			"app.kubernetes.io/managed-by": "algorun/pipeline-operator",
+			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeploymentSpec.PipelineSpec.DeploymentOwnerUserName,
 				pipelineDeploymentSpec.PipelineSpec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s/%s", pipelineDeploymentSpec.PipelineSpec.PipelineOwnerUserName,
+			"algorun/pipeline": fmt.Sprintf("%s/%s", pipelineDeploymentSpec.PipelineSpec.PipelineOwnerUserName,
 				pipelineDeploymentSpec.PipelineSpec.PipelineName),
 		}
 
@@ -97,7 +98,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		newTopic.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "kafka.strimzi.io",
 			Kind:    "KafkaTopic",
-			Version: "v1alpha1",
+			Version: "v1beta1",
 		})
 
 		// Set PipelineDeployment instance as the owner and controller
@@ -159,7 +160,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 
 }
 
-func BuildTopic(pipelineSpec algov1alpha1.PipelineSpec, topicConfig *algov1alpha1.TopicConfigModel) (TopicConfig, error) {
+func BuildTopic(pipelineSpec algov1beta1.PipelineSpec, topicConfig *algov1beta1.TopicConfigModel) (TopicConfig, error) {
 
 	// Replace the pipelineDeployment username and name in the topic string
 	topicName := strings.ToLower(strings.Replace(topicConfig.TopicName, "{deploymentownerusername}", pipelineSpec.DeploymentOwnerUserName, -1))
@@ -172,25 +173,50 @@ func BuildTopic(pipelineSpec algov1alpha1.PipelineSpec, topicConfig *algov1alpha
 
 	var topicPartitions int64 = 1
 	if topicConfig.TopicAutoPartition {
-		// Set the topic partitions based on the max destination instance count
+		// Set the topic partitions by summing the destination instance count + 50%
 		for _, pipe := range pipelineSpec.Pipes {
 
 			// Match the Source Pipe
 			if pipe.SourceName == topicConfig.SourceName &&
 				pipe.SourceOutputName == topicConfig.SourceOutputName {
 
-				// Find the destination Algo
+				// Find all destination Algos
 				for _, algoConfig := range pipelineSpec.AlgoConfigs {
 					algoName := fmt.Sprintf("%s/%s:%s[%d]", algoConfig.AlgoOwnerUserName, algoConfig.AlgoName, algoConfig.AlgoVersionTag, algoConfig.AlgoIndex)
 					if algoName == pipe.DestName {
-						topicPartitions = utils.Max(int64(algoConfig.Resource.MinInstances), topicPartitions)
-						topicPartitions = utils.Max(int64(algoConfig.Resource.Instances), topicPartitions)
+						// In case MaxInstances is Zero, use the topicPartitions
+						maxPartitions := utils.Max(int64(algoConfig.Resource.MaxInstances), topicPartitions)
+						maxPartitions = utils.Max(int64(algoConfig.Resource.Instances), maxPartitions)
+						topicPartitions = topicPartitions + maxPartitions
 					}
+				}
 
+				// Find all destination Sinks
+				for _, dcConfig := range pipelineSpec.DataConnectorConfigs {
+					dcName := fmt.Sprintf("%s:%s[%d]", dcConfig.Name, dcConfig.VersionTag, dcConfig.Index)
+					if dcName == pipe.DestName {
+						// TODO: Implement resource scaling for data connectors
+						// For now, just use one instance
+						// In case MaxInstances is Zero, use the topicPartitions
+						// maxPartitions := utils.Max(int64(dcConfig.Resource.MaxInstances), topicPartitions)
+						// maxPartitions = utils.Max(int64(dcConfig.Resource.Instances), maxPartitions)
+						topicPartitions = topicPartitions + 1
+					}
+				}
+
+				// Find all destination Hooks
+				if strings.ToLower(pipe.DestName) == "hook" {
+					// In case MaxInstances is Zero, use the topicPartitions
+					maxPartitions := utils.Max(int64(pipelineSpec.HookConfig.Resource.MaxInstances), topicPartitions)
+					maxPartitions = utils.Max(int64(pipelineSpec.HookConfig.Resource.Instances), maxPartitions)
+					topicPartitions = topicPartitions + maxPartitions
 				}
 
 			}
 		}
+
+		// Pad the count with an extra 50%. It's better to over provision partitions in Kafka
+		topicPartitions = topicPartitions + int64(math.Round(float64(topicPartitions)*0.5))
 
 	} else {
 		if topicConfig.TopicPartitions > 0 {

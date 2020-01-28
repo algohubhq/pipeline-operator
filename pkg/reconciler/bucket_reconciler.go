@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
+	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	"regexp"
 	"strings"
 
@@ -17,7 +17,7 @@ import (
 )
 
 // NewBucketReconciler returns a new BucketReconciler
-func NewBucketReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
+func NewBucketReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	request *reconcile.Request,
 	client client.Client) BucketReconciler {
 	return BucketReconciler{
@@ -29,7 +29,7 @@ func NewBucketReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
 
 // BucketReconciler reconciles the S3 bucket for a deployment
 type BucketReconciler struct {
-	pipelineDeployment *algov1alpha1.PipelineDeployment
+	pipelineDeployment *algov1beta1.PipelineDeployment
 	request            *reconcile.Request
 	client             client.Client
 }

@@ -11,8 +11,8 @@ import (
 
 	"github.com/go-test/deep"
 
-	"pipeline-operator/pkg/apis/algo/v1alpha1"
-	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
+	"pipeline-operator/pkg/apis/algorun/v1beta1"
+	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	recon "pipeline-operator/pkg/reconciler"
 	utils "pipeline-operator/pkg/utilities"
 
@@ -51,7 +51,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource PipelineDeployment
-	err = c.Watch(&source.Kind{Type: &algov1alpha1.PipelineDeployment{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &algov1beta1.PipelineDeployment{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -60,14 +60,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch for changes to secondary resource Pods and requeue the owner PipelineDeployment
 	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &algov1alpha1.PipelineDeployment{},
+		OwnerType:    &algov1beta1.PipelineDeployment{},
 	})
 	if err != nil {
 		return err
 	}
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &algov1alpha1.PipelineDeployment{},
+		OwnerType:    &algov1beta1.PipelineDeployment{},
 	})
 	if err != nil {
 		return err
@@ -101,7 +101,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("Reconciling PipelineDeployment")
 
 	// Fetch the PipelineDeployment instance
-	instance := &algov1alpha1.PipelineDeployment{}
+	instance := &algov1beta1.PipelineDeployment{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 
@@ -113,7 +113,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 			// Return and don't requeue
 			reqLogger.Info("PipelineDeployment resource not found. Ignoring since object must be deleted.")
 			// Sending a notification that an pipelineDeployment was deleted. Just not sure which one!
-			notifMessage := &v1alpha1.NotifMessage{
+			notifMessage := &v1beta1.NotifMessage{
 				MessageTimestamp: time.Now(),
 				Level:            "Info",
 				Type_:            "PipelineDeploymentDeleted",
@@ -156,7 +156,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	// Create the storage bucket
 	reqLogger.Info("Reconciling the Storage Bucket")
 	wg.Add(1)
-	go func(pipelineDeployment *algov1alpha1.PipelineDeployment) {
+	go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
 		bucketReconciler := recon.NewBucketReconciler(instance, &request, r.client)
 		err = bucketReconciler.Reconcile()
 		if err != nil {
@@ -170,7 +170,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	// Iterate the topics
 	for _, topicConfig := range instance.Spec.PipelineSpec.TopicConfigs {
 		wg.Add(1)
-		go func(currentTopicConfig algov1alpha1.TopicConfigModel) {
+		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
 			topicReconciler := recon.NewTopicReconciler(instance, &currentTopicConfig, &request, r.client, r.scheme)
 			topicReconciler.Reconcile()
 			wg.Done()
@@ -182,7 +182,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	// Iterate the AlgoConfigs
 	for _, algoConfig := range instance.Spec.PipelineSpec.AlgoConfigs {
 		wg.Add(1)
-		go func(currentAlgoConfig algov1alpha1.AlgoConfig) {
+		go func(currentAlgoConfig algov1beta1.AlgoConfig) {
 			defer wg.Done()
 			algoReconciler := recon.NewAlgoReconciler(instance, &currentAlgoConfig, &request, r.client, r.scheme)
 			err = algoReconciler.Reconcile()
@@ -206,7 +206,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	// Iterate the DataConnectors
 	for _, dcConfig := range instance.Spec.PipelineSpec.DataConnectorConfigs {
 		wg.Add(1)
-		go func(currentDcConfig algov1alpha1.DataConnectorConfig) {
+		go func(currentDcConfig algov1beta1.DataConnectorConfig) {
 			dcReconciler := recon.NewDataConnectorReconciler(instance, &currentDcConfig, &request, r.client, r.scheme)
 			err = dcReconciler.Reconcile()
 			if err != nil {
@@ -220,7 +220,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	if instance.Spec.PipelineSpec.HookConfig != nil {
 		reqLogger.Info("Reconciling Hooks")
 		wg.Add(1)
-		go func(pipelineDeployment *algov1alpha1.PipelineDeployment) {
+		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
 			hookReconciler := recon.NewHookReconciler(instance, &request, r.client, r.scheme)
 			err = hookReconciler.Reconcile()
 			if err != nil {
@@ -234,7 +234,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	if instance.Spec.PipelineSpec.EndpointConfig != nil {
 		reqLogger.Info("Reconciling Endpoints")
 		wg.Add(1)
-		go func(pipelineDeployment *algov1alpha1.PipelineDeployment) {
+		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
 			endpointReconciler := recon.NewEndpointReconciler(instance, &request, r.client, r.scheme)
 			err = endpointReconciler.Reconcile()
 			if err != nil {
@@ -261,11 +261,11 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		instance.Status.Status = pipelineDeploymentStatus.Status
 		statusChanged = true
 
-		notifMessage := &v1alpha1.NotifMessage{
+		notifMessage := &v1beta1.NotifMessage{
 			MessageTimestamp: time.Now(),
 			Level:            "Info",
 			Type_:            "PipelineDeploymentStatus",
-			DeploymentStatusMessage: &v1alpha1.DeploymentStatusMessage{
+			DeploymentStatusMessage: &v1beta1.DeploymentStatusMessage{
 				DeploymentOwnerUserName: instance.Spec.PipelineSpec.DeploymentOwnerUserName,
 				DeploymentName:          instance.Spec.PipelineSpec.DeploymentName,
 				Status:                  instance.Status.Status,
@@ -284,11 +284,11 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 					deplStatus = newDeplStatus
 					statusChanged = true
 					// reqLogger.Info("Differences", "Differences", diff)
-					notifMessage := &v1alpha1.NotifMessage{
+					notifMessage := &v1beta1.NotifMessage{
 						MessageTimestamp: time.Now(),
 						Level:            "Info",
 						Type_:            "PipelineDeployment",
-						DeploymentStatusMessage: &v1alpha1.DeploymentStatusMessage{
+						DeploymentStatusMessage: &v1beta1.DeploymentStatusMessage{
 							DeploymentOwnerUserName: instance.Spec.PipelineSpec.DeploymentOwnerUserName,
 							DeploymentName:          instance.Spec.PipelineSpec.DeploymentName,
 							Status:                  instance.Status.Status,
@@ -311,11 +311,11 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 					podStatus = newPodStatus
 					statusChanged = true
 					// reqLogger.Info("Differences", "Differences", diff)
-					notifMessage := &v1alpha1.NotifMessage{
+					notifMessage := &v1beta1.NotifMessage{
 						MessageTimestamp: time.Now(),
 						Level:            "Info",
 						Type_:            "PipelineDeploymentPod",
-						DeploymentStatusMessage: &v1alpha1.DeploymentStatusMessage{
+						DeploymentStatusMessage: &v1beta1.DeploymentStatusMessage{
 							DeploymentOwnerUserName: instance.Spec.PipelineSpec.DeploymentOwnerUserName,
 							DeploymentName:          instance.Spec.PipelineSpec.DeploymentName,
 							Status:                  instance.Status.Status,
@@ -344,10 +344,10 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 }
 
 //addFinalizer will add this attribute to the PipelineDeployment CR
-func (r *ReconcilePipelineDeployment) addFinalizer(pipelineDeployment *algov1alpha1.PipelineDeployment) error {
+func (r *ReconcilePipelineDeployment) addFinalizer(pipelineDeployment *algov1beta1.PipelineDeployment) error {
 	if len(pipelineDeployment.GetFinalizers()) < 1 && pipelineDeployment.GetDeletionTimestamp() == nil {
 		log.Info("Adding Finalizer for the PipelineDeployment")
-		pipelineDeployment.SetFinalizers([]string{"finalizer.pipelineDeployment.algo.run"})
+		pipelineDeployment.SetFinalizers([]string{"finalizer.pipelineDeployment.algorun"})
 
 		// Update CR
 		err := r.client.Update(context.TODO(), pipelineDeployment)
@@ -359,9 +359,9 @@ func (r *ReconcilePipelineDeployment) addFinalizer(pipelineDeployment *algov1alp
 	return nil
 }
 
-func (r *ReconcilePipelineDeployment) getStatus(cr *algov1alpha1.PipelineDeployment, request reconcile.Request) (*algov1alpha1.PipelineDeploymentStatus, error) {
+func (r *ReconcilePipelineDeployment) getStatus(cr *algov1beta1.PipelineDeployment, request reconcile.Request) (*algov1beta1.PipelineDeploymentStatus, error) {
 
-	pipelineDeploymentStatus := algov1alpha1.PipelineDeploymentStatus{
+	pipelineDeploymentStatus := algov1beta1.PipelineDeploymentStatus{
 		DeploymentOwnerUserName: cr.Spec.PipelineSpec.DeploymentOwnerUserName,
 		DeploymentName:          cr.Spec.PipelineSpec.DeploymentName,
 	}
@@ -400,11 +400,11 @@ func (r *ReconcilePipelineDeployment) getStatus(cr *algov1alpha1.PipelineDeploym
 
 }
 
-func (r *ReconcilePipelineDeployment) getDeploymentStatuses(cr *algov1alpha1.PipelineDeployment, request reconcile.Request) ([]algov1alpha1.AlgoDeploymentStatus, error) {
+func (r *ReconcilePipelineDeployment) getDeploymentStatuses(cr *algov1beta1.PipelineDeployment, request reconcile.Request) ([]algov1beta1.AlgoDeploymentStatus, error) {
 
 	// Watch all algo deployments
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=algo, algo.run/pipeline-deployment=%s/%s",
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=algo, algorun/pipeline-deployment=%s/%s",
 		cr.Spec.PipelineSpec.DeploymentOwnerUserName,
 		cr.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
@@ -418,13 +418,13 @@ func (r *ReconcilePipelineDeployment) getDeploymentStatuses(cr *algov1alpha1.Pip
 		return nil, err
 	}
 
-	deploymentStatuses := make([]algov1alpha1.AlgoDeploymentStatus, 0)
+	deploymentStatuses := make([]algov1beta1.AlgoDeploymentStatus, 0)
 
 	for _, deployment := range deploymentList.Items {
 		index, _ := strconv.Atoi(deployment.Labels["algoindex"])
 
 		// Create the deployment data
-		deploymentStatus := algov1alpha1.AlgoDeploymentStatus{
+		deploymentStatus := algov1beta1.AlgoDeploymentStatus{
 			AlgoOwnerName:    deployment.Labels["algoowner"],
 			AlgoName:         deployment.Labels["algo"],
 			AlgoVersionTag:   deployment.Labels["algoversion"],
@@ -444,11 +444,11 @@ func (r *ReconcilePipelineDeployment) getDeploymentStatuses(cr *algov1alpha1.Pip
 
 }
 
-func (r *ReconcilePipelineDeployment) getPodStatuses(cr *algov1alpha1.PipelineDeployment, request reconcile.Request) ([]algov1alpha1.AlgoPodStatus, error) {
+func (r *ReconcilePipelineDeployment) getPodStatuses(cr *algov1beta1.PipelineDeployment, request reconcile.Request) ([]algov1beta1.AlgoPodStatus, error) {
 
 	// Get all algo pods for this pipelineDeployment
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=algo, algo.run/pipeline-deployment=%s/%s",
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=algo, algorun/pipeline-deployment=%s/%s",
 		cr.Spec.PipelineSpec.DeploymentOwnerUserName,
 		cr.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
@@ -462,7 +462,7 @@ func (r *ReconcilePipelineDeployment) getPodStatuses(cr *algov1alpha1.PipelineDe
 		return nil, err
 	}
 
-	podStatuses := make([]algov1alpha1.AlgoPodStatus, 0)
+	podStatuses := make([]algov1beta1.AlgoPodStatus, 0)
 
 	for _, pod := range podList.Items {
 
@@ -481,7 +481,7 @@ func (r *ReconcilePipelineDeployment) getPodStatuses(cr *algov1alpha1.PipelineDe
 
 		index, _ := strconv.Atoi(pod.Labels["algoindex"])
 		// Create the pod status data
-		algoPodStatus := algov1alpha1.AlgoPodStatus{
+		algoPodStatus := algov1beta1.AlgoPodStatus{
 			AlgoOwnerName:     pod.Labels["algoowner"],
 			AlgoName:          pod.Labels["algo"],
 			AlgoVersionTag:    pod.Labels["algoversion"],
@@ -503,7 +503,7 @@ func (r *ReconcilePipelineDeployment) getPodStatuses(cr *algov1alpha1.PipelineDe
 
 }
 
-func calculateStatus(cr *algov1alpha1.PipelineDeployment, deploymentStatuses *[]algov1alpha1.AlgoDeploymentStatus) (string, error) {
+func calculateStatus(cr *algov1beta1.PipelineDeployment, deploymentStatuses *[]algov1beta1.AlgoDeploymentStatus) (string, error) {
 
 	var unreadyDeployments int
 	algoCount := len(cr.Spec.PipelineSpec.AlgoConfigs)
@@ -555,7 +555,7 @@ func (r *ReconcilePipelineDeployment) updateMetrics(request *reconcile.Request) 
 func (r *ReconcilePipelineDeployment) getPipelineDeploymentCount(request *reconcile.Request) (int, error) {
 
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=pipeline-deployment"))
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=pipeline-deployment"))
 	listOptions.InNamespace(request.Namespace)
 
 	list := &unstructured.UnstructuredList{}
@@ -575,7 +575,7 @@ func (r *ReconcilePipelineDeployment) getPipelineDeploymentCount(request *reconc
 func (r *ReconcilePipelineDeployment) getAlgoCount(request *reconcile.Request) (int, error) {
 
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=algo"))
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=algo"))
 	listOptions.InNamespace(request.Namespace)
 
 	deploymentList := &appsv1.DeploymentList{}
@@ -595,7 +595,7 @@ func (r *ReconcilePipelineDeployment) getAlgoCount(request *reconcile.Request) (
 func (r *ReconcilePipelineDeployment) getDataConnectorCount(request *reconcile.Request) (int, error) {
 
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=dataconnector"))
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=dataconnector"))
 	listOptions.InNamespace(request.Namespace)
 
 	list := &unstructured.UnstructuredList{}
@@ -615,7 +615,7 @@ func (r *ReconcilePipelineDeployment) getDataConnectorCount(request *reconcile.R
 func (r *ReconcilePipelineDeployment) getTopicCount(request *reconcile.Request) (int, error) {
 
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=topic"))
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=topic"))
 	listOptions.InNamespace(request.Namespace)
 
 	list := &unstructured.UnstructuredList{}

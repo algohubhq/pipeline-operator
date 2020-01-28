@@ -47,7 +47,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - algo.run
+  - algorun
   resources:
   - '*'
   verbs:

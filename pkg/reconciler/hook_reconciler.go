@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"pipeline-operator/pkg/apis/algo/v1alpha1"
-	algov1alpha1 "pipeline-operator/pkg/apis/algo/v1alpha1"
+	"pipeline-operator/pkg/apis/algorun/v1beta1"
+	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
 
 	"github.com/go-test/deep"
@@ -21,7 +21,7 @@ import (
 )
 
 // NewHookReconciler returns a new HookReconciler
-func NewHookReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
+func NewHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme) HookReconciler {
@@ -35,7 +35,7 @@ func NewHookReconciler(pipelineDeployment *algov1alpha1.PipelineDeployment,
 
 // HookReconciler reconciles an Hook object
 type HookReconciler struct {
-	pipelineDeployment *algov1alpha1.PipelineDeployment
+	pipelineDeployment *algov1beta1.PipelineDeployment
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
@@ -54,18 +54,18 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 	name := "pipe-depl-hook"
 
 	labels := map[string]string{
-		"app.kubernetes.io/part-of":    "algo.run",
-		"app.kubernetes.io/component":  "algo.run/hook",
-		"app.kubernetes.io/managed-by": "algo.run/pipeline-operator",
-		"algo.run/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		"app.kubernetes.io/part-of":    "algorun",
+		"app.kubernetes.io/component":  "algorun/hook",
+		"app.kubernetes.io/managed-by": "algorun/pipeline-operator",
+		"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 			pipelineDeployment.Spec.PipelineSpec.DeploymentName),
-		"algo.run/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+		"algorun/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
 			pipelineDeployment.Spec.PipelineSpec.PipelineName),
 	}
 
 	// Check to make sure the algo isn't already created
 	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algo.run, app.kubernetes.io/component=hook, algo.run/pipeline-deployment=%s/%s",
+	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=hook, algorun/pipeline-deployment=%s/%s",
 		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
 	listOptions.InNamespace(request.NamespacedName.Namespace)
@@ -280,7 +280,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 
 }
 
-func (hookReconciler *HookReconciler) createEnvVars(cr *algov1alpha1.PipelineDeployment, hookConfig *v1alpha1.HookConfig) []corev1.EnvVar {
+func (hookReconciler *HookReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, hookConfig *v1beta1.HookConfig) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
 
