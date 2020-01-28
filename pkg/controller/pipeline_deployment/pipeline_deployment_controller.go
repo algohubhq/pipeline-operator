@@ -403,15 +403,19 @@ func (r *ReconcilePipelineDeployment) getStatus(cr *algov1beta1.PipelineDeployme
 func (r *ReconcilePipelineDeployment) getDeploymentStatuses(cr *algov1beta1.PipelineDeployment, request reconcile.Request) ([]algov1beta1.AlgoDeploymentStatus, error) {
 
 	// Watch all algo deployments
-	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=algo, algorun/pipeline-deployment=%s/%s",
-		cr.Spec.PipelineSpec.DeploymentOwnerUserName,
-		cr.Spec.PipelineSpec.DeploymentName))
-	listOptions.InNamespace(request.NamespacedName.Namespace)
+	opts := []client.ListOption{
+		client.InNamespace(request.NamespacedName.Namespace),
+		client.MatchingLabels{
+			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/component": "algo",
+			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", cr.Spec.PipelineSpec.DeploymentOwnerUserName,
+				cr.Spec.PipelineSpec.DeploymentName),
+		},
+	}
 
 	deploymentList := &appsv1.DeploymentList{}
 	ctx := context.TODO()
-	err := r.client.List(ctx, listOptions, deploymentList)
+	err := r.client.List(ctx, deploymentList, opts...)
 
 	if err != nil {
 		log.Error(err, "Failed getting deployment list to determine status")
@@ -447,15 +451,19 @@ func (r *ReconcilePipelineDeployment) getDeploymentStatuses(cr *algov1beta1.Pipe
 func (r *ReconcilePipelineDeployment) getPodStatuses(cr *algov1beta1.PipelineDeployment, request reconcile.Request) ([]algov1beta1.AlgoPodStatus, error) {
 
 	// Get all algo pods for this pipelineDeployment
-	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=algo, algorun/pipeline-deployment=%s/%s",
-		cr.Spec.PipelineSpec.DeploymentOwnerUserName,
-		cr.Spec.PipelineSpec.DeploymentName))
-	listOptions.InNamespace(request.NamespacedName.Namespace)
+	opts := []client.ListOption{
+		client.InNamespace(request.NamespacedName.Namespace),
+		client.MatchingLabels{
+			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/component": "algo",
+			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", cr.Spec.PipelineSpec.DeploymentOwnerUserName,
+				cr.Spec.PipelineSpec.DeploymentName),
+		},
+	}
 
 	podList := &corev1.PodList{}
 	ctx := context.TODO()
-	err := r.client.List(ctx, listOptions, podList)
+	err := r.client.List(ctx, podList, opts...)
 
 	if err != nil {
 		log.Error(err, "Failed getting pod list to determine status")
@@ -554,13 +562,17 @@ func (r *ReconcilePipelineDeployment) updateMetrics(request *reconcile.Request) 
 
 func (r *ReconcilePipelineDeployment) getPipelineDeploymentCount(request *reconcile.Request) (int, error) {
 
-	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=pipeline-deployment"))
-	listOptions.InNamespace(request.Namespace)
+	opts := []client.ListOption{
+		client.InNamespace(request.Namespace),
+		client.MatchingLabels{
+			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/component": "pipeline-deployment",
+		},
+	}
 
 	list := &unstructured.UnstructuredList{}
 	ctx := context.TODO()
-	err := r.client.List(ctx, listOptions, list)
+	err := r.client.List(ctx, list, opts...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return 0, nil
@@ -574,13 +586,17 @@ func (r *ReconcilePipelineDeployment) getPipelineDeploymentCount(request *reconc
 
 func (r *ReconcilePipelineDeployment) getAlgoCount(request *reconcile.Request) (int, error) {
 
-	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=algo"))
-	listOptions.InNamespace(request.Namespace)
+	opts := []client.ListOption{
+		client.InNamespace(request.Namespace),
+		client.MatchingLabels{
+			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/component": "algo",
+		},
+	}
 
 	deploymentList := &appsv1.DeploymentList{}
 	ctx := context.TODO()
-	err := r.client.List(ctx, listOptions, deploymentList)
+	err := r.client.List(ctx, deploymentList, opts...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return 0, nil
@@ -594,13 +610,17 @@ func (r *ReconcilePipelineDeployment) getAlgoCount(request *reconcile.Request) (
 
 func (r *ReconcilePipelineDeployment) getDataConnectorCount(request *reconcile.Request) (int, error) {
 
-	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=dataconnector"))
-	listOptions.InNamespace(request.Namespace)
+	opts := []client.ListOption{
+		client.InNamespace(request.Namespace),
+		client.MatchingLabels{
+			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/component": "dataconnector",
+		},
+	}
 
 	list := &unstructured.UnstructuredList{}
 	ctx := context.TODO()
-	err := r.client.List(ctx, listOptions, list)
+	err := r.client.List(ctx, list, opts...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return 0, nil
@@ -614,13 +634,17 @@ func (r *ReconcilePipelineDeployment) getDataConnectorCount(request *reconcile.R
 
 func (r *ReconcilePipelineDeployment) getTopicCount(request *reconcile.Request) (int, error) {
 
-	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=topic"))
-	listOptions.InNamespace(request.Namespace)
+	opts := []client.ListOption{
+		client.InNamespace(request.Namespace),
+		client.MatchingLabels{
+			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/component": "topic",
+		},
+	}
 
 	list := &unstructured.UnstructuredList{}
 	ctx := context.TODO()
-	err := r.client.List(ctx, listOptions, list)
+	err := r.client.List(ctx, list, opts...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return 0, nil

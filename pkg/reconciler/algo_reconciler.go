@@ -57,11 +57,15 @@ func (algoReconciler *AlgoReconciler) ReconcileService() error {
 	kubeUtil := utils.NewKubeUtil(algoReconciler.client)
 
 	// Check to see if the metrics / health service is already created (All algos share the same service port)
-	srvListOptions := &client.ListOptions{}
-	srvListOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=algo"))
-	srvListOptions.InNamespace(algoReconciler.request.NamespacedName.Namespace)
+	opts := []client.ListOption{
+		client.InNamespace(algoReconciler.request.NamespacedName.Namespace),
+		client.MatchingLabels{
+			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/component": "algo",
+		},
+	}
 
-	existingService, err := kubeUtil.CheckForService(srvListOptions)
+	existingService, err := kubeUtil.CheckForService(opts)
 	if err != nil {
 		log.Error(err, "Failed to check for existing algo metric service")
 		return err
@@ -123,17 +127,23 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	kubeUtil := utils.NewKubeUtil(algoReconciler.client)
 
 	// Check to make sure the algo isn't already created
-	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=algo, algorun/pipeline-deployment=%s/%s, algorun/algo=%s/%s, algorun/algo-version=%s, algorun/index=%v",
-		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-		pipelineDeployment.Spec.PipelineSpec.DeploymentName,
-		algoConfig.AlgoOwnerUserName,
-		algoConfig.AlgoName,
-		algoConfig.AlgoVersionTag,
-		algoConfig.AlgoIndex))
-	listOptions.InNamespace(request.NamespacedName.Namespace)
+	opts := []client.ListOption{
+		client.InNamespace(request.NamespacedName.Namespace),
+		client.MatchingLabels{
+			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/component": "algo",
+			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s",
+				pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+				pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+			"algorun/algo": fmt.Sprintf("%s/%s",
+				algoConfig.AlgoOwnerUserName,
+				algoConfig.AlgoName),
+			"algorun/algo-version": algoConfig.AlgoVersionTag,
+			"algorun/index":        fmt.Sprintf("%v", algoConfig.AlgoIndex),
+		},
+	}
 
-	existingDeployment, err := kubeUtil.CheckForDeployment(listOptions)
+	existingDeployment, err := kubeUtil.CheckForDeployment(opts)
 
 	if existingDeployment != nil {
 		algoConfig.DeploymentName = existingDeployment.GetName()

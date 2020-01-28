@@ -81,13 +81,17 @@ func (endpointReconciler *EndpointReconciler) reconcileService() (*serviceConfig
 	kubeUtil := utils.NewKubeUtil(endpointReconciler.client)
 
 	// Check to see if the endpoint service is already created (All algos share the same service port)
-	srvListOptions := &client.ListOptions{}
-	srvListOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=endpoint, algorun/pipeline-deployment=%s/%s",
-		endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-		endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName))
-	srvListOptions.InNamespace(endpointReconciler.request.NamespacedName.Namespace)
+	opts := []client.ListOption{
+		client.InNamespace(endpointReconciler.request.NamespacedName.Namespace),
+		client.MatchingLabels{
+			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/component": "endpoint",
+			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+				endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+		},
+	}
 
-	existingService, err := kubeUtil.CheckForService(srvListOptions)
+	existingService, err := kubeUtil.CheckForService(opts)
 	if err != nil {
 		log.Error(err, "Failed to check for existing endpoint service")
 		return nil, err
@@ -125,7 +129,6 @@ func (endpointReconciler *EndpointReconciler) reconcileService() (*serviceConfig
 func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 
 	pipelineDeployment := endpointReconciler.pipelineDeployment
-	request := endpointReconciler.request
 
 	endpointLogger := log
 
@@ -143,16 +146,20 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 			pipelineDeployment.Spec.PipelineSpec.PipelineName),
 	}
 
-	// Check to make sure the algo isn't already created
-	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=endpoint, algorun/pipeline-deployment=%s/%s",
-		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
-	listOptions.InNamespace(request.NamespacedName.Namespace)
+	// Check to make sure the endpoint isn't already created
+	opts := []client.ListOption{
+		client.InNamespace(endpointReconciler.request.NamespacedName.Namespace),
+		client.MatchingLabels{
+			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/component": "endpoint",
+			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+				endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+		},
+	}
 
 	kubeUtil := utils.NewKubeUtil(endpointReconciler.client)
 
-	existingSf, err := kubeUtil.CheckForStatefulSet(listOptions)
+	existingSf, err := kubeUtil.CheckForStatefulSet(opts)
 
 	// Generate the k8s deployment
 	endpointSf, err := endpointReconciler.createSpec(name, labels, existingSf)
@@ -226,15 +233,19 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 
 	// check to see if mapping already exists
 	// Check to make sure the algo isn't already created
-	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=mapping, algorun/mapping-protocol=%s, algorun/pipeline-deployment=%s/%s",
-		protocol,
-		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
-	listOptions.InNamespace(request.NamespacedName.Namespace)
+	opts := []client.ListOption{
+		client.InNamespace(endpointReconciler.request.NamespacedName.Namespace),
+		client.MatchingLabels{
+			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/component": "mapping",
+			"algorun/mapping-protocol":    protocol,
+			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+				endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+		},
+	}
 
 	kubeUtil := utils.NewKubeUtil(endpointReconciler.client)
-	existingMapping, err := kubeUtil.CheckForUnstructured(listOptions, schema.GroupVersionKind{
+	existingMapping, err := kubeUtil.CheckForUnstructured(opts, schema.GroupVersionKind{
 		Group:   "getambassador.io",
 		Kind:    "Mapping",
 		Version: "v1",

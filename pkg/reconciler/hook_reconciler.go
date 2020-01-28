@@ -45,7 +45,6 @@ type HookReconciler struct {
 func (hookReconciler *HookReconciler) Reconcile() error {
 
 	pipelineDeployment := hookReconciler.pipelineDeployment
-	request := hookReconciler.request
 
 	hookLogger := log
 
@@ -63,16 +62,20 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 			pipelineDeployment.Spec.PipelineSpec.PipelineName),
 	}
 
-	// Check to make sure the algo isn't already created
-	listOptions := &client.ListOptions{}
-	listOptions.SetLabelSelector(fmt.Sprintf("app.kubernetes.io/part-of=algorun, app.kubernetes.io/component=hook, algorun/pipeline-deployment=%s/%s",
-		pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-		pipelineDeployment.Spec.PipelineSpec.DeploymentName))
-	listOptions.InNamespace(request.NamespacedName.Namespace)
+	// Check to make sure the hook isn't already created
+	opts := []client.ListOption{
+		client.InNamespace(hookReconciler.request.NamespacedName.Namespace),
+		client.MatchingLabels{
+			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/component": "hook",
+			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", hookReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+				hookReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+		},
+	}
 
 	kubeUtil := utils.NewKubeUtil(hookReconciler.client)
 
-	existingDeployment, err := kubeUtil.CheckForDeployment(listOptions)
+	existingDeployment, err := kubeUtil.CheckForDeployment(opts)
 
 	// Generate the k8s deployment
 	hookDeployment, err := hookReconciler.createDeploymentSpec(name, labels, existingDeployment)

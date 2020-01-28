@@ -30,11 +30,11 @@ type KubeUtil struct {
 	client client.Client
 }
 
-func (d *KubeUtil) CheckForDeployment(listOptions *client.ListOptions) (*appsv1.Deployment, error) {
+func (d *KubeUtil) CheckForDeployment(listOptions []client.ListOption) (*appsv1.Deployment, error) {
 
 	deploymentList := &appsv1.DeploymentList{}
 	ctx := context.TODO()
-	err := d.client.List(ctx, listOptions, deploymentList)
+	err := d.client.List(ctx, deploymentList, listOptions...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
@@ -90,11 +90,11 @@ func (d *KubeUtil) UpdateDeployment(deployment *appsv1.Deployment) (deploymentNa
 
 }
 
-func (d *KubeUtil) CheckForService(listOptions *client.ListOptions) (*corev1.Service, error) {
+func (d *KubeUtil) CheckForService(listOptions []client.ListOption) (*corev1.Service, error) {
 
 	serviceList := &corev1.ServiceList{}
 	ctx := context.TODO()
-	err := d.client.List(ctx, listOptions, serviceList)
+	err := d.client.List(ctx, serviceList, listOptions...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
@@ -130,11 +130,11 @@ func (d *KubeUtil) CreateService(service *corev1.Service) (serviceName string, e
 
 }
 
-func (d *KubeUtil) CheckForStatefulSet(listOptions *client.ListOptions) (*appsv1.StatefulSet, error) {
+func (d *KubeUtil) CheckForStatefulSet(listOptions []client.ListOption) (*appsv1.StatefulSet, error) {
 
 	statefulSetList := &appsv1.StatefulSetList{}
 	ctx := context.TODO()
-	err := d.client.List(ctx, listOptions, statefulSetList)
+	err := d.client.List(ctx, statefulSetList, listOptions...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
@@ -190,12 +190,12 @@ func (d *KubeUtil) UpdateStatefulSet(statefulSet *appsv1.StatefulSet) (sfName st
 
 }
 
-func (d *KubeUtil) CheckForUnstructured(listOptions *client.ListOptions, groupVersionKind schema.GroupVersionKind) (*unstructured.Unstructured, error) {
+func (d *KubeUtil) CheckForUnstructured(listOptions []client.ListOption, groupVersionKind schema.GroupVersionKind) (*unstructured.Unstructured, error) {
 
 	unstructuredList := &unstructured.UnstructuredList{}
 	unstructuredList.SetGroupVersionKind(groupVersionKind)
 	ctx := context.TODO()
-	err := d.client.List(ctx, listOptions, unstructuredList)
+	err := d.client.List(ctx, unstructuredList, listOptions...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
