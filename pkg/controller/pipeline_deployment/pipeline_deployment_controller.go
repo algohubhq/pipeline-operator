@@ -406,9 +406,9 @@ func (r *ReconcilePipelineDeployment) getDeploymentStatuses(cr *algov1beta1.Pipe
 	opts := []client.ListOption{
 		client.InNamespace(request.NamespacedName.Namespace),
 		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "algo",
-			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", cr.Spec.PipelineSpec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.PipelineSpec.DeploymentOwnerUserName,
 				cr.Spec.PipelineSpec.DeploymentName),
 		},
 	}
@@ -454,9 +454,9 @@ func (r *ReconcilePipelineDeployment) getPodStatuses(cr *algov1beta1.PipelineDep
 	opts := []client.ListOption{
 		client.InNamespace(request.NamespacedName.Namespace),
 		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "algo",
-			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", cr.Spec.PipelineSpec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.PipelineSpec.DeploymentOwnerUserName,
 				cr.Spec.PipelineSpec.DeploymentName),
 		},
 	}
@@ -565,7 +565,7 @@ func (r *ReconcilePipelineDeployment) getPipelineDeploymentCount(request *reconc
 	opts := []client.ListOption{
 		client.InNamespace(request.Namespace),
 		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "pipeline-deployment",
 		},
 	}
@@ -589,7 +589,7 @@ func (r *ReconcilePipelineDeployment) getAlgoCount(request *reconcile.Request) (
 	opts := []client.ListOption{
 		client.InNamespace(request.Namespace),
 		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "algo",
 		},
 	}
@@ -613,7 +613,7 @@ func (r *ReconcilePipelineDeployment) getDataConnectorCount(request *reconcile.R
 	opts := []client.ListOption{
 		client.InNamespace(request.Namespace),
 		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "dataconnector",
 		},
 	}
@@ -637,7 +637,7 @@ func (r *ReconcilePipelineDeployment) getTopicCount(request *reconcile.Request) 
 	opts := []client.ListOption{
 		client.InNamespace(request.Namespace),
 		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "topic",
 		},
 	}

@@ -4,14 +4,17 @@ import (
 	"context"
 	"fmt"
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalev2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
@@ -212,52 +215,75 @@ func (d *KubeUtil) CheckForUnstructured(listOptions []client.ListOption, groupVe
 }
 
 func (d *KubeUtil) CreateResourceReqs(r *v1beta1.ResourceModel) (*corev1.ResourceRequirements, error) {
+
 	resources := &corev1.ResourceRequirements{}
 
-	// Set Memory limits
-	if r.MemoryLimitBytes > 0 {
-		qty, err := resource.ParseQuantity(string(r.MemoryLimitBytes))
-		if err != nil {
-			return resources, err
+	if r != nil {
+		// Set Memory limits
+		if r.MemoryLimitBytes > 0 {
+			qty, err := resource.ParseQuantity(string(r.MemoryLimitBytes))
+			if err != nil {
+				return resources, err
+			}
+			resources.Limits[corev1.ResourceMemory] = qty
 		}
-		resources.Limits[corev1.ResourceMemory] = qty
-	}
 
-	if r.MemoryRequestBytes > 0 {
-		qty, err := resource.ParseQuantity(string(r.MemoryRequestBytes))
-		if err != nil {
-			return resources, err
+		if r.MemoryRequestBytes > 0 {
+			qty, err := resource.ParseQuantity(string(r.MemoryRequestBytes))
+			if err != nil {
+				return resources, err
+			}
+			resources.Requests[corev1.ResourceMemory] = qty
 		}
-		resources.Requests[corev1.ResourceMemory] = qty
-	}
 
-	// Set CPU limits
-	if r.CpuLimitMillicores > 0 {
-		qty, err := resource.ParseQuantity(fmt.Sprintf("%dm", r.CpuLimitMillicores))
-		if err != nil {
-			return resources, err
+		// Set CPU limits
+		if r.CpuLimitMillicores > 0 {
+			qty, err := resource.ParseQuantity(fmt.Sprintf("%dm", r.CpuLimitMillicores))
+			if err != nil {
+				return resources, err
+			}
+			resources.Limits[corev1.ResourceCPU] = qty
 		}
-		resources.Limits[corev1.ResourceCPU] = qty
-	}
 
-	if r.CpuRequestMillicores > 0 {
-		qty, err := resource.ParseQuantity(fmt.Sprintf("%dm", r.CpuRequestMillicores))
-		if err != nil {
-			return resources, err
+		if r.CpuRequestMillicores > 0 {
+			qty, err := resource.ParseQuantity(fmt.Sprintf("%dm", r.CpuRequestMillicores))
+			if err != nil {
+				return resources, err
+			}
+			resources.Requests[corev1.ResourceCPU] = qty
 		}
-		resources.Requests[corev1.ResourceCPU] = qty
-	}
 
-	// Set GPU limits
-	if r.GpuLimitMillicores > 0 {
-		qty, err := resource.ParseQuantity(fmt.Sprintf("%dm", r.GpuLimitMillicores))
-		if err != nil {
-			return resources, err
+		// Set GPU limits
+		if r.GpuLimitMillicores > 0 {
+			qty, err := resource.ParseQuantity(fmt.Sprintf("%dm", r.GpuLimitMillicores))
+			if err != nil {
+				return resources, err
+			}
+			resources.Limits["nvidia.com/gpu"] = qty
 		}
-		resources.Limits["nvidia.com/gpu"] = qty
 	}
 
 	return resources, nil
+}
+
+func (d *KubeUtil) CheckForHorizontalPodAutoscaler(listOptions []client.ListOption) (*autoscalev2beta2.HorizontalPodAutoscaler, error) {
+
+	hpaList := &autoscalev2beta2.HorizontalPodAutoscalerList{}
+	ctx := context.TODO()
+	err := d.client.List(ctx, hpaList, listOptions...)
+
+	if err != nil && errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	if len(hpaList.Items) > 0 {
+		return &hpaList.Items[0], nil
+	}
+
+	return nil, nil
+
 }
 
 func (d *KubeUtil) CreateHorizontalPodAutoscaler(hpa *autoscalev2beta2.HorizontalPodAutoscaler) (sfName string, error error) {
@@ -277,5 +303,125 @@ func (d *KubeUtil) CreateHorizontalPodAutoscaler(hpa *autoscalev2beta2.Horizonta
 	log.Info("Created HorizontalPodAutoscaler")
 
 	return hpa.GetName(), nil
+
+}
+
+func (d *KubeUtil) UpdateHorizontalPodAutoscaler(hpa *autoscalev2beta2.HorizontalPodAutoscaler) (hpaName string, error error) {
+
+	logData := map[string]interface{}{
+		"labels": hpa.Labels,
+	}
+
+	if err := d.client.Update(context.TODO(), hpa); err != nil {
+		log.WithValues("data", logData)
+		log.Error(err, "Failed updating the Horizontal Pod Autoscaler")
+		return "", err
+	}
+
+	logData["name"] = hpa.GetName()
+	log.WithValues("data", logData)
+	log.Info("Updated Horizontal Pod Autoscaler")
+
+	return hpa.GetName(), nil
+
+}
+
+func (d *KubeUtil) CreateHpaSpec(targetName string, labels map[string]string, pipelineDeployment *algov1beta1.PipelineDeployment, r *algov1beta1.ResourceModel) (*autoscalev2beta2.HorizontalPodAutoscaler, error) {
+
+	name := fmt.Sprintf("%s-hpa", strings.TrimRight(Short(targetName, 20), "-"))
+
+	var scaleMetrics []autoscalev2beta2.MetricSpec
+	for _, metric := range r.ScaleMetrics {
+
+		metricSpec := autoscalev2beta2.MetricSpec{}
+
+		// Create the Metric target
+		metricTarget := autoscalev2beta2.MetricTarget{}
+		switch metric.TargetType {
+		case "Utilization":
+			metricTarget.Type = autoscalev2beta2.UtilizationMetricType
+			metricTarget.AverageUtilization = &metric.AverageUtilization
+		case "Value":
+			metricTarget.Type = autoscalev2beta2.ValueMetricType
+			qty, _ := resource.ParseQuantity(fmt.Sprintf("%f", metric.Value))
+			metricTarget.Value = &qty
+		case "AverageValue":
+			metricTarget.Type = autoscalev2beta2.AverageValueMetricType
+			qty, _ := resource.ParseQuantity(fmt.Sprintf("%f", metric.AverageValue))
+			metricTarget.AverageValue = &qty
+		default:
+			metricTarget.Type = autoscalev2beta2.UtilizationMetricType
+			metricTarget.AverageUtilization = Int32p(90)
+		}
+
+		var metricSelector *metav1.LabelSelector
+		if metric.MetricSelector != "" {
+			metricSelector, _ = metav1.ParseToLabelSelector(metric.MetricSelector)
+		}
+
+		// Get the metric source type constant
+		switch metric.SourceType {
+		case "Resource":
+			metricSpec.Type = autoscalev2beta2.ResourceMetricSourceType
+			metricSpec.Resource = &autoscalev2beta2.ResourceMetricSource{
+				Name:   corev1.ResourceName(metric.ResourceName),
+				Target: metricTarget,
+			}
+		case "Object":
+			metricSpec.Type = autoscalev2beta2.ObjectMetricSourceType
+			metricSpec.Object = &autoscalev2beta2.ObjectMetricSource{
+				DescribedObject: autoscalev2beta2.CrossVersionObjectReference{
+					APIVersion: metric.ObjectApiVersion,
+					Kind:       metric.ObjectKind,
+					Name:       metric.ObjectName,
+				},
+				Target: metricTarget,
+				Metric: autoscalev2beta2.MetricIdentifier{
+					Name:     metric.MetricName,
+					Selector: metricSelector,
+				},
+			}
+		case "Pods":
+			metricSpec.Type = autoscalev2beta2.PodsMetricSourceType
+			metricSpec.Pods = &autoscalev2beta2.PodsMetricSource{
+				Metric: autoscalev2beta2.MetricIdentifier{
+					Name:     metric.MetricName,
+					Selector: metricSelector,
+				},
+				Target: metricTarget,
+			}
+		case "External":
+			metricSpec.Type = autoscalev2beta2.ExternalMetricSourceType
+			metricSpec.External = &autoscalev2beta2.ExternalMetricSource{
+				Metric: autoscalev2beta2.MetricIdentifier{
+					Name:     metric.MetricName,
+					Selector: metricSelector,
+				},
+				Target: metricTarget,
+			}
+		}
+
+		scaleMetrics = append(scaleMetrics, metricSpec)
+	}
+
+	hpa := &autoscalev2beta2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pipelineDeployment.Namespace,
+			Name:      name,
+			Labels:    labels,
+		},
+		Spec: autoscalev2beta2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscalev2beta2.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       targetName,
+			},
+			MinReplicas: &r.MinInstances,
+			MaxReplicas: r.MaxInstances,
+			Metrics:     scaleMetrics,
+		},
+	}
+
+	return hpa, nil
 
 }

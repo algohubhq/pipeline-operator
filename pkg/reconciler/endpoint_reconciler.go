@@ -84,9 +84,9 @@ func (endpointReconciler *EndpointReconciler) reconcileService() (*serviceConfig
 	opts := []client.ListOption{
 		client.InNamespace(endpointReconciler.request.NamespacedName.Namespace),
 		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "endpoint",
-			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 				endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName),
 		},
 	}
@@ -137,12 +137,12 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 	name := "pipe-depl-ep"
 
 	labels := map[string]string{
-		"app.kubernetes.io/part-of":    "algorun",
-		"app.kubernetes.io/component":  "algorun/endpoint",
-		"app.kubernetes.io/managed-by": "algorun/pipeline-operator",
-		"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		"app.kubernetes.io/part-of":    "algo.run",
+		"app.kubernetes.io/component":  "endpoint",
+		"app.kubernetes.io/managed-by": "pipeline-operator",
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 			pipelineDeployment.Spec.PipelineSpec.DeploymentName),
-		"algorun/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
 			pipelineDeployment.Spec.PipelineSpec.PipelineName),
 	}
 
@@ -150,16 +150,20 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 	opts := []client.ListOption{
 		client.InNamespace(endpointReconciler.request.NamespacedName.Namespace),
 		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "endpoint",
-			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 				endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName),
 		},
 	}
 
 	kubeUtil := utils.NewKubeUtil(endpointReconciler.client)
 
+	var endpointName string
 	existingSf, err := kubeUtil.CheckForStatefulSet(opts)
+	if existingSf != nil {
+		endpointName = existingSf.GetName()
+	}
 
 	// Generate the k8s deployment
 	endpointSf, err := endpointReconciler.createSpec(name, labels, existingSf)
@@ -174,7 +178,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 	}
 
 	if existingSf == nil {
-		_, err := kubeUtil.CreateStatefulSet(endpointSf)
+		endpointName, err = kubeUtil.CreateStatefulSet(endpointSf)
 		if err != nil {
 			endpointLogger.Error(err, "Failed to create endpoint statefulset")
 			return err
@@ -198,12 +202,69 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 
 		}
 		if deplChanged {
-			_, err := kubeUtil.UpdateStatefulSet(endpointSf)
+			endpointName, err = kubeUtil.UpdateStatefulSet(endpointSf)
 			if err != nil {
 				endpointLogger.Error(err, "Failed to update endpoint deployment")
 				return err
 			}
 		}
+	}
+
+	// Setup the horizontal pod autoscaler
+	if pipelineDeployment.Spec.PipelineSpec.EndpointConfig.Resource.AutoScale {
+
+		labels := map[string]string{
+			"app.kubernetes.io/part-of":    "algo.run",
+			"app.kubernetes.io/component":  "endpoint-hpa",
+			"app.kubernetes.io/managed-by": "pipeline-operator",
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+				pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+				pipelineDeployment.Spec.PipelineSpec.PipelineName),
+		}
+
+		opts := []client.ListOption{
+			client.InNamespace(endpointReconciler.request.NamespacedName.Namespace),
+			client.MatchingLabels(labels),
+		}
+
+		existingHpa, err := kubeUtil.CheckForHorizontalPodAutoscaler(opts)
+
+		hpaSpec, err := kubeUtil.CreateHpaSpec(endpointName, labels, pipelineDeployment, pipelineDeployment.Spec.PipelineSpec.EndpointConfig.Resource)
+		if err != nil {
+			endpointLogger.Error(err, "Failed to create Endpoint horizontal pod autoscaler spec")
+			return err
+		}
+
+		// Set PipelineDeployment instance as the owner and controller
+		if err := controllerutil.SetControllerReference(pipelineDeployment, hpaSpec, endpointReconciler.scheme); err != nil {
+			return err
+		}
+
+		if existingHpa == nil {
+			_, err = kubeUtil.CreateHorizontalPodAutoscaler(hpaSpec)
+			if err != nil {
+				endpointLogger.Error(err, "Failed to create Endpoint horizontal pod autoscaler")
+				return err
+			}
+		} else {
+			var deplChanged bool
+
+			if existingHpa.Spec.Metrics != nil && hpaSpec.Spec.Metrics != nil {
+				if diff := deep.Equal(existingHpa.Spec, hpaSpec.Spec); diff != nil {
+					endpointLogger.Info("Endpoint Horizontal Pod Autoscaler Changed. Updating...", "Differences", diff)
+					deplChanged = true
+				}
+			}
+			if deplChanged {
+				_, err := kubeUtil.UpdateHorizontalPodAutoscaler(hpaSpec)
+				if err != nil {
+					endpointLogger.Error(err, "Failed to update horizontal pod autoscaler")
+					return err
+				}
+			}
+		}
+
 	}
 
 	return nil
@@ -236,10 +297,10 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 	opts := []client.ListOption{
 		client.InNamespace(endpointReconciler.request.NamespacedName.Namespace),
 		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "mapping",
 			"algorun/mapping-protocol":    protocol,
-			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 				endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName),
 		},
 	}
@@ -263,13 +324,13 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 		// Using a unstructured object to submit a ambassador mapping.
 
 		labels := map[string]string{
-			"app.kubernetes.io/part-of":    "algorun",
-			"app.kubernetes.io/component":  "algorun/mapping",
-			"app.kubernetes.io/managed-by": "algorun/pipeline-operator",
+			"app.kubernetes.io/part-of":    "algo.run",
+			"app.kubernetes.io/component":  "mapping",
+			"app.kubernetes.io/managed-by": "pipeline-operator",
 			"algorun/mapping-protocol":     protocol,
-			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 				pipelineDeployment.Spec.PipelineSpec.DeploymentName),
-			"algorun/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
 				pipelineDeployment.Spec.PipelineSpec.PipelineName),
 		}
 
@@ -562,12 +623,12 @@ func (endpointReconciler *EndpointReconciler) createServiceSpec(pipelineDeployme
 	ms := &serviceConfig{}
 
 	labels := map[string]string{
-		"app.kubernetes.io/part-of":    "algorun",
-		"app.kubernetes.io/component":  "algorun/endpoint",
-		"app.kubernetes.io/managed-by": "algorun/pipeline-operator",
-		"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		"app.kubernetes.io/part-of":    "algo.run",
+		"app.kubernetes.io/component":  "endpoint",
+		"app.kubernetes.io/managed-by": "pipeline-operator",
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 			pipelineDeployment.Spec.PipelineSpec.DeploymentName),
-		"algorun/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
 			pipelineDeployment.Spec.PipelineSpec.PipelineName),
 	}
 

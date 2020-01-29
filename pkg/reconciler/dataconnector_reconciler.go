@@ -75,16 +75,16 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 		// Using a unstructured object to submit a data connector.
 
 		labels := map[string]string{
-			"app.kubernetes.io/part-of":    "algorun",
-			"app.kubernetes.io/component":  "algorun/dataconnector",
-			"app.kubernetes.io/managed-by": "algorun/pipeline-operator",
-			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			"app.kubernetes.io/part-of":    "algo.run",
+			"app.kubernetes.io/component":  "dataconnector",
+			"app.kubernetes.io/managed-by": "pipeline-operator",
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 				pipelineDeployment.Spec.PipelineSpec.DeploymentName),
-			"algorun/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
 				pipelineDeployment.Spec.PipelineSpec.PipelineName),
 			"algorun/dataconnector":         dataConnectorConfig.Name,
 			"algorun/dataconnector-version": dataConnectorConfig.VersionTag,
-			"algorun/index":                 strconv.Itoa(int(dataConnectorConfig.Index)),
+			"algo.run/index":                strconv.Itoa(int(dataConnectorConfig.Index)),
 		}
 
 		newDc := &unstructured.Unstructured{}

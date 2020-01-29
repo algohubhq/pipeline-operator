@@ -53,12 +53,12 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 	name := "pipe-depl-hook"
 
 	labels := map[string]string{
-		"app.kubernetes.io/part-of":    "algorun",
-		"app.kubernetes.io/component":  "algorun/hook",
-		"app.kubernetes.io/managed-by": "algorun/pipeline-operator",
-		"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		"app.kubernetes.io/part-of":    "algo.run",
+		"app.kubernetes.io/component":  "hook",
+		"app.kubernetes.io/managed-by": "pipeline-operator",
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 			pipelineDeployment.Spec.PipelineSpec.DeploymentName),
-		"algorun/pipeline": fmt.Sprintf("%s/%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
 			pipelineDeployment.Spec.PipelineSpec.PipelineName),
 	}
 
@@ -66,16 +66,20 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 	opts := []client.ListOption{
 		client.InNamespace(hookReconciler.request.NamespacedName.Namespace),
 		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algorun",
+			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "hook",
-			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", hookReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", hookReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 				hookReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName),
 		},
 	}
 
 	kubeUtil := utils.NewKubeUtil(hookReconciler.client)
 
+	var hookName string
 	existingDeployment, err := kubeUtil.CheckForDeployment(opts)
+	if existingDeployment != nil {
+		hookName = existingDeployment.GetName()
+	}
 
 	// Generate the k8s deployment
 	hookDeployment, err := hookReconciler.createDeploymentSpec(name, labels, existingDeployment)
@@ -90,7 +94,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 	}
 
 	if existingDeployment == nil {
-		_, err := kubeUtil.CreateDeployment(hookDeployment)
+		hookName, err = kubeUtil.CreateDeployment(hookDeployment)
 		if err != nil {
 			hookLogger.Error(err, "Failed to create hook deployment")
 			return err
@@ -114,12 +118,69 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 
 		}
 		if deplChanged {
-			_, err := kubeUtil.UpdateDeployment(hookDeployment)
+			hookName, err = kubeUtil.UpdateDeployment(hookDeployment)
 			if err != nil {
 				hookLogger.Error(err, "Failed to update hook deployment")
 				return err
 			}
 		}
+	}
+
+	// Setup the horizontal pod autoscaler
+	if pipelineDeployment.Spec.PipelineSpec.EndpointConfig.Resource.AutoScale {
+
+		labels := map[string]string{
+			"app.kubernetes.io/part-of":    "algo.run",
+			"app.kubernetes.io/component":  "hook-hpa",
+			"app.kubernetes.io/managed-by": "pipeline-operator",
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+				pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
+				pipelineDeployment.Spec.PipelineSpec.PipelineName),
+		}
+
+		opts := []client.ListOption{
+			client.InNamespace(hookReconciler.request.NamespacedName.Namespace),
+			client.MatchingLabels(labels),
+		}
+
+		existingHpa, err := kubeUtil.CheckForHorizontalPodAutoscaler(opts)
+
+		hpaSpec, err := kubeUtil.CreateHpaSpec(hookName, labels, pipelineDeployment, pipelineDeployment.Spec.PipelineSpec.HookConfig.Resource)
+		if err != nil {
+			hookLogger.Error(err, "Failed to create Hook horizontal pod autoscaler spec")
+			return err
+		}
+
+		// Set PipelineDeployment instance as the owner and controller
+		if err := controllerutil.SetControllerReference(pipelineDeployment, hpaSpec, hookReconciler.scheme); err != nil {
+			return err
+		}
+
+		if existingHpa == nil {
+			_, err = kubeUtil.CreateHorizontalPodAutoscaler(hpaSpec)
+			if err != nil {
+				hookLogger.Error(err, "Failed to create Hook horizontal pod autoscaler")
+				return err
+			}
+		} else {
+			var deplChanged bool
+
+			if existingHpa.Spec.Metrics != nil && hpaSpec.Spec.Metrics != nil {
+				if diff := deep.Equal(existingHpa.Spec, hpaSpec.Spec); diff != nil {
+					hookLogger.Info("Hook Horizontal Pod Autoscaler Changed. Updating...", "Differences", diff)
+					deplChanged = true
+				}
+			}
+			if deplChanged {
+				_, err := kubeUtil.UpdateHorizontalPodAutoscaler(hpaSpec)
+				if err != nil {
+					hookLogger.Error(err, "Failed to update hook horizontal pod autoscaler")
+					return err
+				}
+			}
+		}
+
 	}
 
 	return nil

@@ -73,12 +73,12 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		// Create the topic
 		// Using a unstructured object to submit a strimzi topic creation.
 		labels := map[string]string{
-			"app.kubernetes.io/part-of":    "algorun",
-			"app.kubernetes.io/component":  "algorun/topic",
-			"app.kubernetes.io/managed-by": "algorun/pipeline-operator",
-			"algorun/pipeline-deployment": fmt.Sprintf("%s/%s", pipelineDeploymentSpec.PipelineSpec.DeploymentOwnerUserName,
+			"app.kubernetes.io/part-of":    "algo.run",
+			"app.kubernetes.io/component":  "topic",
+			"app.kubernetes.io/managed-by": "pipeline-operator",
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineSpec.DeploymentOwnerUserName,
 				pipelineDeploymentSpec.PipelineSpec.DeploymentName),
-			"algorun/pipeline": fmt.Sprintf("%s/%s", pipelineDeploymentSpec.PipelineSpec.PipelineOwnerUserName,
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineSpec.PipelineOwnerUserName,
 				pipelineDeploymentSpec.PipelineSpec.PipelineName),
 		}
 
