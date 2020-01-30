@@ -114,12 +114,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	log.Info("Registering custom metrics")
+	utils.RegisterCustomMetrics()
+
 	// Add the Metrics Service
 	addMetrics(ctx, cfg, namespace)
-
-	log.Info("Registering and serving custom metrics")
-	customMetrics := utils.NewCustomMetrics(mgr.GetClient(), namespace)
-	customMetrics.ServeCustomMetrics()
 
 	log.Info("Starting the Cmd.")
 
