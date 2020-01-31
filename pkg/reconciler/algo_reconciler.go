@@ -647,8 +647,8 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 		Name: "MC_HOST_algorun",
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: "storage-endpoint"},
-				Key:                  "mc",
+				LocalObjectReference: corev1.LocalObjectReference{Name: "storage-config"},
+				Key:                  "connection-string",
 			},
 		},
 	})

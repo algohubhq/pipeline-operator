@@ -12,7 +12,7 @@ package v1beta1
 
 type TopicConfigModel struct {
 
-	NodeType string `json:"nodeType,omitempty"`
+	ComponentType string `json:"componentType,omitempty"`
 
 	SourceName string `json:"sourceName,omitempty"`
 

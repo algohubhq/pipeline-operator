@@ -12,7 +12,7 @@ package v1beta1
 
 type PipeModel struct {
 
-	SourceNodeType string `json:"sourceNodeType,omitempty"`
+	SourceComponentType string `json:"sourceComponentType,omitempty"`
 
 	SourceName string `json:"sourceName,omitempty"`
 
@@ -20,7 +20,7 @@ type PipeModel struct {
 
 	SourceOutputMessageDataType string `json:"sourceOutputMessageDataType,omitempty"`
 
-	DestNodeType string `json:"destNodeType,omitempty"`
+	DestComponentType string `json:"destComponentType,omitempty"`
 
 	DestName string `json:"destName,omitempty"`
 

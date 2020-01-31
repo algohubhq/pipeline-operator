@@ -41,7 +41,7 @@ func (bucketReconciler *BucketReconciler) Reconcile() error {
 	err := bucketReconciler.client.Get(
 		context.TODO(),
 		types.NamespacedName{
-			Name:      "storage-endpoint",
+			Name:      "storage-config",
 			Namespace: bucketReconciler.request.NamespacedName.Namespace,
 		},
 		storageSecret)
@@ -50,7 +50,7 @@ func (bucketReconciler *BucketReconciler) Reconcile() error {
 		return err
 	}
 	// Parse the secret
-	endpoint, accessKey, secret, err := parseEnvURLStr(string(storageSecret.Data["mc"]))
+	endpoint, accessKey, secret, err := parseEnvURLStr(string(storageSecret.Data["connection-string"]))
 	if err != nil {
 		return err
 	}

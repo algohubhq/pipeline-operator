@@ -82,9 +82,9 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 				pipelineDeployment.Spec.PipelineSpec.DeploymentName),
 			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
 				pipelineDeployment.Spec.PipelineSpec.PipelineName),
-			"algorun/dataconnector":         dataConnectorConfig.Name,
-			"algorun/dataconnector-version": dataConnectorConfig.VersionTag,
-			"algo.run/index":                strconv.Itoa(int(dataConnectorConfig.Index)),
+			"algo.run/dataconnector":         dataConnectorConfig.Name,
+			"algo.run/dataconnector-version": dataConnectorConfig.VersionTag,
+			"algo.run/index":                 strconv.Itoa(int(dataConnectorConfig.Index)),
 		}
 
 		newDc := &unstructured.Unstructured{}

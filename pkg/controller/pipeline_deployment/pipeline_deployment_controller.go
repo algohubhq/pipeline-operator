@@ -2,14 +2,10 @@ package pipelinedeploymentcontroller
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"github.com/go-test/deep"
 
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
@@ -100,9 +96,10 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	reqLogger := log.WithValues("data", logData)
 	reqLogger.Info("Reconciling PipelineDeployment")
 
+	ctx := context.TODO()
 	// Fetch the PipelineDeployment instance
 	instance := &algov1beta1.PipelineDeployment{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 
 		r.updateMetrics(&request)
@@ -126,7 +123,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	// Check if the APP CR was marked to be deleted
+	// Check if the PipelineDeployment CR was marked to be deleted
 	isPipelineDeploymentMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
 	if isPipelineDeploymentMarkedToBeDeleted {
 
@@ -136,12 +133,18 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		instance.SetFinalizers(nil)
 
 		// Update CR
-		err := r.client.Update(context.TODO(), instance)
+		err := r.client.Update(ctx, instance)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		// TODO: Send the delete notification
+		// Send the delete notification
+		notifMessage := &v1beta1.NotifMessage{
+			MessageTimestamp: time.Now(),
+			Level:            "Info",
+			Type_:            "PipelineDeploymentDeleted",
+		}
+		utils.Notify(notifMessage)
 
 		return reconcile.Result{}, nil
 	}
@@ -249,94 +252,12 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 
 	r.updateMetrics(&request)
 
-	pipelineDeploymentStatus, err := r.getStatus(instance, request)
+	// Run status reconciler
+	statusReconciler := recon.NewStatusReconciler(instance, &request, r.client, r.scheme)
+	err = statusReconciler.Reconcile()
 	if err != nil {
-		reqLogger.Error(err, "Failed to get PipelineDeployment status.")
+		reqLogger.Error(err, "Error in Status reconcile.")
 		return reconcile.Result{}, err
-	}
-
-	statusChanged := false
-
-	if instance.Status.Status != pipelineDeploymentStatus.Status {
-		instance.Status.Status = pipelineDeploymentStatus.Status
-		statusChanged = true
-
-		notifMessage := &v1beta1.NotifMessage{
-			MessageTimestamp: time.Now(),
-			Level:            "Info",
-			Type_:            "PipelineDeploymentStatus",
-			DeploymentStatusMessage: &v1beta1.DeploymentStatusMessage{
-				DeploymentOwnerUserName: instance.Spec.PipelineSpec.DeploymentOwnerUserName,
-				DeploymentName:          instance.Spec.PipelineSpec.DeploymentName,
-				Status:                  instance.Status.Status,
-			},
-		}
-
-		utils.Notify(notifMessage)
-	}
-
-	// Iterate the existing deployment statuses and update if changed
-	for _, deplStatus := range instance.Status.AlgoDeploymentStatuses {
-		for _, newDeplStatus := range pipelineDeploymentStatus.AlgoDeploymentStatuses {
-			if newDeplStatus.Name == deplStatus.Name {
-
-				if diff := deep.Equal(deplStatus, newDeplStatus); diff != nil {
-					deplStatus = newDeplStatus
-					statusChanged = true
-					// reqLogger.Info("Differences", "Differences", diff)
-					notifMessage := &v1beta1.NotifMessage{
-						MessageTimestamp: time.Now(),
-						Level:            "Info",
-						Type_:            "PipelineDeployment",
-						DeploymentStatusMessage: &v1beta1.DeploymentStatusMessage{
-							DeploymentOwnerUserName: instance.Spec.PipelineSpec.DeploymentOwnerUserName,
-							DeploymentName:          instance.Spec.PipelineSpec.DeploymentName,
-							Status:                  instance.Status.Status,
-						},
-					}
-
-					utils.Notify(notifMessage)
-				}
-
-			}
-		}
-	}
-
-	// Iterate the existing pod statuses and update if changed
-	for _, podStatus := range instance.Status.AlgoPodStatuses {
-		for _, newPodStatus := range pipelineDeploymentStatus.AlgoPodStatuses {
-			if newPodStatus.Name == podStatus.Name {
-
-				if diff := deep.Equal(podStatus, newPodStatus); diff != nil {
-					podStatus = newPodStatus
-					statusChanged = true
-					// reqLogger.Info("Differences", "Differences", diff)
-					notifMessage := &v1beta1.NotifMessage{
-						MessageTimestamp: time.Now(),
-						Level:            "Info",
-						Type_:            "PipelineDeploymentPod",
-						DeploymentStatusMessage: &v1beta1.DeploymentStatusMessage{
-							DeploymentOwnerUserName: instance.Spec.PipelineSpec.DeploymentOwnerUserName,
-							DeploymentName:          instance.Spec.PipelineSpec.DeploymentName,
-							Status:                  instance.Status.Status,
-						},
-					}
-
-					utils.Notify(notifMessage)
-				}
-
-			}
-		}
-	}
-
-	if statusChanged {
-		instance.Status = *pipelineDeploymentStatus
-
-		err = r.client.Status().Update(context.TODO(), instance)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update PipelineDeployment status.")
-			return reconcile.Result{}, err
-		}
 	}
 
 	return reconcile.Result{}, nil
@@ -357,185 +278,6 @@ func (r *ReconcilePipelineDeployment) addFinalizer(pipelineDeployment *algov1bet
 		}
 	}
 	return nil
-}
-
-func (r *ReconcilePipelineDeployment) getStatus(cr *algov1beta1.PipelineDeployment, request reconcile.Request) (*algov1beta1.PipelineDeploymentStatus, error) {
-
-	pipelineDeploymentStatus := algov1beta1.PipelineDeploymentStatus{
-		DeploymentOwnerUserName: cr.Spec.PipelineSpec.DeploymentOwnerUserName,
-		DeploymentName:          cr.Spec.PipelineSpec.DeploymentName,
-	}
-
-	logData := map[string]interface{}{
-		"Request.Namespace": request.Namespace,
-		"Request.Name":      request.Name,
-	}
-	reqLogger := log.WithValues("data", logData)
-
-	deploymentStatuses, err := r.getDeploymentStatuses(cr, request)
-	if err != nil {
-		reqLogger.Error(err, "Failed to get deployment statuses.")
-		return nil, err
-	}
-
-	pipelineDeploymentStatus.AlgoDeploymentStatuses = deploymentStatuses
-
-	// Calculate pipelineDeployment status
-	pipelineDeploymentStatusString, err := calculateStatus(cr, &deploymentStatuses)
-	if err != nil {
-		reqLogger.Error(err, "Failed to calculate PipelineDeployment status.")
-	}
-
-	pipelineDeploymentStatus.Status = pipelineDeploymentStatusString
-
-	podStatuses, err := r.getPodStatuses(cr, request)
-	if err != nil {
-		reqLogger.Error(err, "Failed to get pod statuses.")
-		return nil, err
-	}
-
-	pipelineDeploymentStatus.AlgoPodStatuses = podStatuses
-
-	return &pipelineDeploymentStatus, nil
-
-}
-
-func (r *ReconcilePipelineDeployment) getDeploymentStatuses(cr *algov1beta1.PipelineDeployment, request reconcile.Request) ([]algov1beta1.AlgoDeploymentStatus, error) {
-
-	// Watch all algo deployments
-	opts := []client.ListOption{
-		client.InNamespace(request.NamespacedName.Namespace),
-		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algo.run",
-			"app.kubernetes.io/component": "algo",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.PipelineSpec.DeploymentOwnerUserName,
-				cr.Spec.PipelineSpec.DeploymentName),
-		},
-	}
-
-	deploymentList := &appsv1.DeploymentList{}
-	ctx := context.TODO()
-	err := r.client.List(ctx, deploymentList, opts...)
-
-	if err != nil {
-		log.Error(err, "Failed getting deployment list to determine status")
-		return nil, err
-	}
-
-	deploymentStatuses := make([]algov1beta1.AlgoDeploymentStatus, 0)
-
-	for _, deployment := range deploymentList.Items {
-		index, _ := strconv.Atoi(deployment.Labels["algoindex"])
-
-		// Create the deployment data
-		deploymentStatus := algov1beta1.AlgoDeploymentStatus{
-			AlgoOwnerName:    deployment.Labels["algoowner"],
-			AlgoName:         deployment.Labels["algo"],
-			AlgoVersionTag:   deployment.Labels["algoversion"],
-			AlgoIndex:        int32(index),
-			Name:             deployment.GetName(),
-			Desired:          deployment.Status.AvailableReplicas + deployment.Status.UnavailableReplicas,
-			Current:          deployment.Status.Replicas,
-			UpToDate:         deployment.Status.UpdatedReplicas,
-			Available:        deployment.Status.AvailableReplicas,
-			CreatedTimestamp: deployment.CreationTimestamp.String(),
-		}
-
-		deploymentStatuses = append(deploymentStatuses, deploymentStatus)
-	}
-
-	return deploymentStatuses, nil
-
-}
-
-func (r *ReconcilePipelineDeployment) getPodStatuses(cr *algov1beta1.PipelineDeployment, request reconcile.Request) ([]algov1beta1.AlgoPodStatus, error) {
-
-	// Get all algo pods for this pipelineDeployment
-	opts := []client.ListOption{
-		client.InNamespace(request.NamespacedName.Namespace),
-		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algo.run",
-			"app.kubernetes.io/component": "algo",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.PipelineSpec.DeploymentOwnerUserName,
-				cr.Spec.PipelineSpec.DeploymentName),
-		},
-	}
-
-	podList := &corev1.PodList{}
-	ctx := context.TODO()
-	err := r.client.List(ctx, podList, opts...)
-
-	if err != nil {
-		log.Error(err, "Failed getting pod list to determine status")
-		return nil, err
-	}
-
-	podStatuses := make([]algov1beta1.AlgoPodStatus, 0)
-
-	for _, pod := range podList.Items {
-
-		var podStatus string
-		var restarts int32
-
-		if pod.Status.Phase == "Pending" {
-			podStatus = "Pending"
-		} else if pod.Status.ContainerStatuses[0].State.Terminated != nil {
-			podStatus = pod.Status.ContainerStatuses[0].State.Terminated.Reason
-		} else if pod.Status.ContainerStatuses[0].State.Waiting != nil {
-			podStatus = pod.Status.ContainerStatuses[0].State.Waiting.Reason
-		} else if pod.Status.ContainerStatuses[0].State.Running != nil {
-			podStatus = "Running"
-		}
-
-		index, _ := strconv.Atoi(pod.Labels["algoindex"])
-		// Create the pod status data
-		algoPodStatus := algov1beta1.AlgoPodStatus{
-			AlgoOwnerName:     pod.Labels["algoowner"],
-			AlgoName:          pod.Labels["algo"],
-			AlgoVersionTag:    pod.Labels["algoversion"],
-			AlgoIndex:         int32(index),
-			Name:              pod.GetName(),
-			Status:            podStatus,
-			Restarts:          restarts,
-			CreatedTimestamp:  pod.CreationTimestamp.String(),
-			Ip:                pod.Status.PodIP,
-			Node:              pod.Spec.NodeName,
-			ContainerStatuses: append([]corev1.ContainerStatus(nil), pod.Status.ContainerStatuses...),
-		}
-
-		podStatuses = append(podStatuses, algoPodStatus)
-
-	}
-
-	return podStatuses, nil
-
-}
-
-func calculateStatus(cr *algov1beta1.PipelineDeployment, deploymentStatuses *[]algov1beta1.AlgoDeploymentStatus) (string, error) {
-
-	var unreadyDeployments int
-	algoCount := len(cr.Spec.PipelineSpec.AlgoConfigs)
-	deploymentCount := len(*deploymentStatuses)
-
-	// iterate the deployments for any unready
-	if deploymentCount > 0 {
-		for _, deployment := range *deploymentStatuses {
-			if deployment.Ready < deployment.Desired {
-				unreadyDeployments++
-			}
-		}
-
-		if unreadyDeployments > 0 {
-			return "Updating", nil
-		} else if deploymentCount == algoCount {
-			return "Started", nil
-		} else if deploymentCount < algoCount {
-			return "Updating", nil
-		}
-	}
-
-	return "Stopped", nil
-
 }
 
 func (r *ReconcilePipelineDeployment) updateMetrics(request *reconcile.Request) error {

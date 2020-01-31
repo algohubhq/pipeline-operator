@@ -225,7 +225,7 @@ func (d *KubeUtil) CreateResourceReqs(r *v1beta1.ResourceModel) (*corev1.Resourc
 			if err != nil {
 				return resources, err
 			}
-			resources.Limits[corev1.ResourceMemory] = qty
+			resources.Limits.Memory().Add(qty)
 		}
 
 		if r.MemoryRequestBytes > 0 {
@@ -233,7 +233,7 @@ func (d *KubeUtil) CreateResourceReqs(r *v1beta1.ResourceModel) (*corev1.Resourc
 			if err != nil {
 				return resources, err
 			}
-			resources.Requests[corev1.ResourceMemory] = qty
+			resources.Requests.Memory().Add(qty)
 		}
 
 		// Set CPU limits
@@ -242,7 +242,7 @@ func (d *KubeUtil) CreateResourceReqs(r *v1beta1.ResourceModel) (*corev1.Resourc
 			if err != nil {
 				return resources, err
 			}
-			resources.Limits[corev1.ResourceCPU] = qty
+			resources.Limits.Cpu().Add(qty)
 		}
 
 		if r.CpuRequestMillicores > 0 {
@@ -250,7 +250,7 @@ func (d *KubeUtil) CreateResourceReqs(r *v1beta1.ResourceModel) (*corev1.Resourc
 			if err != nil {
 				return resources, err
 			}
-			resources.Requests[corev1.ResourceCPU] = qty
+			resources.Requests.Cpu().Add(qty)
 		}
 
 		// Set GPU limits
@@ -258,6 +258,9 @@ func (d *KubeUtil) CreateResourceReqs(r *v1beta1.ResourceModel) (*corev1.Resourc
 			qty, err := resource.ParseQuantity(fmt.Sprintf("%dm", r.GpuLimitMillicores))
 			if err != nil {
 				return resources, err
+			}
+			if resources.Limits == nil {
+				resources.Limits = make(corev1.ResourceList)
 			}
 			resources.Limits["nvidia.com/gpu"] = qty
 		}

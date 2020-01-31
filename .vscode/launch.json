@@ -17,7 +17,14 @@
                 "NOTIF_URL":"https://localhost:5043/api/v1/notify", 
                 "ALGORUNNER_IMAGE":"algohub/algo-runner:7edc5d79ef7b3378f9f814aa2fe5cba640a3eb86"
             }, 
-            "args": []
+            "args": [],
+            "dlvLoadConfig": {
+                "followPointers": true,
+                "maxVariableRecurse": 1,
+                "maxStringLen": 1024,
+                "maxArrayValues": 1024,
+                "maxStructFields": -1
+            }
         }
     ]
 }

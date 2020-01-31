@@ -17,12 +17,12 @@ spec:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
             of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
           type: string
         kind:
           description: 'Kind is a string value representing the REST resource this
             object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
@@ -542,15 +542,15 @@ spec:
                     pipes:
                       items:
                         properties:
+                          destComponentType:
+                            type: string
                           destInputName:
                             type: string
                           destName:
                             type: string
-                          destNodeType:
+                          sourceComponentType:
                             type: string
                           sourceName:
-                            type: string
-                          sourceNodeType:
                             type: string
                           sourceOutputMessageDataType:
                             type: string
@@ -618,7 +618,7 @@ spec:
                     topicConfigs:
                       items:
                         properties:
-                          nodeType:
+                          componentType:
                             type: string
                           sourceName:
                             type: string
@@ -674,15 +674,15 @@ spec:
                 pipes:
                   items:
                     properties:
+                      destComponentType:
+                        type: string
                       destInputName:
                         type: string
                       destName:
                         type: string
-                      destNodeType:
+                      sourceComponentType:
                         type: string
                       sourceName:
-                        type: string
-                      sourceNodeType:
                         type: string
                       sourceOutputMessageDataType:
                         type: string
@@ -693,7 +693,7 @@ spec:
                 topicConfigs:
                   items:
                     properties:
-                      nodeType:
+                      componentType:
                         type: string
                       sourceName:
                         type: string
@@ -727,27 +727,25 @@ spec:
         status:
           description: PipelineDeploymentStatus defines the observed state of PipelineDeployment
           properties:
-            algoDeploymentStatuses:
+            componentStatuses:
               items:
                 properties:
-                  algoIndex:
-                    format: int32
-                    type: integer
-                  algoName:
-                    type: string
-                  algoOwnerName:
-                    type: string
-                  algoVersionTag:
-                    type: string
                   available:
                     format: int32
                     type: integer
+                  componentType:
+                    type: string
                   createdTimestamp:
                     type: string
                   current:
                     format: int32
                     type: integer
+                  deploymentName:
+                    type: string
                   desired:
+                    format: int32
+                    type: integer
+                  index:
                     format: int32
                     type: integer
                   name:
@@ -758,19 +756,18 @@ spec:
                   upToDate:
                     format: int32
                     type: integer
+                  versionTag:
+                    type: string
                 type: object
               type: array
-            algoPodStatuses:
+            deploymentName:
+              type: string
+            deploymentOwnerUserName:
+              type: string
+            podStatuses:
               items:
                 properties:
-                  algoIndex:
-                    format: int32
-                    type: integer
-                  algoName:
-                    type: string
-                  algoOwnerName:
-                    type: string
-                  algoVersionTag:
+                  componentType:
                     type: string
                   containerStatuses:
                     items:
@@ -868,6 +865,14 @@ spec:
                             by GC.
                           format: int32
                           type: integer
+                        started:
+                          description: Specifies whether the container has passed
+                            its startup probe. Initialized as false, becomes true
+                            after startupProbe is considered successful. Resets to
+                            false when the container is restarted, or if kubelet loses
+                            state temporarily. Is always true when no startupProbe
+                            is defined.
+                          type: boolean
                         state:
                           description: Details about the container's current condition.
                           properties:
@@ -939,23 +944,26 @@ spec:
                     type: array
                   createdTimestamp:
                     type: string
+                  index:
+                    format: int32
+                    type: integer
                   ip:
                     type: string
                   name:
                     type: string
                   node:
                     type: string
+                  podName:
+                    type: string
                   restarts:
                     format: int32
                     type: integer
                   status:
                     type: string
+                  versionTag:
+                    type: string
                 type: object
               type: array
-            deploymentName:
-              type: string
-            deploymentOwnerUserName:
-              type: string
             status:
               type: string
           type: object

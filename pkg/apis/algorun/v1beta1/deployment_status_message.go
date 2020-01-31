@@ -18,7 +18,7 @@ type DeploymentStatusMessage struct {
 
 	Status string `json:"status,omitempty"`
 
-	AlgoDeploymentStatus *AlgoDeploymentStatus `json:"algoDeploymentStatus,omitempty"`
+	ComponentStatus []ComponentStatus `json:"componentStatus,omitempty"`
 
-	AlgoPodStatus *AlgoPodStatus `json:"algoPodStatus,omitempty"`
+	PodStatus []ComponentPodStatus `json:"podStatus,omitempty"`
 }

@@ -299,7 +299,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "mapping",
-			"algorun/mapping-protocol":    protocol,
+			"algo.run/mapping-protocol":   protocol,
 			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 				endpointReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName),
 		},
@@ -327,7 +327,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "mapping",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algorun/mapping-protocol":     protocol,
+			"algo.run/mapping-protocol":    protocol,
 			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 				pipelineDeployment.Spec.PipelineSpec.DeploymentName),
 			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,

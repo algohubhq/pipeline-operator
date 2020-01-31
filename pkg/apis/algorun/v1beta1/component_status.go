@@ -10,17 +10,17 @@
 
 package v1beta1
 
-type AlgoDeploymentStatus struct {
+type ComponentStatus struct {
 
-	AlgoOwnerName string `json:"algoOwnerName,omitempty"`
-
-	AlgoName string `json:"algoName,omitempty"`
-
-	AlgoVersionTag string `json:"algoVersionTag,omitempty"`
-
-	AlgoIndex int32 `json:"algoIndex,omitempty"`
+	ComponentType string `json:"componentType,omitempty"`
 
 	Name string `json:"name,omitempty"`
+
+	VersionTag string `json:"versionTag,omitempty"`
+
+	Index int32 `json:"index,omitempty"`
+
+	DeploymentName string `json:"deploymentName,omitempty"`
 
 	Desired int32 `json:"desired,omitempty"`
 
