@@ -158,20 +158,6 @@ func (r *StatusReconciler) getStatus(cr *algov1beta1.PipelineDeployment, request
 	}
 	reqLogger := log.WithValues("data", logData)
 
-	deploymentStatuses, err := r.getDeploymentStatuses(cr, request)
-	if err != nil {
-		reqLogger.Error(err, "Failed to get deployment statuses.")
-		return nil, err
-	}
-
-	sfStatuses, err := r.getStatefulSetStatuses(cr, request)
-	if err != nil {
-		reqLogger.Error(err, "Failed to get StatefulSet statuses.")
-		return nil, err
-	}
-
-	pipelineDeploymentStatus.ComponentStatuses = append(deploymentStatuses, sfStatuses...)
-
 	podStatuses, err := r.getPodStatuses(cr, request)
 	if err != nil {
 		reqLogger.Error(err, "Failed to get pod statuses.")
@@ -179,6 +165,20 @@ func (r *StatusReconciler) getStatus(cr *algov1beta1.PipelineDeployment, request
 	}
 
 	pipelineDeploymentStatus.PodStatuses = podStatuses
+
+	deploymentStatuses, err := r.getDeploymentStatuses(cr, request, podStatuses)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get deployment statuses.")
+		return nil, err
+	}
+
+	sfStatuses, err := r.getStatefulSetStatuses(cr, request, podStatuses)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get StatefulSet statuses.")
+		return nil, err
+	}
+
+	pipelineDeploymentStatus.ComponentStatuses = append(deploymentStatuses, sfStatuses...)
 
 	// Calculate pipelineDeployment status
 	pipelineDeploymentStatusString, err := r.calculateStatus(cr, pipelineDeploymentStatus.ComponentStatuses, pipelineDeploymentStatus.PodStatuses)
@@ -192,7 +192,7 @@ func (r *StatusReconciler) getStatus(cr *algov1beta1.PipelineDeployment, request
 
 }
 
-func (r *StatusReconciler) getDeploymentStatuses(cr *algov1beta1.PipelineDeployment, request *reconcile.Request) (
+func (r *StatusReconciler) getDeploymentStatuses(cr *algov1beta1.PipelineDeployment, request *reconcile.Request, podStatuses []algov1beta1.ComponentPodStatus) (
 	componentStatuses []algov1beta1.ComponentStatus,
 	err error) {
 
@@ -222,7 +222,7 @@ func (r *StatusReconciler) getDeploymentStatuses(cr *algov1beta1.PipelineDeploym
 
 		index, _ := strconv.Atoi(deployment.Labels["algo.run/index"])
 		// Create the deployment data
-		deploymentStatus := algov1beta1.ComponentStatus{
+		componentStatus := algov1beta1.ComponentStatus{
 			Index:            int32(index),
 			DeploymentName:   deployment.GetName(),
 			Desired:          deployment.Status.AvailableReplicas + deployment.Status.UnavailableReplicas,
@@ -235,19 +235,34 @@ func (r *StatusReconciler) getDeploymentStatuses(cr *algov1beta1.PipelineDeploym
 
 		switch deployment.Labels["app.kubernetes.io/component"] {
 		case "algo":
-			deploymentStatus.ComponentType = "Algo"
-			deploymentStatus.Name = strings.Replace(deployment.Labels["algo.run/algo"], ".", "/", 1)
-			deploymentStatus.VersionTag = deployment.Labels["algo.run/algo-version"]
+			componentStatus.ComponentType = "Algo"
+			componentStatus.Name = strings.Replace(deployment.Labels["algo.run/algo"], ".", "/", 1)
+			componentStatus.VersionTag = deployment.Labels["algo.run/algo-version"]
 		case "dataconnector":
-			deploymentStatus.ComponentType = "DataConnector"
-			deploymentStatus.Name = strings.Replace(deployment.Labels["algo.run/dataconnector"], ".", "/", 1)
-			deploymentStatus.VersionTag = deployment.Labels["algo.run/dataconnector-version"]
+			componentStatus.ComponentType = "DataConnector"
+			componentStatus.Name = strings.Replace(deployment.Labels["algo.run/dataconnector"], ".", "/", 1)
+			componentStatus.VersionTag = deployment.Labels["algo.run/dataconnector-version"]
 		case "hook":
-			deploymentStatus.ComponentType = "Hook"
-			deploymentStatus.Name = deployment.Labels["app.kubernetes.io/component"]
+			componentStatus.ComponentType = "Hook"
+			componentStatus.Name = deployment.Labels["app.kubernetes.io/component"]
 		}
 
-		componentStatuses = append(componentStatuses, deploymentStatus)
+		if componentStatus.Ready < componentStatus.Desired {
+			// find the pod associated with this statefulset
+			for _, podStatus := range podStatuses {
+				if podStatus.Name == componentStatus.Name && podStatus.Index == componentStatus.Index {
+					if podStatus.Status == "CrashLoopBackOff" {
+						componentStatus.Status = "Error"
+					} else {
+						componentStatus.Status = "Progressing"
+					}
+				}
+			}
+		} else if componentStatus.Ready == componentStatus.Desired {
+			componentStatus.Status = "Deployed"
+		}
+
+		componentStatuses = append(componentStatuses, componentStatus)
 
 	}
 
@@ -255,7 +270,7 @@ func (r *StatusReconciler) getDeploymentStatuses(cr *algov1beta1.PipelineDeploym
 
 }
 
-func (r *StatusReconciler) getStatefulSetStatuses(cr *algov1beta1.PipelineDeployment, request *reconcile.Request) (
+func (r *StatusReconciler) getStatefulSetStatuses(cr *algov1beta1.PipelineDeployment, request *reconcile.Request, podStatuses []algov1beta1.ComponentPodStatus) (
 	componentStatuses []algov1beta1.ComponentStatus,
 	err error) {
 
@@ -283,7 +298,7 @@ func (r *StatusReconciler) getStatefulSetStatuses(cr *algov1beta1.PipelineDeploy
 
 		index, _ := strconv.Atoi(sf.Labels["algo.run/index"])
 		// Create the deployment data
-		deploymentStatus := algov1beta1.ComponentStatus{
+		componentStatus := algov1beta1.ComponentStatus{
 			Index:            int32(index),
 			DeploymentName:   sf.GetName(),
 			Desired:          *sf.Spec.Replicas,
@@ -296,11 +311,26 @@ func (r *StatusReconciler) getStatefulSetStatuses(cr *algov1beta1.PipelineDeploy
 
 		switch sf.Labels["app.kubernetes.io/component"] {
 		case "endpoint":
-			deploymentStatus.ComponentType = "Hook"
-			deploymentStatus.Name = sf.Labels["app.kubernetes.io/component"]
+			componentStatus.ComponentType = "Hook"
+			componentStatus.Name = sf.Labels["app.kubernetes.io/component"]
 		}
 
-		componentStatuses = append(componentStatuses, deploymentStatus)
+		if componentStatus.Ready < componentStatus.Desired {
+			// find the pod associated with this statefulset
+			for _, podStatus := range podStatuses {
+				if podStatus.Name == componentStatus.Name && podStatus.Index == componentStatus.Index {
+					if podStatus.Status == "CrashLoopBackOff" {
+						componentStatus.Status = "Error"
+					} else {
+						componentStatus.Status = "Progressing"
+					}
+				}
+			}
+		} else if componentStatus.Ready == componentStatus.Desired {
+			componentStatus.Status = "Deployed"
+		}
+
+		componentStatuses = append(componentStatuses, componentStatus)
 
 	}
 

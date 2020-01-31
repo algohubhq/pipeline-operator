@@ -753,6 +753,8 @@ spec:
                   ready:
                     format: int32
                     type: integer
+                  status:
+                    type: string
                   upToDate:
                     format: int32
                     type: integer

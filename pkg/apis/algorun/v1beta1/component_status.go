@@ -22,6 +22,8 @@ type ComponentStatus struct {
 
 	DeploymentName string `json:"deploymentName,omitempty"`
 
+	Status string `json:"status,omitempty"`
+
 	Desired int32 `json:"desired,omitempty"`
 
 	Current int32 `json:"current,omitempty"`
