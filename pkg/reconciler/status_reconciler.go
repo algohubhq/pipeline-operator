@@ -3,15 +3,18 @@ package reconciler
 import (
 	"context"
 	"fmt"
-	"github.com/go-test/deep"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/go-test/deep"
+
+	utils "pipeline-operator/pkg/utilities"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	utils "pipeline-operator/pkg/utilities"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -75,7 +78,7 @@ func (r *StatusReconciler) Reconcile() error {
 	// Iterate the existing deployment statuses and update if changed
 	for _, deplStatus := range r.pipelineDeployment.Status.ComponentStatuses {
 		for _, newDeplStatus := range pipelineDeploymentStatus.ComponentStatuses {
-			if newDeplStatus.Name == deplStatus.Name {
+			if newDeplStatus.DeploymentName == deplStatus.DeploymentName {
 
 				if diff := deep.Equal(deplStatus, newDeplStatus); diff != nil {
 					deplStatus = newDeplStatus
@@ -102,7 +105,7 @@ func (r *StatusReconciler) Reconcile() error {
 	// Iterate the existing pod statuses and update if changed
 	for _, podStatus := range r.pipelineDeployment.Status.PodStatuses {
 		for _, newPodStatus := range pipelineDeploymentStatus.PodStatuses {
-			if newPodStatus.Name == podStatus.Name {
+			if newPodStatus.PodName == podStatus.PodName {
 
 				if diff := deep.Equal(podStatus, newPodStatus); diff != nil {
 					podStatus = newPodStatus
@@ -233,11 +236,11 @@ func (r *StatusReconciler) getDeploymentStatuses(cr *algov1beta1.PipelineDeploym
 		switch deployment.Labels["app.kubernetes.io/component"] {
 		case "algo":
 			deploymentStatus.ComponentType = "Algo"
-			deploymentStatus.Name = deployment.Labels["algo.run/algo"]
+			deploymentStatus.Name = strings.Replace(deployment.Labels["algo.run/algo"], ".", "/", 1)
 			deploymentStatus.VersionTag = deployment.Labels["algo.run/algo-version"]
 		case "dataconnector":
 			deploymentStatus.ComponentType = "DataConnector"
-			deploymentStatus.Name = deployment.Labels["algo.run/dataconnector"]
+			deploymentStatus.Name = strings.Replace(deployment.Labels["algo.run/dataconnector"], ".", "/", 1)
 			deploymentStatus.VersionTag = deployment.Labels["algo.run/dataconnector-version"]
 		case "hook":
 			deploymentStatus.ComponentType = "Hook"
@@ -283,7 +286,7 @@ func (r *StatusReconciler) getStatefulSetStatuses(cr *algov1beta1.PipelineDeploy
 		deploymentStatus := algov1beta1.ComponentStatus{
 			Index:            int32(index),
 			DeploymentName:   sf.GetName(),
-			Desired:          sf.Status.Replicas,
+			Desired:          *sf.Spec.Replicas,
 			Current:          sf.Status.CurrentReplicas,
 			UpToDate:         sf.Status.UpdatedReplicas,
 			Available:        sf.Status.ReadyReplicas,
@@ -363,11 +366,11 @@ func (r *StatusReconciler) getPodStatuses(cr *algov1beta1.PipelineDeployment, re
 		switch pod.Labels["app.kubernetes.io/component"] {
 		case "algo":
 			podStatus.ComponentType = "Algo"
-			podStatus.Name = pod.Labels["algo.run/algo"]
+			podStatus.Name = strings.Replace(pod.Labels["algo.run/algo"], ".", "/", 1)
 			podStatus.VersionTag = pod.Labels["algo.run/algo-version"]
 		case "dataconnector":
 			podStatus.ComponentType = "DataConnector"
-			podStatus.Name = pod.Labels["algo.run/dataconnector"]
+			podStatus.Name = strings.Replace(pod.Labels["algo.run/dataconnector"], ".", "/", 1)
 			podStatus.VersionTag = pod.Labels["algo.run/dataconnector-version"]
 		case "endpoint":
 			podStatus.ComponentType = "Endpoint"
