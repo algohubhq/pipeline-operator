@@ -220,7 +220,8 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	}
 
 	// Reconcile hook container
-	if instance.Spec.PipelineSpec.HookConfig != nil {
+	if instance.Spec.PipelineSpec.HookConfig != nil &&
+		len(instance.Spec.PipelineSpec.HookConfig.WebHooks) > 0 {
 		reqLogger.Info("Reconciling Hooks")
 		wg.Add(1)
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
@@ -234,7 +235,8 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	}
 
 	// Reconcile endpoint container
-	if instance.Spec.PipelineSpec.EndpointConfig != nil {
+	if instance.Spec.PipelineSpec.EndpointConfig != nil &&
+		len(instance.Spec.PipelineSpec.EndpointConfig.Paths) > 0 {
 		reqLogger.Info("Reconciling Endpoints")
 		wg.Add(1)
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
