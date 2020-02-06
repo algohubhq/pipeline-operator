@@ -681,6 +681,10 @@ func (endpointReconciler *EndpointReconciler) createServiceSpec(pipelineDeployme
 					Name: "grpc",
 					Port: gRPCPort,
 				},
+				corev1.ServicePort{
+					Name: "metrics",
+					Port: 28080,
+				},
 			},
 			Selector: labels,
 		},
