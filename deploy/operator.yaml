@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: algorun-pipeline-operator
+  name: pipeline-operator
   labels:
     system: algorun
     tier: backend
@@ -11,13 +11,13 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      name: algorun-pipeline-operator
+      name: pipeline-operator
   template:
     metadata:
       labels:
-        name: algorun-pipeline-operator
+        name: pipeline-operator
     spec:
-      serviceAccountName: algorun-pipeline-operator
+      serviceAccountName: pipeline-operator
       containers:
         - name: pipeline-operator
           # Replace this with the built image name
@@ -35,4 +35,4 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: "algorun-pipeline-operator"
+              value: "pipeline-operator"
