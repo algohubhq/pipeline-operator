@@ -429,7 +429,7 @@ func (r *StatusReconciler) calculateStatus(cr *algov1beta1.PipelineDeployment,
 	if cr.Spec.PipelineSpec.EndpointConfig != nil {
 		componentCount = componentCount + 1
 	}
-	if cr.Spec.PipelineSpec.HookConfig != nil {
+	if cr.Spec.PipelineSpec.HookConfig != nil && len(cr.Spec.PipelineSpec.HookConfig.WebHooks) > 0 {
 		componentCount = componentCount + 1
 	}
 
