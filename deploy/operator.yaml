@@ -3,8 +3,7 @@ kind: Deployment
 metadata:
   name: pipeline-operator
   labels:
-    system: algorun
-    tier: backend
+    app.kubernetes.io/part-of: algo.run
     app: pipeline-operator
     env: production
 spec:

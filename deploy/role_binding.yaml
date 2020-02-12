@@ -2,9 +2,11 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: pipeline-operator
+  namespace: algorun
 subjects:
 - kind: ServiceAccount
   name: pipeline-operator
+  namespace: algorun
 roleRef:
   kind: Role
   name: pipeline-operator
