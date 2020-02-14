@@ -24,12 +24,14 @@ import (
 func NewHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	request *reconcile.Request,
 	client client.Client,
-	scheme *runtime.Scheme) HookReconciler {
+	scheme *runtime.Scheme,
+	kafkaTLS bool) HookReconciler {
 	return HookReconciler{
 		pipelineDeployment: pipelineDeployment,
 		request:            request,
 		client:             client,
 		scheme:             scheme,
+		kafkaTLS:           kafkaTLS,
 	}
 }
 
@@ -39,6 +41,7 @@ type HookReconciler struct {
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
+	kafkaTLS           bool
 }
 
 // Reconcile creates or updates the hook deployment for the pipelineDeployment

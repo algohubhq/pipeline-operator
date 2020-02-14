@@ -30,12 +30,14 @@ import (
 func NewEndpointReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	request *reconcile.Request,
 	client client.Client,
-	scheme *runtime.Scheme) EndpointReconciler {
+	scheme *runtime.Scheme,
+	kafkaTLS bool) EndpointReconciler {
 	return EndpointReconciler{
 		pipelineDeployment: pipelineDeployment,
 		request:            request,
 		client:             client,
 		scheme:             scheme,
+		kafkaTLS:           kafkaTLS,
 	}
 }
 
@@ -46,6 +48,7 @@ type EndpointReconciler struct {
 	client             client.Client
 	scheme             *runtime.Scheme
 	serviceConfig      *serviceConfig
+	kafkaTLS           bool
 }
 
 // serviceConfig holds the service name and port for ambassador

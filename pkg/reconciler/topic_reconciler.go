@@ -163,8 +163,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 func BuildTopic(pipelineSpec algov1beta1.PipelineSpec, topicConfig *algov1beta1.TopicConfigModel) (TopicConfig, error) {
 
 	// Replace the pipelineDeployment username and name in the topic string
-	topicName := strings.ToLower(strings.Replace(topicConfig.TopicName, "{deploymentownerusername}", pipelineSpec.DeploymentOwnerUserName, -1))
-	topicName = strings.ToLower(strings.Replace(topicName, "{deploymentname}", pipelineSpec.DeploymentName, -1))
+	topicName := utils.GetTopicName(topicConfig.TopicName, &pipelineSpec)
 
 	logData := map[string]interface{}{
 		"Topic": topicName,
