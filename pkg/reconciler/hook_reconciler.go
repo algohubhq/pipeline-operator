@@ -76,7 +76,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 		},
 	}
 
-	kubeUtil := utils.NewKubeUtil(hookReconciler.client)
+	kubeUtil := utils.NewKubeUtil(hookReconciler.client, hookReconciler.request)
 
 	var hookName string
 	existingDeployment, err := kubeUtil.CheckForDeployment(opts)
@@ -256,7 +256,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 		FailureThreshold:    3,
 	}
 
-	kubeUtil := utils.NewKubeUtil(hookReconciler.client)
+	kubeUtil := utils.NewKubeUtil(hookReconciler.client, hookReconciler.request)
 	resources, resourceErr := kubeUtil.CreateResourceReqs(hookConfig.Resource)
 
 	if resourceErr != nil {

@@ -55,7 +55,7 @@ func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 // ReconcileService creates or updates all services for the algos
 func (algoReconciler *AlgoReconciler) ReconcileService() error {
 
-	kubeUtil := utils.NewKubeUtil(algoReconciler.client)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
 
 	// Check to see if the metrics / health service is already created (All algos share the same service port)
 	opts := []client.ListOption{
@@ -125,7 +125,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		"algo.run/index":        strconv.Itoa(int(algoConfig.AlgoIndex)),
 	}
 
-	kubeUtil := utils.NewKubeUtil(algoReconciler.client)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
 
 	// Check to make sure the algo isn't already created
 	opts := []client.ListOption{
@@ -485,7 +485,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 
 	}
 
-	kubeUtil := utils.NewKubeUtil(algoReconciler.client)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
 	resources, resourceErr := kubeUtil.CreateResourceReqs(algoConfig.Resource)
 
 	if resourceErr != nil {
@@ -694,15 +694,19 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 	})
 
 	// Append the storage server connection
-	envVars = append(envVars, corev1.EnvVar{
-		Name: "MC_HOST_algorun",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: "storage-config"},
-				Key:                  "connection-string",
+	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
+	storageSecretName, err := kubeUtil.GetStorageSecretName(&algoReconciler.pipelineDeployment.Spec.PipelineSpec)
+	if storageSecretName != "" && err == nil {
+		envVars = append(envVars, corev1.EnvVar{
+			Name: "MC_HOST_algorun",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: storageSecretName},
+					Key:                  "connection-string",
+				},
 			},
-		},
-	})
+		})
+	}
 
 	// Append the path to mc
 	envVars = append(envVars, corev1.EnvVar{

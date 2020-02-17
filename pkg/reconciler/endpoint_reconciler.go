@@ -81,7 +81,7 @@ func (endpointReconciler *EndpointReconciler) Reconcile() error {
 
 func (endpointReconciler *EndpointReconciler) reconcileService() (*serviceConfig, error) {
 
-	kubeUtil := utils.NewKubeUtil(endpointReconciler.client)
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
 
 	// Check to see if the endpoint service is already created (All algos share the same service port)
 	opts := []client.ListOption{
@@ -160,7 +160,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 		},
 	}
 
-	kubeUtil := utils.NewKubeUtil(endpointReconciler.client)
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
 
 	var endpointName string
 	existingSf, err := kubeUtil.CheckForStatefulSet(opts)
@@ -308,7 +308,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 		},
 	}
 
-	kubeUtil := utils.NewKubeUtil(endpointReconciler.client)
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
 	existingMapping, err := kubeUtil.CheckForUnstructured(opts, schema.GroupVersionKind{
 		Group:   "getambassador.io",
 		Kind:    "Mapping",
@@ -462,7 +462,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 		FailureThreshold:    3,
 	}
 
-	kubeUtil := utils.NewKubeUtil(endpointReconciler.client)
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
 	resources, resourceErr := kubeUtil.CreateResourceReqs(endpointConfig.Resource)
 
 	if resourceErr != nil {
@@ -591,15 +591,19 @@ func (endpointReconciler *EndpointReconciler) createEnvVars(cr *algov1beta1.Pipe
 	})
 
 	// Append the storage server connection
-	envVars = append(envVars, corev1.EnvVar{
-		Name: "EP_UPLOADER_HOST",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: "storage-config"},
-				Key:                  "connection-string",
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
+	storageSecretName, err := kubeUtil.GetStorageSecretName(&endpointReconciler.pipelineDeployment.Spec.PipelineSpec)
+	if storageSecretName != "" && err == nil {
+		envVars = append(envVars, corev1.EnvVar{
+			Name: "EP_UPLOADER_HOST",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: storageSecretName},
+					Key:                  "connection-string",
+				},
 			},
-		},
-	})
+		})
+	}
 
 	return envVars
 
