@@ -6,6 +6,8 @@ import (
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	"strings"
 
+	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
+
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalev2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -14,23 +16,27 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 var log = logf.Log.WithName("utilities")
 
 // NewKubeUtil returns a new DeploymentUtil
-func NewKubeUtil(client client.Client) KubeUtil {
+func NewKubeUtil(client client.Client,
+	request *reconcile.Request) KubeUtil {
 	return KubeUtil{
-		client: client,
+		client:  client,
+		request: request,
 	}
 }
 
 // KubeUtil some helper methods for managing kubernetes deployments
 type KubeUtil struct {
-	client client.Client
+	client  client.Client
+	request *reconcile.Request
 }
 
 func (d *KubeUtil) CheckForDeployment(listOptions []client.ListOption) (*appsv1.Deployment, error) {
@@ -90,6 +96,26 @@ func (d *KubeUtil) UpdateDeployment(deployment *appsv1.Deployment) (deploymentNa
 	log.Info("Updated deployment")
 
 	return deployment.GetName(), nil
+
+}
+
+func (d *KubeUtil) CheckForSecret(listOptions []client.ListOption) (*corev1.Secret, error) {
+
+	secretList := &corev1.SecretList{}
+	ctx := context.TODO()
+	err := d.client.List(ctx, secretList, listOptions...)
+
+	if err != nil && errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	if len(secretList.Items) > 0 {
+		return &secretList.Items[0], nil
+	}
+
+	return nil, nil
 
 }
 
@@ -426,5 +452,47 @@ func (d *KubeUtil) CreateHpaSpec(targetName string, labels map[string]string, pi
 	}
 
 	return hpa, nil
+
+}
+
+func (d *KubeUtil) GetStorageSecretName(pipelineSpec *v1beta1.PipelineSpec) (storageSecretName string, err error) {
+
+	// Check for the specific deployment storage secret
+	secretName := fmt.Sprintf("storage-%s-%s", pipelineSpec.DeploymentOwnerUserName, pipelineSpec.DeploymentName)
+	secret := &corev1.Secret{}
+	namespacedName := types.NamespacedName{
+		Name:      secretName,
+		Namespace: d.request.Namespace,
+	}
+
+	err = d.client.Get(context.TODO(), namespacedName, secret)
+	if err != nil {
+		if errors.IsNotFound(err) {
+
+			secretName = "storage-global"
+			// Check for the global storage secret
+			namespacedName := types.NamespacedName{
+				Name:      secretName,
+				Namespace: d.request.Namespace,
+			}
+
+			err = d.client.Get(context.TODO(), namespacedName, secret)
+
+			if err != nil {
+				return "", err
+			}
+
+			if secret.Data["connection-string"] != nil {
+				return secretName, nil
+			}
+
+		}
+	}
+
+	if secret.Data["connection-string"] != nil {
+		return secretName, nil
+	}
+
+	return "", err
 
 }

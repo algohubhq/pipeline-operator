@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
+	utils "pipeline-operator/pkg/utilities"
 	"regexp"
 	"strings"
 
@@ -36,45 +37,54 @@ type BucketReconciler struct {
 
 func (bucketReconciler *BucketReconciler) Reconcile() error {
 
-	// Get the MC config secret
-	storageSecret := &corev1.Secret{}
-	err := bucketReconciler.client.Get(
-		context.TODO(),
-		types.NamespacedName{
-			Name:      "storage-config",
-			Namespace: bucketReconciler.request.NamespacedName.Namespace,
-		},
-		storageSecret)
+	kubeUtil := utils.NewKubeUtil(bucketReconciler.client, bucketReconciler.request)
+	storageSecretName, err := kubeUtil.GetStorageSecretName(&bucketReconciler.pipelineDeployment.Spec.PipelineSpec)
 
-	if err != nil {
-		return err
-	}
-	// Parse the secret
-	endpoint, accessKey, secret, err := parseEnvURLStr(string(storageSecret.Data["connection-string"]))
-	if err != nil {
-		return err
-	}
+	if storageSecretName != "" && err == nil {
 
-	// Create the bucket
-	minioClient, err := minio.New(endpoint.Host, accessKey, secret, endpoint.Scheme == "https")
-	if err != nil {
-		return err
-	}
+		// Get the MC config secret
+		storageSecret := &corev1.Secret{}
+		err := bucketReconciler.client.Get(
+			context.TODO(),
+			types.NamespacedName{
+				Name:      storageSecretName,
+				Namespace: bucketReconciler.request.NamespacedName.Namespace,
+			},
+			storageSecret)
 
-	bucketName := fmt.Sprintf("%s.%s",
-		strings.ToLower(bucketReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName),
-		strings.ToLower(bucketReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName))
-
-	exists, err := minioClient.BucketExists(bucketName)
-	if err != nil {
-		return err
-	}
-
-	if !exists {
-		err = minioClient.MakeBucket(bucketName, "us-east-1")
 		if err != nil {
 			return err
 		}
+		// Parse the secret
+		endpoint, accessKey, secret, err := parseEnvURLStr(string(storageSecret.Data["connection-string"]))
+		if err != nil {
+			return err
+		}
+
+		// Create the bucket
+		minioClient, err := minio.New(endpoint.Host, accessKey, secret, endpoint.Scheme == "https")
+		if err != nil {
+			return err
+		}
+
+		bucketName := fmt.Sprintf("%s.%s",
+			strings.ToLower(bucketReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName),
+			strings.ToLower(bucketReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName))
+
+		exists, err := minioClient.BucketExists(bucketName)
+		if err != nil {
+			return err
+		}
+
+		if !exists {
+			err = minioClient.MakeBucket(bucketName, "us-east-1")
+			if err != nil {
+				return err
+			}
+		}
+
+	} else {
+		log.Error(err, "Storage Connection String secret doesn't exist. Unable to reconcile storage bucket.")
 	}
 
 	return nil

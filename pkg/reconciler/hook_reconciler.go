@@ -24,12 +24,14 @@ import (
 func NewHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	request *reconcile.Request,
 	client client.Client,
-	scheme *runtime.Scheme) HookReconciler {
+	scheme *runtime.Scheme,
+	kafkaTLS bool) HookReconciler {
 	return HookReconciler{
 		pipelineDeployment: pipelineDeployment,
 		request:            request,
 		client:             client,
 		scheme:             scheme,
+		kafkaTLS:           kafkaTLS,
 	}
 }
 
@@ -39,6 +41,7 @@ type HookReconciler struct {
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
+	kafkaTLS           bool
 }
 
 // Reconcile creates or updates the hook deployment for the pipelineDeployment
@@ -73,7 +76,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 		},
 	}
 
-	kubeUtil := utils.NewKubeUtil(hookReconciler.client)
+	kubeUtil := utils.NewKubeUtil(hookReconciler.client, hookReconciler.request)
 
 	var hookName string
 	existingDeployment, err := kubeUtil.CheckForDeployment(opts)
@@ -253,7 +256,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 		FailureThreshold:    3,
 	}
 
-	kubeUtil := utils.NewKubeUtil(hookReconciler.client)
+	kubeUtil := utils.NewKubeUtil(hookReconciler.client, hookReconciler.request)
 	resources, resourceErr := kubeUtil.CreateResourceReqs(hookConfig.Resource)
 
 	if resourceErr != nil {

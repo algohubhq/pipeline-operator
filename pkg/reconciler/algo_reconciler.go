@@ -30,6 +30,7 @@ type AlgoReconciler struct {
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
+	kafkaTLS           bool
 }
 
 var log = logf.Log.WithName("reconciler")
@@ -39,20 +40,22 @@ func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	algoConfig *v1beta1.AlgoConfig,
 	request *reconcile.Request,
 	client client.Client,
-	scheme *runtime.Scheme) AlgoReconciler {
+	scheme *runtime.Scheme,
+	kafkaTLS bool) AlgoReconciler {
 	return AlgoReconciler{
 		pipelineDeployment: pipelineDeployment,
 		algoConfig:         algoConfig,
 		request:            request,
 		client:             client,
 		scheme:             scheme,
+		kafkaTLS:           kafkaTLS,
 	}
 }
 
 // ReconcileService creates or updates all services for the algos
 func (algoReconciler *AlgoReconciler) ReconcileService() error {
 
-	kubeUtil := utils.NewKubeUtil(algoReconciler.client)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
 
 	// Check to see if the metrics / health service is already created (All algos share the same service port)
 	opts := []client.ListOption{
@@ -122,7 +125,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		"algo.run/index":        strconv.Itoa(int(algoConfig.AlgoIndex)),
 	}
 
-	kubeUtil := utils.NewKubeUtil(algoReconciler.client)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
 
 	// Check to make sure the algo isn't already created
 	opts := []client.ListOption{
@@ -482,11 +485,85 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 
 	}
 
-	kubeUtil := utils.NewKubeUtil(algoReconciler.client)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
 	resources, resourceErr := kubeUtil.CreateResourceReqs(algoConfig.Resource)
 
 	if resourceErr != nil {
 		return nil, resourceErr
+	}
+
+	// Create the volumes
+	volumes := []corev1.Volume{
+		{
+			Name: "algo-runner-volume",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		{
+			Name: "algorun-input-volume",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		{
+			Name: "algorun-output-volume",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	}
+
+	// Create the volume mounts
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "algo-runner-volume",
+			MountPath: "/algo-runner",
+		},
+		{
+			Name:      "algorun-input-volume",
+			MountPath: "/input",
+		},
+		{
+			Name:      "algorun-output-volume",
+			MountPath: "/output",
+		},
+	}
+
+	// Create kafka tls volumes and mounts if tls enabled
+	if algoReconciler.kafkaTLS {
+
+		kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.DeploymentName)
+
+		kafkaTLSVolume := corev1.Volume{
+			Name: "kafka-certs",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: kafkaUsername,
+				},
+			},
+		}
+		volumes = append(volumes, kafkaTLSVolume)
+
+		kafkaTLSMounts := []corev1.VolumeMount{
+			{
+				Name:      "kafka-certs",
+				SubPath:   "ca.crt",
+				MountPath: "/var/run/secrets/algo.run/kafka-ca.crt",
+			},
+			{
+				Name:      "kafka-certs",
+				SubPath:   "user.crt",
+				MountPath: "/var/run/secrets/algo.run/kafka-user.crt",
+			},
+			{
+				Name:      "kafka-certs",
+				SubPath:   "user.key",
+				MountPath: "/var/run/secrets/algo.run/kafka-user.key",
+			},
+		}
+		volumeMounts = append(volumeMounts, kafkaTLSMounts...)
 	}
 
 	// Algo container
@@ -502,20 +579,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 		ReadinessProbe:           algoReadinessProbe,
 		TerminationMessagePath:   "/dev/termination-log",
 		TerminationMessagePolicy: "File",
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "algo-runner-volume",
-				MountPath: "/algo-runner",
-			},
-			{
-				Name:      "algorun-input-volume",
-				MountPath: "/input",
-			},
-			{
-				Name:      "algorun-output-volume",
-				MountPath: "/output",
-			},
-		},
+		VolumeMounts:             volumeMounts,
 	}
 	containers = append(containers, algoContainer)
 
@@ -574,28 +638,9 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 					// NodeSelector: nodeSelector,
 					InitContainers: initContainers,
 					Containers:     containers,
-					Volumes: []corev1.Volume{
-						{
-							Name: "algo-runner-volume",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-						{
-							Name: "algorun-input-volume",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-						{
-							Name: "algorun-output-volume",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-					},
-					RestartPolicy: corev1.RestartPolicyAlways,
-					DNSPolicy:     corev1.DNSClusterFirst,
+					Volumes:        volumes,
+					RestartPolicy:  corev1.RestartPolicyAlways,
+					DNSPolicy:      corev1.DNSClusterFirst,
 				},
 			},
 		},
@@ -642,16 +687,26 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 		Value: cr.Spec.KafkaBrokers,
 	})
 
-	// Append the storage server connection
+	// Append kafka tls indicator
 	envVars = append(envVars, corev1.EnvVar{
-		Name: "MC_HOST_algorun",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: "storage-config"},
-				Key:                  "connection-string",
-			},
-		},
+		Name:  "KAFKA-TLS",
+		Value: strconv.FormatBool(algoReconciler.kafkaTLS),
 	})
+
+	// Append the storage server connection
+	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
+	storageSecretName, err := kubeUtil.GetStorageSecretName(&algoReconciler.pipelineDeployment.Spec.PipelineSpec)
+	if storageSecretName != "" && err == nil {
+		envVars = append(envVars, corev1.EnvVar{
+			Name: "MC_HOST_algorun",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: storageSecretName},
+					Key:                  "connection-string",
+				},
+			},
+		})
+	}
 
 	// Append the path to mc
 	envVars = append(envVars, corev1.EnvVar{
