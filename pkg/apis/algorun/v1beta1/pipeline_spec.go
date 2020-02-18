@@ -22,6 +22,8 @@ type PipelineSpec struct {
 
 	PipelineVersionTag string `json:"pipelineVersionTag,omitempty"`
 
+	StorageBucket string `json:"storageBucket,omitempty"`
+
 	EndpointConfig *EndpointConfig `json:"endpointConfig,omitempty"`
 
 	AlgoConfigs []AlgoConfig `json:"algoConfigs,omitempty"`

@@ -690,6 +690,8 @@ spec:
                         type: string
                     type: object
                   type: array
+                storageBucket:
+                  type: string
                 topicConfigs:
                   items:
                     properties:
