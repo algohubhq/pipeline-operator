@@ -108,6 +108,11 @@ func (endpointReconciler *EndpointReconciler) reconcileService() (*serviceConfig
 			return nil, err
 		}
 
+		// Set PipelineDeployment instance as the owner and controller
+		if err := controllerutil.SetControllerReference(endpointReconciler.pipelineDeployment, ms.serviceSpec, endpointReconciler.scheme); err != nil {
+			return ms, err
+		}
+
 		serviceName, err := kubeUtil.CreateService(ms.serviceSpec)
 		if err != nil {
 			log.Error(err, "Failed to create pipeline deployment endpoint service")
