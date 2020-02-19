@@ -73,6 +73,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		// Create the topic
 		// Using a unstructured object to submit a strimzi topic creation.
 		labels := map[string]string{
+			"strimzi.io/cluster":           utils.GetKafkaClusterName(),
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "topic",
 			"app.kubernetes.io/managed-by": "pipeline-operator",

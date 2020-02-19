@@ -35,3 +35,9 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "pipeline-operator"
+            - name: KAFKA-NAMESPACE
+              value: "kafka"
+            - name: KAFKA-CLUSTER-NAME
+              value: "kafka"
+            - name: KAFKA-TLS
+              value: "true"

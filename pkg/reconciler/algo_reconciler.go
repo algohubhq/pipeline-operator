@@ -366,6 +366,56 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 		algoConfig.LivenessPeriodSeconds = 20
 	}
 
+	// Create kafka tls volumes and mounts if tls enabled
+
+	volumes := []corev1.Volume{}
+	volumeMounts := []corev1.VolumeMount{}
+	if algoReconciler.kafkaTLS {
+
+		kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.DeploymentName)
+		kafkaCaSecretName := fmt.Sprintf("%s-cluster-ca-cert", utils.GetKafkaClusterName())
+
+		kafkaTLSVolumes := []corev1.Volume{
+			{
+				Name: "kafka-certs",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: kafkaUsername,
+					},
+				},
+			},
+			{
+				Name: "kafka-ca-certs",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: kafkaCaSecretName,
+					},
+				},
+			},
+		}
+		volumes = append(volumes, kafkaTLSVolumes...)
+
+		kafkaTLSMounts := []corev1.VolumeMount{
+			{
+				Name:      "kafka-ca-certs",
+				SubPath:   "ca.crt",
+				MountPath: "/etc/ssl/certs/kafka-ca.crt",
+			},
+			{
+				Name:      "kafka-certs",
+				SubPath:   "user.crt",
+				MountPath: "/etc/ssl/certs/kafka-user.crt",
+			},
+			{
+				Name:      "kafka-certs",
+				SubPath:   "user.key",
+				MountPath: "/etc/ssl/certs/kafka-user.key",
+			},
+		}
+		volumeMounts = append(volumeMounts, kafkaTLSMounts...)
+	}
+
 	// If serverless, then we will copy the algo-runner binary into the algo container using an init container
 	// If not serverless, then execute algo-runner within the sidecar
 	var initContainers []corev1.Container
@@ -479,6 +529,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 			ImagePullPolicy:          imagePullPolicy,
 			TerminationMessagePath:   "/dev/termination-log",
 			TerminationMessagePolicy: "File",
+			VolumeMounts:             volumeMounts,
 		}
 
 		containers = append(containers, sidecarContainer)
@@ -493,7 +544,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	}
 
 	// Create the volumes
-	volumes := []corev1.Volume{
+	algoVolumes := []corev1.Volume{
 		{
 			Name: "algo-runner-volume",
 			VolumeSource: corev1.VolumeSource{
@@ -514,8 +565,10 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 		},
 	}
 
+	volumes = append(volumes, algoVolumes...)
+
 	// Create the volume mounts
-	volumeMounts := []corev1.VolumeMount{
+	algoVolumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "algo-runner-volume",
 			MountPath: "/algo-runner",
@@ -530,41 +583,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 		},
 	}
 
-	// Create kafka tls volumes and mounts if tls enabled
-	if algoReconciler.kafkaTLS {
-
-		kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-			pipelineDeployment.Spec.PipelineSpec.DeploymentName)
-
-		kafkaTLSVolume := corev1.Volume{
-			Name: "kafka-certs",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: kafkaUsername,
-				},
-			},
-		}
-		volumes = append(volumes, kafkaTLSVolume)
-
-		kafkaTLSMounts := []corev1.VolumeMount{
-			{
-				Name:      "kafka-certs",
-				SubPath:   "ca.crt",
-				MountPath: "/var/run/secrets/algo.run/kafka-ca.crt",
-			},
-			{
-				Name:      "kafka-certs",
-				SubPath:   "user.crt",
-				MountPath: "/var/run/secrets/algo.run/kafka-user.crt",
-			},
-			{
-				Name:      "kafka-certs",
-				SubPath:   "user.key",
-				MountPath: "/var/run/secrets/algo.run/kafka-user.key",
-			},
-		}
-		volumeMounts = append(volumeMounts, kafkaTLSMounts...)
-	}
+	volumeMounts = append(volumeMounts, algoVolumeMounts...)
 
 	// Algo container
 	algoContainer := corev1.Container{

@@ -65,6 +65,7 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 		// Create the topic
 		// Using a unstructured object to submit a strimzi topic creation.
 		labels := map[string]string{
+			"strimzi.io/cluster":           utils.GetKafkaClusterName(),
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "kafka-user",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
@@ -117,10 +118,10 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 			// Update the existing spec
 			existingUser.Object["spec"] = kafkaUserSpec
 
-			err := kafkaUserReconciler.client.Update(context.TODO(), existingUser)
-			if err != nil {
-				log.Error(err, "Failed updating kafka user")
-			}
+			// err := kafkaUserReconciler.client.Update(context.TODO(), existingUser)
+			// if err != nil {
+			// 	log.Error(err, "Failed updating kafka user")
+			// }
 
 		}
 
@@ -135,12 +136,12 @@ func buildKafkaUserSpec(pipelineSpec *algov1beta1.PipelineSpec, topicConfigs []a
 	for _, topicConfig := range topicConfigs {
 		topicName := utils.GetTopicName(topicConfig.TopicName, pipelineSpec)
 		resource := map[string]interface{}{
+			"operation": "All",
 			"resource": map[string]interface{}{
 				"type":        "topic",
 				"name":        topicName,
 				"patternType": "literal",
 			},
-			"operation": "All",
 		}
 		resources = append(resources, resource)
 	}

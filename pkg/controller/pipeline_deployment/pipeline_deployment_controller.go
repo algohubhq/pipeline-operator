@@ -157,6 +157,11 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	// Check for the KAFKA-TLS env variable and certs
 	kafkaTLS := utils.CheckForKafkaTLS()
 
+	if kafkaTLS {
+		kubeUtil := utils.NewKubeUtil(r.client, &request)
+		kubeUtil.CopyKafkaClusterCASecret()
+	}
+
 	var wg sync.WaitGroup
 
 	// Create the storage bucket
