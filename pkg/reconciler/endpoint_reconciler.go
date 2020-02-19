@@ -137,7 +137,8 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 
 	endpointLogger.Info("Reconciling Endpoint")
 
-	name := "pipe-depl-ep"
+	name := fmt.Sprintf("endpoint-%s-%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		pipelineDeployment.Spec.PipelineSpec.DeploymentName)
 
 	labels := map[string]string{
 		"app.kubernetes.io/part-of":    "algo.run",
@@ -317,9 +318,11 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 
 	var prefix string
 	if protocol == "grpc" {
-		prefix = "/run/grpc/"
+		prefix = fmt.Sprintf("/%s/%s/run/grpc/", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.DeploymentName)
 	} else {
-		prefix = "/run/http/"
+		prefix = fmt.Sprintf("/%s/%s/run/http/", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.DeploymentName)
 	}
 
 	if (err == nil && existingMapping == nil) || (err != nil && errors.IsNotFound(err)) {
@@ -347,7 +350,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 				"service": serviceName,
 			},
 		}
-		newMapping.SetGenerateName("pipe-depl-ep-mapping")
+		newMapping.SetGenerateName("endpoint-mapping")
 		newMapping.SetNamespace(endpointReconciler.request.NamespacedName.Namespace)
 		newMapping.SetLabels(labels)
 		newMapping.SetGroupVersionKind(schema.GroupVersionKind{
@@ -503,9 +506,9 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 		}
 	} else {
 		nameMeta = metav1.ObjectMeta{
-			Namespace:    pipelineDeployment.Namespace,
-			GenerateName: name,
-			Labels:       labels,
+			Namespace: pipelineDeployment.Namespace,
+			Name:      name,
+			Labels:    labels,
 			// Annotations: annotations,
 		}
 	}
@@ -675,7 +678,7 @@ func (endpointReconciler *EndpointReconciler) createServiceSpec(pipelineDeployme
 	endpointServiceSpec := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    pipelineDeployment.Namespace,
-			GenerateName: "pipe-depl-ep-service",
+			GenerateName: "endpoint-service",
 			Labels:       labels,
 		},
 		Spec: corev1.ServiceSpec{
