@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
+	utils "pipeline-operator/pkg/utilities"
 	"strconv"
 	"strings"
 
@@ -174,8 +175,8 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 
 			// If Sink. need to add the source topics
 			if strings.ToLower(dataConnectorConfig.DataConnectorType) == "sink" {
-				topicConfig, err := dataConnectorReconciler.getDcSourceTopic(pipelineDeployment, dataConnectorConfig)
-				dcConfig["topics"] = topicConfig.Name
+				topicName, err := dataConnectorReconciler.getDcSourceTopic(pipelineDeployment, dataConnectorConfig)
+				dcConfig["topics"] = topicName
 
 				if err != nil {
 					// connector wasn't created.
@@ -201,7 +202,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 	return nil
 }
 
-func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelineDeployment *algov1beta1.PipelineDeployment, dataConnectorConfig *algov1beta1.DataConnectorConfig) (TopicConfig, error) {
+func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelineDeployment *algov1beta1.PipelineDeployment, dataConnectorConfig *algov1beta1.DataConnectorConfig) (string, error) {
 
 	config := pipelineDeployment.Spec.PipelineSpec
 
@@ -215,11 +216,9 @@ func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelin
 			for _, topic := range config.TopicConfigs {
 				if pipe.SourceName == topic.SourceName &&
 					pipe.SourceOutputName == topic.SourceOutputName {
-					newTopicConfig, err := BuildTopic(config, &topic)
-					if err != nil {
-						return newTopicConfig, err
-					}
-					return newTopicConfig, nil
+					topicName := utils.GetTopicName(topic.TopicName, &pipelineDeployment.Spec.PipelineSpec)
+
+					return topicName, nil
 				}
 			}
 
@@ -227,7 +226,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelin
 
 	}
 
-	return TopicConfig{}, errorsbase.New(fmt.Sprintf("No topic config found for data connector source. [%s-%d]",
+	return "", errorsbase.New(fmt.Sprintf("No topic config found for data connector source. [%s-%d]",
 		dataConnectorConfig.Name,
 		dataConnectorConfig.Index))
 

@@ -381,7 +381,8 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 				Name: "kafka-certs",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: kafkaUsername,
+						SecretName:  kafkaUsername,
+						DefaultMode: utils.Int32p(0444),
 					},
 				},
 			},
@@ -389,7 +390,8 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 				Name: "kafka-ca-certs",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: kafkaCaSecretName,
+						SecretName:  kafkaCaSecretName,
+						DefaultMode: utils.Int32p(0444),
 					},
 				},
 			},
@@ -401,16 +403,19 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 				Name:      "kafka-ca-certs",
 				SubPath:   "ca.crt",
 				MountPath: "/etc/ssl/certs/kafka-ca.crt",
+				ReadOnly:  true,
 			},
 			{
 				Name:      "kafka-certs",
 				SubPath:   "user.crt",
 				MountPath: "/etc/ssl/certs/kafka-user.crt",
+				ReadOnly:  true,
 			},
 			{
 				Name:      "kafka-certs",
 				SubPath:   "user.key",
 				MountPath: "/etc/ssl/certs/kafka-user.key",
+				ReadOnly:  true,
 			},
 		}
 		volumeMounts = append(volumeMounts, kafkaTLSMounts...)

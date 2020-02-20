@@ -6,12 +6,12 @@ import (
 	"math"
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
+	kafkav1beta1 "pipeline-operator/pkg/apis/kafka/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
 	"reflect"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,34 +44,29 @@ type TopicReconciler struct {
 	scheme             *runtime.Scheme
 }
 
-type TopicConfig struct {
-	Name       string
-	Partitions int64
-	Replicas   int64
-	Params     map[string]string
-}
-
 func (topicReconciler *TopicReconciler) Reconcile() {
 
 	pipelineDeploymentSpec := topicReconciler.pipelineDeployment.Spec
 
-	newTopicConfig, err := BuildTopic(pipelineDeploymentSpec.PipelineSpec, topicReconciler.topicConfig)
+	// Replace the pipelineDeployment username and name in the topic string
+	topicName := utils.GetTopicName(topicReconciler.topicConfig.TopicName, &pipelineDeploymentSpec.PipelineSpec)
+
+	newTopicSpec, err := buildTopicSpec(pipelineDeploymentSpec.PipelineSpec, topicReconciler.topicConfig)
 	if err != nil {
 		log.Error(err, "Error creating new topic config")
 	}
 
 	// check to see if topic already exists
-	existingTopic := &unstructured.Unstructured{}
+	existingTopic := &kafkav1beta1.KafkaTopic{}
 	existingTopic.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "kafka.strimzi.io",
 		Kind:    "KafkaTopic",
 		Version: "v1beta1",
 	})
-	err = topicReconciler.client.Get(context.TODO(), types.NamespacedName{Name: newTopicConfig.Name, Namespace: topicReconciler.request.NamespacedName.Namespace}, existingTopic)
+	err = topicReconciler.client.Get(context.TODO(), types.NamespacedName{Name: topicName, Namespace: topicReconciler.request.NamespacedName.Namespace}, existingTopic)
 
 	if err != nil && errors.IsNotFound(err) {
 		// Create the topic
-		// Using a unstructured object to submit a strimzi topic creation.
 		labels := map[string]string{
 			"strimzi.io/cluster":           utils.GetKafkaClusterName(),
 			"app.kubernetes.io/part-of":    "algo.run",
@@ -83,17 +78,9 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 				pipelineDeploymentSpec.PipelineSpec.PipelineName),
 		}
 
-		newTopic := &unstructured.Unstructured{}
-		newTopic.Object = map[string]interface{}{
-			"name":      newTopicConfig.Name,
-			"namespace": topicReconciler.request.NamespacedName.Namespace,
-			"spec": map[string]interface{}{
-				"partitions": newTopicConfig.Partitions,
-				"replicas":   int(topicReconciler.topicConfig.TopicReplicationFactor),
-				"config":     newTopicConfig.Params,
-			},
-		}
-		newTopic.SetName(newTopicConfig.Name)
+		newTopic := &kafkav1beta1.KafkaTopic{}
+		newTopic.Spec = newTopicSpec
+		newTopic.SetName(topicName)
 		newTopic.SetNamespace(topicReconciler.request.NamespacedName.Namespace)
 		newTopic.SetLabels(labels)
 		newTopic.SetGroupVersionKind(schema.GroupVersionKind{
@@ -111,44 +98,25 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		if err != nil {
 			log.Error(err, "Failed creating topic")
 		}
+
 	} else if err != nil {
 		log.Error(err, "Failed to check if Kafka topic exists.")
 	} else {
-		// Update the topic if changed
-		// Check that the partition count did not go down (kafka doesn't support)
-		var partitionsCurrent, replicasCurrent int64
-		var paramsCurrent map[string]string
-		spec, ok := existingTopic.Object["spec"].(map[string]interface{})
-		if ok {
-			replicasCurrent, ok = spec["replicas"].(int64)
-			paramsCurrent, ok = spec["config"].(map[string]string)
-			partitionsCurrent, ok = spec["partitions"].(int64)
-			if ok {
-				if partitionsCurrent > newTopicConfig.Partitions {
-					logData := map[string]interface{}{
-						"partitionsCurrent": partitionsCurrent,
-						"partitionsNew":     newTopicConfig.Partitions,
-					}
-					log.WithValues("data", logData)
-					log.Error(err, "Partition count cannot be decreased. Keeping current partition count.")
-					newTopicConfig.Partitions = partitionsCurrent
-				}
+
+		if existingTopic.Spec.Partitions > newTopicSpec.Partitions {
+			logData := map[string]interface{}{
+				"partitionsCurrent": existingTopic.Spec.Partitions,
+				"partitionsNew":     newTopicSpec.Partitions,
 			}
+			log.WithValues("data", logData)
+			log.Error(err, "Partition count cannot be decreased. Keeping current partition count.")
+			newTopicSpec.Partitions = existingTopic.Spec.Partitions
 		}
 
-		if partitionsCurrent != newTopicConfig.Partitions ||
-			replicasCurrent != newTopicConfig.Replicas ||
-			(len(paramsCurrent) != len(newTopicConfig.Params) &&
-				!reflect.DeepEqual(paramsCurrent, newTopicConfig.Params)) {
+		if !reflect.DeepEqual(existingTopic, newTopicSpec) {
 
-			fmt.Printf("%v", paramsCurrent)
-			// !reflect.DeepEqual(paramsCurrent, params)
 			// Update the existing spec
-			spec["partitions"] = newTopicConfig.Partitions
-			spec["replicas"] = newTopicConfig.Replicas
-			spec["config"] = newTopicConfig.Params
-
-			existingTopic.Object["spec"] = spec
+			existingTopic.Spec = newTopicSpec
 
 			err := topicReconciler.client.Update(context.TODO(), existingTopic)
 			if err != nil {
@@ -161,15 +129,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 
 }
 
-func BuildTopic(pipelineSpec algov1beta1.PipelineSpec, topicConfig *algov1beta1.TopicConfigModel) (TopicConfig, error) {
-
-	// Replace the pipelineDeployment username and name in the topic string
-	topicName := utils.GetTopicName(topicConfig.TopicName, &pipelineSpec)
-
-	logData := map[string]interface{}{
-		"Topic": topicName,
-	}
-	log.WithValues("data", logData)
+func buildTopicSpec(pipelineSpec algov1beta1.PipelineSpec, topicConfig *algov1beta1.TopicConfigModel) (kafkav1beta1.KafkaTopicSpec, error) {
 
 	var topicPartitions int64 = 1
 	if topicConfig.TopicAutoPartition {
@@ -224,18 +184,17 @@ func BuildTopic(pipelineSpec algov1beta1.PipelineSpec, topicConfig *algov1beta1.
 		}
 	}
 
-	params := make(map[string]string)
+	config := make(map[string]string)
 	for _, topicParam := range topicConfig.TopicParams {
-		params[topicParam.Name] = topicParam.Value
+		config[topicParam.Name] = topicParam.Value
 	}
 
-	newTopicConfig := TopicConfig{
-		Name:       topicName,
+	newTopicSpec := kafkav1beta1.KafkaTopicSpec{
 		Partitions: topicPartitions,
-		Replicas:   int64(topicConfig.TopicReplicationFactor),
-		Params:     params,
+		Replicas:   topicConfig.TopicReplicationFactor,
+		Config:     config,
 	}
 
-	return newTopicConfig, nil
+	return newTopicSpec, nil
 
 }
