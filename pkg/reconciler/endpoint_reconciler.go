@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
@@ -282,7 +283,9 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 
 func (endpointReconciler *EndpointReconciler) reconcileHttpMapping() error {
 
-	serviceName := fmt.Sprintf("http://%s:%d", endpointReconciler.serviceConfig.serviceName, endpointReconciler.serviceConfig.httpPort)
+	serviceName := fmt.Sprintf("http://%s.%s:%d", endpointReconciler.serviceConfig.serviceName,
+		endpointReconciler.request.Namespace,
+		endpointReconciler.serviceConfig.httpPort)
 	endpointReconciler.reconcileMapping(serviceName, "http")
 
 	return nil
@@ -290,7 +293,9 @@ func (endpointReconciler *EndpointReconciler) reconcileHttpMapping() error {
 
 func (endpointReconciler *EndpointReconciler) reconcileGRPCMapping() error {
 
-	serviceName := fmt.Sprintf("%s:%d", endpointReconciler.serviceConfig.serviceName, endpointReconciler.serviceConfig.gRPCPort)
+	serviceName := fmt.Sprintf("%s.%s:%d", endpointReconciler.serviceConfig.serviceName,
+		endpointReconciler.request.Namespace,
+		endpointReconciler.serviceConfig.gRPCPort)
 	endpointReconciler.reconcileMapping(serviceName, "grpc")
 
 	return nil
@@ -323,12 +328,15 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 
 	var prefix string
 	if protocol == "grpc" {
-		prefix = fmt.Sprintf("/%s/%s/run/grpc/", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		prefix = fmt.Sprintf("/run/grpc/%s/%s/", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 			pipelineDeployment.Spec.PipelineSpec.DeploymentName)
 	} else {
-		prefix = fmt.Sprintf("/%s/%s/run/http/", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		prefix = fmt.Sprintf("/run/http/%s/%s/", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
 			pipelineDeployment.Spec.PipelineSpec.DeploymentName)
 	}
+
+	rewrite := fmt.Sprintf("/%s/%s/", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		pipelineDeployment.Spec.PipelineSpec.DeploymentName)
 
 	if (err == nil && existingMapping == nil) || (err != nil && errors.IsNotFound(err)) {
 		// Create the topic
@@ -350,7 +358,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 			"namespace": request.NamespacedName.Namespace,
 			"spec": map[string]interface{}{
 				"prefix":  prefix,
-				"rewrite": "/",
+				"rewrite": rewrite,
 				"grpc":    protocol == "grpc",
 				"service": serviceName,
 			},
@@ -419,11 +427,17 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	}
 
 	// Set the image name
-	var imageName string
-	if endpointConfig.ImageTag == "" || endpointConfig.ImageTag == "latest" {
-		imageName = fmt.Sprintf("%s:latest", endpointConfig.ImageRepository)
-	} else {
-		imageName = fmt.Sprintf("%s:%s", endpointConfig.ImageRepository, endpointConfig.ImageTag)
+	imageName := os.Getenv("ENDPOINT_IMAGE")
+	if imageName == "" {
+		if endpointConfig.ImageRepository == "" {
+			imageName = "algohub/deployment-endpoint:latest"
+		} else {
+			if endpointConfig.ImageTag == "" {
+				imageName = fmt.Sprintf("%s:latest", endpointConfig.ImageRepository)
+			} else {
+				imageName = fmt.Sprintf("%s:%s", endpointConfig.ImageRepository, endpointConfig.ImageTag)
+			}
+		}
 	}
 
 	var imagePullPolicy corev1.PullPolicy
@@ -449,8 +463,73 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 
 	var containers []corev1.Container
 
-	hookCommand := []string{"/bin/deployment-endpoint"}
-	hookEnvVars := endpointReconciler.createEnvVars(pipelineDeployment, endpointConfig)
+	volumes := []corev1.Volume{}
+	volumeMounts := []corev1.VolumeMount{}
+	if endpointReconciler.kafkaTLS {
+
+		kafkaParams := map[string]string{
+			"ssl.ca.location":          "/etc/ssl/certs/kafka-ca.crt",
+			"ssl.certificate.location": "/etc/ssl/certs/kafka-user.crt",
+			"ssl.key.location":         "/etc/ssl/certs/kafka-user.key",
+		}
+		endpointConfig.Kafka.Params = kafkaParams
+
+		kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+			pipelineDeployment.Spec.PipelineSpec.DeploymentName)
+		kafkaCaSecretName := fmt.Sprintf("%s-cluster-ca-cert", utils.GetKafkaClusterName())
+
+		kafkaTLSVolumes := []corev1.Volume{
+			{
+				Name: "kafka-certs",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  kafkaUsername,
+						DefaultMode: utils.Int32p(0444),
+					},
+				},
+			},
+			{
+				Name: "kafka-ca-certs",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  kafkaCaSecretName,
+						DefaultMode: utils.Int32p(0444),
+					},
+				},
+			},
+		}
+		volumes = append(volumes, kafkaTLSVolumes...)
+
+		kafkaTLSMounts := []corev1.VolumeMount{
+			{
+				Name:      "kafka-ca-certs",
+				SubPath:   "ca.crt",
+				MountPath: "/etc/ssl/certs/kafka-ca.crt",
+				ReadOnly:  true,
+			},
+			{
+				Name:      "kafka-certs",
+				SubPath:   "user.crt",
+				MountPath: "/etc/ssl/certs/kafka-user.crt",
+				ReadOnly:  true,
+			},
+			{
+				Name:      "kafka-certs",
+				SubPath:   "user.key",
+				MountPath: "/etc/ssl/certs/kafka-user.key",
+				ReadOnly:  true,
+			},
+		}
+		volumeMounts = append(volumeMounts, kafkaTLSMounts...)
+	}
+
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name:      "endpoint-wal-data",
+		MountPath: "/data/wal",
+	})
+
+	endpointCommand := []string{"/bin/deployment-endpoint"}
+	endpointEnvVars := endpointReconciler.createEnvVars(pipelineDeployment, endpointConfig)
 
 	readinessProbe := &corev1.Probe{
 		Handler:             handler,
@@ -481,20 +560,15 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	endpointContainer := corev1.Container{
 		Name:                     name,
 		Image:                    imageName,
-		Command:                  hookCommand,
-		Env:                      hookEnvVars,
+		Command:                  endpointCommand,
+		Env:                      endpointEnvVars,
 		Resources:                *resources,
 		ImagePullPolicy:          imagePullPolicy,
 		LivenessProbe:            livenessProbe,
 		ReadinessProbe:           readinessProbe,
 		TerminationMessagePath:   "/dev/termination-log",
 		TerminationMessagePolicy: "File",
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "endpoint-wal-data",
-				MountPath: "/data/wal",
-			},
-		},
+		VolumeMounts:             volumeMounts,
 	}
 	containers = append(containers, endpointContainer)
 
@@ -550,6 +624,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 					// },
 					// NodeSelector: nodeSelector,
 					Containers:    containers,
+					Volumes:       volumes,
 					RestartPolicy: corev1.RestartPolicyAlways,
 					DNSPolicy:     corev1.DNSClusterFirst,
 				},

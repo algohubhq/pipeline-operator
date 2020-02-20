@@ -362,6 +362,10 @@ spec:
                           items:
                             type: string
                           type: array
+                        params:
+                          additionalProperties:
+                            type: string
+                          type: object
                       type: object
                     paths:
                       items:

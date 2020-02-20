@@ -1,0 +1,77 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: kafkausers.kafka.strimzi.io
+spec:
+  group: kafka.strimzi.io
+  names:
+    kind: KafkaUser
+    listKind: KafkaUserList
+    plural: kafkausers
+    singular: kafkauser
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: KafkaUser is the Schema for the kafkausers API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: KafkaUserSpec is the Schema for the Strimzi KafkaUser API
+          properties:
+            authentication:
+              description: KakfaUserAuthentication is the Schema for the Strimzi KafkaUser
+                API
+              properties:
+                type:
+                  type: string
+              type: object
+            authorization:
+              description: KakfaUserAuthorization is the Schema for the Strimzi KafkaUser
+                API
+              properties:
+                acls:
+                  items:
+                    description: KakfaUserAcl is the Schema for the Strimzi KafkaUser
+                      API
+                    properties:
+                      operation:
+                        type: string
+                      resource:
+                        description: KakfaUserAclResource is the Schema for the Strimzi
+                          KafkaUser API
+                        properties:
+                          name:
+                            type: string
+                          patternType:
+                            type: string
+                          type:
+                            type: string
+                        type: object
+                    type: object
+                  type: array
+                type:
+                  type: string
+              type: object
+          type: object
+        status:
+          description: KafkaUserStatus defines the observed state of KafkaUser
+          type: object
+      type: object
+  version: v1beta1
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true

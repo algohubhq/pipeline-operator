@@ -16,6 +16,7 @@
                 "KUBERNETES_CONFIG": "$HOME/.kube/config",
                 "NOTIF_URL":"http://localhost:5050/api/v1/notify", 
                 "ALGORUNNER_IMAGE":"algohub/algo-runner:6f190e5e7e76f55c8e3f7564120adb2adf798b7f",
+                "ENDPOINT_IMAGE":"algohub/deployment-endpoint:e210479f49132a4074a2a276dca4b0daaed50c97",
                 "KAFKA-NAMESPACE": "kafka",
                 "KAFKA-CLUSTER-NAME": "kafka",
                 "KAFKA-TLS": "true"

@@ -388,6 +388,13 @@ func (in *EndpointKafkaConfig) DeepCopyInto(out *EndpointKafkaConfig) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.Params != nil {
+		in, out := &in.Params, &out.Params
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

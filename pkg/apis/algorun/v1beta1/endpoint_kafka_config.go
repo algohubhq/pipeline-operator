@@ -13,4 +13,6 @@ package v1beta1
 type EndpointKafkaConfig struct {
 
 	Brokers []string `json:"brokers,omitempty"`
+
+	Params map[string]string `json:"params,omitempty"`
 }
