@@ -55,11 +55,8 @@ func (r *StatusReconciler) Reconcile() error {
 		return err
 	}
 
-	statusChanged := false
-
 	if r.pipelineDeployment.Status.Status != pipelineDeploymentStatus.Status {
 		r.pipelineDeployment.Status.Status = pipelineDeploymentStatus.Status
-		statusChanged = true
 
 		notifMessage := &algov1beta1.NotifMessage{
 			MessageTimestamp: time.Now(),
@@ -82,8 +79,7 @@ func (r *StatusReconciler) Reconcile() error {
 
 				if diff := deep.Equal(deplStatus, newDeplStatus); diff != nil {
 					deplStatus = newDeplStatus
-					statusChanged = true
-					// reqLogger.Info("Differences", "Differences", diff)
+					reqLogger.Info("Deployment Status Differences", "Differences", diff)
 					notifMessage := &algov1beta1.NotifMessage{
 						MessageTimestamp: time.Now(),
 						Level:            "Info",
@@ -109,8 +105,8 @@ func (r *StatusReconciler) Reconcile() error {
 
 				if diff := deep.Equal(podStatus, newPodStatus); diff != nil {
 					podStatus = newPodStatus
-					statusChanged = true
-					// reqLogger.Info("Differences", "Differences", diff)
+
+					reqLogger.Info("Deployment Pod Status Differences", "Differences", diff)
 					notifMessage := &algov1beta1.NotifMessage{
 						MessageTimestamp: time.Now(),
 						Level:            "Info",
@@ -129,14 +125,15 @@ func (r *StatusReconciler) Reconcile() error {
 		}
 	}
 
-	if statusChanged {
+	if diff := deep.Equal(r.pipelineDeployment.Status, *pipelineDeploymentStatus); diff != nil {
+		reqLogger.Info("Pipeline Deployment Status Differences", "Differences", diff)
 
 		r.pipelineDeployment.Status = *pipelineDeploymentStatus
 
-		patch := client.MergeFrom(r.pipelineDeployment)
-		err = r.client.Status().Patch(context.TODO(), r.pipelineDeployment, patch)
+		// patch := client.MergeFrom(r.pipelineDeployment)
+		// err = r.client.Status().Patch(context.TODO(), r.pipelineDeployment, patch)
 
-		// err = r.client.Status().Update(context.TODO(), r.pipelineDeployment)
+		err = r.client.Status().Update(context.TODO(), r.pipelineDeployment)
 
 		if err != nil {
 			reqLogger.Error(err, "Failed to update PipelineDeployment status.")
