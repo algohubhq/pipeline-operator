@@ -132,9 +132,11 @@ func (r *StatusReconciler) Reconcile() error {
 	if statusChanged {
 		r.pipelineDeployment.Status = *pipelineDeploymentStatus
 
+		err = r.client.Status().Update(context.TODO(), r.pipelineDeployment)
+
 		// patch := client.MergeFrom(instance)
 		// err = r.client.Status().Patch(ctx, instance, patch)
-		err := r.client.Update(context.TODO(), r.pipelineDeployment)
+		// err := r.client.Update(context.TODO(), r.pipelineDeployment)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update PipelineDeployment status.")
 			return err

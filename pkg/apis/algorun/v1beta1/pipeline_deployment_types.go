@@ -31,6 +31,7 @@ type PipelineDeploymentStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // PipelineDeployment is the Schema for the PipelineDeployments API
+// +kubebuilder:subresource:status
 // +k8s:openapi-gen=true
 type PipelineDeployment struct {
 	metav1.TypeMeta   `json:",inline"`
