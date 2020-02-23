@@ -165,15 +165,14 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	var wg sync.WaitGroup
 
 	// Create the storage bucket
+	// NOTE: We aren't adding this reconciliation to the waitgroup.
 	reqLogger.Info("Reconciling the Storage Bucket")
-	wg.Add(1)
 	go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
 		bucketReconciler := recon.NewBucketReconciler(instance, &request, r.client)
 		err = bucketReconciler.Reconcile()
 		if err != nil {
 			reqLogger.Error(err, "Error in Bucket reconcile.")
 		}
-		wg.Done()
 	}(instance)
 
 	// Create / update the kafka topics
