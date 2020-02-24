@@ -55,6 +55,8 @@ func (r *StatusReconciler) Reconcile() error {
 		return err
 	}
 
+	notifMessages := []*algov1beta1.NotifMessage{}
+
 	if r.pipelineDeployment.Status.Status != pipelineDeploymentStatus.Status {
 		r.pipelineDeployment.Status.Status = pipelineDeploymentStatus.Status
 
@@ -69,7 +71,8 @@ func (r *StatusReconciler) Reconcile() error {
 			},
 		}
 
-		utils.Notify(notifMessage)
+		notifMessages = append(notifMessages, notifMessage)
+
 	}
 
 	// Iterate the existing deployment statuses and update if changed
@@ -91,7 +94,7 @@ func (r *StatusReconciler) Reconcile() error {
 						},
 					}
 
-					utils.Notify(notifMessage)
+					notifMessages = append(notifMessages, notifMessage)
 				}
 
 			}
@@ -118,7 +121,7 @@ func (r *StatusReconciler) Reconcile() error {
 						},
 					}
 
-					utils.Notify(notifMessage)
+					notifMessages = append(notifMessages, notifMessage)
 				}
 
 			}
@@ -139,6 +142,10 @@ func (r *StatusReconciler) Reconcile() error {
 			reqLogger.Error(err, "Failed to update PipelineDeployment status.")
 			return err
 		}
+
+		// Send all notifications
+		utils.NotifyAll(notifMessages)
+
 	}
 
 	return nil

@@ -15,6 +15,12 @@ import (
 
 var notifDisabled = false
 
+func NotifyAll(notifMessages []*v1beta1.NotifMessage) {
+	for _, notifMessage := range notifMessages {
+		Notify(notifMessage)
+	}
+}
+
 func Notify(notifMessage *v1beta1.NotifMessage) {
 
 	if !notifDisabled {
