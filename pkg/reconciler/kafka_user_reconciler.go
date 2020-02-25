@@ -134,6 +134,16 @@ func buildKafkaUserSpec(pipelineSpec *algov1beta1.PipelineSpec, topicConfigs []a
 		resources = append(resources, resource)
 	}
 
+	groupResource := kafkav1beta1.KakfaUserAcl{
+		Operation: "All",
+		Resource: kafkav1beta1.KakfaUserAclResource{
+			Type:        "group",
+			Name:        "",
+			PatternType: "prefix",
+		},
+	}
+	resources = append(resources, groupResource)
+
 	kafkaUserSpec := kafkav1beta1.KafkaUserSpec{
 		Authentication: kafkav1beta1.KakfaUserAuthentication{
 			Type: "tls",
