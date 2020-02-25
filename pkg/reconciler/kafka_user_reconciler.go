@@ -138,7 +138,7 @@ func buildKafkaUserSpec(pipelineSpec *algov1beta1.PipelineSpec, topicConfigs []a
 		Operation: "All",
 		Resource: kafkav1beta1.KakfaUserAclResource{
 			Type:        "group",
-			Name:        "",
+			Name:        "algorun",
 			PatternType: "prefix",
 		},
 	}
