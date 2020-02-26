@@ -109,7 +109,7 @@ func (r *StatusReconciler) Reconcile() error {
 				if diff := deep.Equal(podStatus, newPodStatus); diff != nil {
 					podStatus = newPodStatus
 
-					reqLogger.Info("Deployment Pod Status Differences", "Differences", diff)
+					// reqLogger.Info("Deployment Pod Status Differences", "Differences", diff)
 					notifMessage := &algov1beta1.NotifMessage{
 						MessageTimestamp: time.Now(),
 						Level:            "Info",
@@ -129,12 +129,9 @@ func (r *StatusReconciler) Reconcile() error {
 	}
 
 	if diff := deep.Equal(r.pipelineDeployment.Status, *pipelineDeploymentStatus); diff != nil {
-		reqLogger.Info("Pipeline Deployment Status Differences", "Differences", diff)
+		// reqLogger.Info("Pipeline Deployment Status Differences", "Differences", diff)
 
 		r.pipelineDeployment.Status = *pipelineDeploymentStatus
-
-		// patch := client.MergeFrom(r.pipelineDeployment)
-		// err = r.client.Status().Patch(context.TODO(), r.pipelineDeployment, patch)
 
 		err = r.client.Status().Update(context.TODO(), r.pipelineDeployment)
 
@@ -311,14 +308,14 @@ func (r *StatusReconciler) getStatefulSetStatuses(cr *algov1beta1.PipelineDeploy
 			Desired:          *sf.Spec.Replicas,
 			Current:          sf.Status.CurrentReplicas,
 			UpToDate:         sf.Status.UpdatedReplicas,
-			Available:        sf.Status.ReadyReplicas,
+			Available:        sf.Status.CurrentReplicas,
 			Ready:            sf.Status.ReadyReplicas,
 			CreatedTimestamp: sf.CreationTimestamp.String(),
 		}
 
 		switch sf.Labels["app.kubernetes.io/component"] {
 		case "endpoint":
-			componentStatus.ComponentType = "Hook"
+			componentStatus.ComponentType = "Endpoint"
 			componentStatus.Name = sf.Labels["app.kubernetes.io/component"]
 		}
 
