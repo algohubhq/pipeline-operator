@@ -441,7 +441,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	}
 
 	var imagePullPolicy corev1.PullPolicy
-	switch pipelineDeployment.Spec.ImagePullPolicy {
+	switch pipelineDeployment.Spec.PipelineSpec.ImagePullPolicy {
 	case "Never":
 		imagePullPolicy = corev1.PullNever
 	case "PullAlways":

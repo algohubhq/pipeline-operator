@@ -24,6 +24,8 @@ type PipelineSpec struct {
 
 	StorageBucket string `json:"storageBucket,omitempty"`
 
+	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+
 	EndpointConfig *EndpointConfig `json:"endpointConfig,omitempty"`
 
 	AlgoConfigs []AlgoConfig `json:"algoConfigs,omitempty"`

@@ -213,7 +213,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 	}
 
 	var imagePullPolicy corev1.PullPolicy
-	switch pipelineDeployment.Spec.ImagePullPolicy {
+	switch pipelineDeployment.Spec.PipelineSpec.ImagePullPolicy {
 	case "Never":
 		imagePullPolicy = corev1.PullNever
 	case "PullAlways":

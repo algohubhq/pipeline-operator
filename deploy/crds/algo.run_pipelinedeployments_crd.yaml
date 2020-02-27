@@ -104,6 +104,10 @@ spec:
                               type: string
                             name:
                               type: string
+                          required:
+                          - data
+                          - mountPath
+                          - name
                           type: object
                         type: array
                       deploymentName:
@@ -682,6 +686,8 @@ spec:
                         type: object
                       type: array
                   type: object
+                imagePullPolicy:
+                  type: string
                 pipelineName:
                   type: string
                 pipelineOwnerUserName:

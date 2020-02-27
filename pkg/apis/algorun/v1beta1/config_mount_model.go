@@ -12,9 +12,9 @@ package v1beta1
 
 type ConfigMountModel struct {
 
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 
-	MountPath string `json:"mountPath,omitempty"`
+	MountPath string `json:"mountPath"`
 
-	Data string `json:"data,omitempty"`
+	Data string `json:"data"`
 }

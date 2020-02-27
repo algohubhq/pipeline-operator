@@ -10,9 +10,8 @@ import (
 // PipelineDeploymentSpec defines the desired state of the PipelineDeployment
 // +k8s:openapi-gen=true
 type PipelineDeploymentSpec struct {
-	ImagePullPolicy string       `json:"imagePullPolicy,omitempty"`
-	KafkaBrokers    string       `json:"kafkaBrokers,omitempty"`
-	PipelineSpec    PipelineSpec `json:"pipelineSpec,omitempty"`
+	KafkaBrokers string       `json:"kafkaBrokers,omitempty"`
+	PipelineSpec PipelineSpec `json:"pipelineSpec,omitempty"`
 }
 
 // PipelineDeploymentStatus defines the observed state of PipelineDeployment
