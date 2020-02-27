@@ -1,9 +1,11 @@
 package reconciler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -14,8 +16,11 @@ import (
 	"github.com/go-test/deep"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -144,6 +149,12 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		},
 	}
 
+	// Create the runner config
+	runnerConfig := algoReconciler.createRunnerConfig(&pipelineDeployment.Spec, algoConfig)
+
+	// Create the configmap for the algo
+	configMapName, err := algoReconciler.createConfigMap(algoConfig, runnerConfig, labels)
+
 	existingDeployment, err := kubeUtil.CheckForDeployment(opts)
 
 	var algoName string
@@ -153,7 +164,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	}
 
 	// Generate the k8s deployment for the algoconfig
-	algoDeployment, err := algoReconciler.createDeploymentSpec(name, labels, existingDeployment != nil)
+	algoDeployment, err := algoReconciler.createDeploymentSpec(name, labels, runnerConfig, configMapName, existingDeployment != nil)
 	if err != nil {
 		algoLogger.Error(err, "Failed to create algo deployment spec")
 		return err
@@ -295,11 +306,10 @@ func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment
 }
 
 // CreateDeploymentSpec generates the k8s spec for the algo deployment
-func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels map[string]string, update bool) (*appsv1.Deployment, error) {
+func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels map[string]string, runnerConfig *v1beta1.AlgoRunnerConfig, configMapName string, update bool) (*appsv1.Deployment, error) {
 
 	pipelineDeployment := algoReconciler.pipelineDeployment
 	algoConfig := algoReconciler.algoConfig
-	runnerConfig := algoReconciler.createRunnerConfig(&pipelineDeployment.Spec, algoConfig)
 
 	// Set the image name
 	var imageName string
@@ -421,6 +431,35 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 		volumeMounts = append(volumeMounts, kafkaTLSMounts...)
 	}
 
+	configMapVolume := corev1.Volume{
+		Name: "algo-config-volume",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: v1.LocalObjectReference{Name: configMapName},
+				DefaultMode:          utils.Int32p(0444),
+			},
+		},
+	}
+	volumes = append(volumes, configMapVolume)
+
+	// Add runner config
+	runnerConfigVolumeMount := corev1.VolumeMount{
+		Name:      "algo-config-volume",
+		SubPath:   "runner-config",
+		MountPath: "/algo-runner/algo-runner-config.json",
+	}
+	volumeMounts = append(volumeMounts, runnerConfigVolumeMount)
+
+	// Add all config mounts
+	for _, configMount := range algoConfig.ConfigMounts {
+		cmVolumeMount := corev1.VolumeMount{
+			Name:      "algo-config-volume",
+			SubPath:   configMount.Name,
+			MountPath: configMount.MountPath,
+		}
+		volumeMounts = append(volumeMounts, cmVolumeMount)
+	}
+
 	// If serverless, then we will copy the algo-runner binary into the algo container using an init container
 	// If not serverless, then execute algo-runner within the sidecar
 	var initContainers []corev1.Container
@@ -436,6 +475,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	if algoConfig.Executor == "Executable" {
 
 		algoCommand = []string{"/algo-runner/algo-runner"}
+		algoArgs = []string{"--config=/algo-runner/algo-runner-config.json"}
 
 		initCommand := []string{"/bin/sh", "-c"}
 		initArgs := []string{
@@ -503,6 +543,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 		algoArgs = entrypoint[1:]
 
 		sidecarCommand := []string{"/algo-runner/algo-runner"}
+		sidecarArgs := []string{"--config=/algo-runner/algo-runner-config.json"}
 
 		sidecarEnvVars = algoReconciler.createEnvVars(pipelineDeployment, runnerConfig, algoConfig)
 
@@ -528,6 +569,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 			Name:                     "algo-runner-sidecar",
 			Image:                    sidecarImageName,
 			Command:                  sidecarCommand,
+			Args:                     sidecarArgs,
 			Env:                      sidecarEnvVars,
 			LivenessProbe:            sidecarLivenessProbe,
 			ReadinessProbe:           sidecarReadinessProbe,
@@ -678,15 +720,79 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 
 }
 
-func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, runnerConfig *v1beta1.AlgoRunnerConfig, algoConfig *v1beta1.AlgoConfig) []corev1.EnvVar {
+func (algoReconciler *AlgoReconciler) createConfigMap(algoConfig *v1beta1.AlgoConfig, runnerConfig *v1beta1.AlgoRunnerConfig, labels map[string]string) (configMapName string, err error) {
 
-	envVars := []corev1.EnvVar{}
+	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
+	// Create all config mounts
+	name := fmt.Sprintf("%s-%s-%s-%s-config",
+		algoReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
+		algoReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName,
+		algoConfig.AlgoOwnerUserName,
+		algoConfig.AlgoName)
+	data := make(map[string]string)
 
+	// Add the runner-config
 	// serialize the runner config to json string
 	runnerConfigBytes, err := json.Marshal(runnerConfig)
 	if err != nil {
 		log.Error(err, "Failed deserializing runner config")
 	}
+	data["runner-config"] = string(runnerConfigBytes)
+
+	// Add all config mounts
+	for _, configMount := range algoConfig.ConfigMounts {
+		data[configMount.Name] = configMount.Data
+	}
+
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: algoReconciler.pipelineDeployment.Namespace,
+			Name:      name,
+			Labels:    labels,
+			// Annotations: annotations,
+		},
+		Data: data,
+	}
+
+	// Set PipelineDeployment instance as the owner and controller
+	if err := controllerutil.SetControllerReference(algoReconciler.pipelineDeployment, configMap, algoReconciler.scheme); err != nil {
+		return name, err
+	}
+
+	existingConfigMap := &corev1.ConfigMap{}
+	err = algoReconciler.client.Get(context.TODO(), types.NamespacedName{Name: name,
+		Namespace: algoReconciler.request.NamespacedName.Namespace},
+		existingConfigMap)
+
+	if err != nil && errors.IsNotFound(err) {
+		// Create the ConfigMap
+		name, err = kubeUtil.CreateConfigMap(configMap)
+		if err != nil {
+			log.Error(err, "Failed creating algo ConfigMap")
+		}
+
+	} else if err != nil {
+		log.Error(err, "Failed to check if algo ConfigMap exists.")
+	} else {
+
+		if !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) {
+			// Update configmap
+			name, err = kubeUtil.UpdateConfigMap(configMap)
+			if err != nil {
+				log.Error(err, "Failed to update algo configmap")
+				return name, err
+			}
+		}
+
+	}
+
+	return name, err
+
+}
+
+func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, runnerConfig *v1beta1.AlgoRunnerConfig, algoConfig *v1beta1.AlgoConfig) []corev1.EnvVar {
+
+	envVars := []corev1.EnvVar{}
 
 	// Append the algo instance name
 	envVars = append(envVars, corev1.EnvVar{
@@ -697,12 +803,6 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 				FieldPath:  "metadata.name",
 			},
 		},
-	})
-
-	// Append the required runner config
-	envVars = append(envVars, corev1.EnvVar{
-		Name:  "ALGO-RUNNER-CONFIG",
-		Value: string(runnerConfigBytes),
 	})
 
 	// Append the required kafka servers

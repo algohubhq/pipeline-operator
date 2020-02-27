@@ -11,6 +11,7 @@ cp ./algorun-go-client/hook_config.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/component_status.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/resource_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/scale_metric_model.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/config_mount_model.go ./pkg/apis/algorun/v1beta1/
 # uncomment if algo pod status is updated but there will be manual edits
 # cp ./algorun-go-client/component_pod_status.go ./pkg/apis/algorun/v1beta1/
 

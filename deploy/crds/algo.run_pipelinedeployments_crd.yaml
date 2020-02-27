@@ -95,6 +95,17 @@ spec:
                         type: string
                       applied:
                         type: boolean
+                      configMounts:
+                        items:
+                          properties:
+                            data:
+                              type: string
+                            mountPath:
+                              type: string
+                            name:
+                              type: string
+                          type: object
+                        type: array
                       deploymentName:
                         type: string
                       entrypoint:

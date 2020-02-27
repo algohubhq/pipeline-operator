@@ -160,6 +160,66 @@ func (d *KubeUtil) CreateService(service *corev1.Service) (serviceName string, e
 
 }
 
+func (d *KubeUtil) CheckForConfigMap(listOptions []client.ListOption) (*corev1.ConfigMap, error) {
+
+	configMapList := &corev1.ConfigMapList{}
+	ctx := context.TODO()
+	err := d.client.List(ctx, configMapList, listOptions...)
+
+	if err != nil && errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	if len(configMapList.Items) > 0 {
+		return &configMapList.Items[0], nil
+	}
+
+	return nil, nil
+
+}
+
+func (d *KubeUtil) CreateConfigMap(configMap *corev1.ConfigMap) (configMapName string, error error) {
+
+	logData := map[string]interface{}{
+		"labels": configMap.Labels,
+	}
+
+	if err := d.client.Create(context.TODO(), configMap); err != nil {
+		log.WithValues("data", logData)
+		log.Error(err, "Failed creating the ConfigMap")
+		return "", err
+	}
+
+	logData["name"] = configMap.GetName()
+	log.WithValues("data", logData)
+	log.Info("Created ConfigMap")
+
+	return configMap.GetName(), nil
+
+}
+
+func (d *KubeUtil) UpdateConfigMap(configMap *corev1.ConfigMap) (configMapName string, error error) {
+
+	logData := map[string]interface{}{
+		"labels": configMap.Labels,
+	}
+
+	if err := d.client.Update(context.TODO(), configMap); err != nil {
+		log.WithValues("data", logData)
+		log.Error(err, "Failed updating the ConfigMap")
+		return "", err
+	}
+
+	logData["name"] = configMap.GetName()
+	log.WithValues("data", logData)
+	log.Info("Updated ConfigMap")
+
+	return configMap.GetName(), nil
+
+}
+
 func (d *KubeUtil) CheckForStatefulSet(listOptions []client.ListOption) (*appsv1.StatefulSet, error) {
 
 	statefulSetList := &appsv1.StatefulSetList{}
