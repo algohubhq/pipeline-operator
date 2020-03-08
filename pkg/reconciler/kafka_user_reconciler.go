@@ -47,10 +47,10 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 
 	pipelineDeploymentSpec := kafkaUserReconciler.pipelineDeployment.Spec
 
-	kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeploymentSpec.PipelineSpec.DeploymentOwnerUserName,
-		pipelineDeploymentSpec.PipelineSpec.DeploymentName)
+	kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeploymentSpec.DeploymentOwnerUserName,
+		pipelineDeploymentSpec.DeploymentName)
 
-	kafkaUserSpec := buildKafkaUserSpec(&pipelineDeploymentSpec.PipelineSpec, kafkaUserReconciler.topicConfigs)
+	kafkaUserSpec := buildKafkaUserSpec(&pipelineDeploymentSpec, kafkaUserReconciler.topicConfigs)
 
 	// check to see if topic already exists
 	existingUser := &kafkav1beta1.KafkaUser{}
@@ -63,10 +63,10 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "kafka-user",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineSpec.DeploymentOwnerUserName,
-				pipelineDeploymentSpec.PipelineSpec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineSpec.PipelineOwnerUserName,
-				pipelineDeploymentSpec.PipelineSpec.PipelineName),
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.DeploymentOwnerUserName,
+				pipelineDeploymentSpec.DeploymentName),
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineOwnerUserName,
+				pipelineDeploymentSpec.PipelineName),
 		}
 
 		newUser := &kafkav1beta1.KafkaUser{}
@@ -117,11 +117,11 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 
 }
 
-func buildKafkaUserSpec(pipelineSpec *algov1beta1.PipelineSpec, topicConfigs []algov1beta1.TopicConfigModel) kafkav1beta1.KafkaUserSpec {
+func buildKafkaUserSpec(pipelineSpec *algov1beta1.PipelineDeploymentSpecV1beta1, allTopicConfigs []algov1beta1.TopicConfigModel) kafkav1beta1.KafkaUserSpec {
 
 	// Create the acl list based on all of the Topic configs for this deployment
 	resources := make([]kafkav1beta1.KakfaUserAcl, 0)
-	for _, topicConfig := range topicConfigs {
+	for _, topicConfig := range allTopicConfigs {
 		topicName := utils.GetTopicName(topicConfig.TopicName, pipelineSpec)
 		resource := kafkav1beta1.KakfaUserAcl{
 			Operation: "All",

@@ -22,12 +22,14 @@ import (
 
 // NewHookReconciler returns a new HookReconciler
 func NewHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
+	allTopicConfigs []algov1beta1.TopicConfigModel,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme,
 	kafkaTLS bool) HookReconciler {
 	return HookReconciler{
 		pipelineDeployment: pipelineDeployment,
+		allTopicConfigs:    allTopicConfigs,
 		request:            request,
 		client:             client,
 		scheme:             scheme,
@@ -38,6 +40,7 @@ func NewHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 // HookReconciler reconciles an Hook object
 type HookReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
+	allTopicConfigs    []algov1beta1.TopicConfigModel
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
@@ -59,10 +62,10 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 		"app.kubernetes.io/part-of":    "algo.run",
 		"app.kubernetes.io/component":  "hook",
 		"app.kubernetes.io/managed-by": "pipeline-operator",
-		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-			pipelineDeployment.Spec.PipelineSpec.DeploymentName),
-		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
-			pipelineDeployment.Spec.PipelineSpec.PipelineName),
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+			pipelineDeployment.Spec.DeploymentName),
+		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwnerUserName,
+			pipelineDeployment.Spec.PipelineName),
 	}
 
 	// Check to make sure the hook isn't already created
@@ -71,8 +74,8 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "hook",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", hookReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-				hookReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName),
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", hookReconciler.pipelineDeployment.Spec.DeploymentOwnerUserName,
+				hookReconciler.pipelineDeployment.Spec.DeploymentName),
 		},
 	}
 
@@ -130,16 +133,16 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 	}
 
 	// Setup the horizontal pod autoscaler
-	if pipelineDeployment.Spec.PipelineSpec.EndpointConfig.Resource.AutoScale {
+	if pipelineDeployment.Spec.Endpoint.Resource.AutoScale {
 
 		labels := map[string]string{
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "hook-hpa",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-				pipelineDeployment.Spec.PipelineSpec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
-				pipelineDeployment.Spec.PipelineSpec.PipelineName),
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+				pipelineDeployment.Spec.DeploymentName),
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwnerUserName,
+				pipelineDeployment.Spec.PipelineName),
 		}
 
 		opts := []client.ListOption{
@@ -149,7 +152,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 
 		existingHpa, err := kubeUtil.CheckForHorizontalPodAutoscaler(opts)
 
-		hpaSpec, err := kubeUtil.CreateHpaSpec(hookName, labels, pipelineDeployment, pipelineDeployment.Spec.PipelineSpec.HookConfig.Resource)
+		hpaSpec, err := kubeUtil.CreateHpaSpec(hookName, labels, pipelineDeployment, pipelineDeployment.Spec.Hook.Resource)
 		if err != nil {
 			hookLogger.Error(err, "Failed to create Hook horizontal pod autoscaler spec")
 			return err
@@ -194,15 +197,15 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels map[string]string, existingDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 
 	pipelineDeployment := hookReconciler.pipelineDeployment
-	pipelineSpec := hookReconciler.pipelineDeployment.Spec.PipelineSpec
-	hookConfig := pipelineSpec.HookConfig
+	pipelineSpec := hookReconciler.pipelineDeployment.Spec
+	hookConfig := pipelineSpec.Hook
 	hookConfig.DeploymentOwnerUserName = pipelineSpec.DeploymentOwnerUserName
 	hookConfig.DeploymentName = pipelineSpec.DeploymentName
 	hookConfig.PipelineOwnerUserName = pipelineSpec.PipelineOwnerUserName
 	hookConfig.PipelineName = pipelineSpec.PipelineName
-	hookConfig.WebHooks = pipelineSpec.HookConfig.WebHooks
+	hookConfig.WebHooks = pipelineSpec.Hook.WebHooks
 	hookConfig.Pipes = pipelineSpec.Pipes
-	hookConfig.TopicConfigs = pipelineSpec.TopicConfigs
+	hookConfig.TopicConfigs = hookReconciler.allTopicConfigs
 
 	// Set the image name
 	var imageName string
@@ -213,7 +216,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 	}
 
 	var imagePullPolicy corev1.PullPolicy
-	switch pipelineDeployment.Spec.PipelineSpec.ImagePullPolicy {
+	switch pipelineDeployment.Spec.ImagePullPolicy {
 	case "Never":
 		imagePullPolicy = corev1.PullNever
 	case "PullAlways":

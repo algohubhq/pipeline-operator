@@ -30,5 +30,7 @@ type DataConnectorConfig struct {
 
 	TasksMax int32 `json:"tasksMax,omitempty"`
 
+	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
+
 	Options []DataConnectorOptionModel `json:"options,omitempty"`
 }

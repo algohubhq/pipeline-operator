@@ -32,6 +32,8 @@ type AlgoConfig struct {
 
 	Executor string `json:"executor,omitempty"`
 
+	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
+
 	ConfigMounts []ConfigMountModel `json:"configMounts,omitempty"`
 
 	AlgoParams []AlgoParamModel `json:"algoParams,omitempty"`

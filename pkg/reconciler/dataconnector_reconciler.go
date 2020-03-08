@@ -25,12 +25,14 @@ import (
 // NewDataConnectorReconciler returns a new DataConnectorReconciler
 func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	dataConnectorConfig *v1beta1.DataConnectorConfig,
+	allTopicConfigs []algov1beta1.TopicConfigModel,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme) DataConnectorReconciler {
 	return DataConnectorReconciler{
 		pipelineDeployment:  pipelineDeployment,
 		dataConnectorConfig: dataConnectorConfig,
+		allTopicConfigs:     allTopicConfigs,
 		request:             request,
 		client:              client,
 		scheme:              scheme,
@@ -41,6 +43,7 @@ func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployme
 type DataConnectorReconciler struct {
 	pipelineDeployment  *algov1beta1.PipelineDeployment
 	dataConnectorConfig *v1beta1.DataConnectorConfig
+	allTopicConfigs     []algov1beta1.TopicConfigModel
 	request             *reconcile.Request
 	client              client.Client
 	scheme              *runtime.Scheme
@@ -52,8 +55,8 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 	pipelineDeployment := dataConnectorReconciler.pipelineDeployment
 	dataConnectorConfig := dataConnectorReconciler.dataConnectorConfig
 
-	kcName := strings.ToLower(fmt.Sprintf("%s-%s", pipelineDeployment.Spec.PipelineSpec.DeploymentName, dataConnectorConfig.Name))
-	dcName := strings.ToLower(fmt.Sprintf("%s-%s-%d", pipelineDeployment.Spec.PipelineSpec.DeploymentName, dataConnectorConfig.Name, dataConnectorConfig.Index))
+	kcName := strings.ToLower(fmt.Sprintf("%s-%s", pipelineDeployment.Spec.DeploymentName, dataConnectorConfig.Name))
+	dcName := strings.ToLower(fmt.Sprintf("%s-%s-%d", pipelineDeployment.Spec.DeploymentName, dataConnectorConfig.Name, dataConnectorConfig.Index))
 	// Set the image name
 	var imageName string
 	if dataConnectorConfig.ImageTag == "" || dataConnectorConfig.ImageTag == "latest" {
@@ -79,10 +82,10 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "dataconnector",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-				pipelineDeployment.Spec.PipelineSpec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineSpec.PipelineOwnerUserName,
-				pipelineDeployment.Spec.PipelineSpec.PipelineName),
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+				pipelineDeployment.Spec.DeploymentName),
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwnerUserName,
+				pipelineDeployment.Spec.PipelineName),
 			"algo.run/dataconnector":         dataConnectorConfig.Name,
 			"algo.run/dataconnector-version": dataConnectorConfig.VersionTag,
 			"algo.run/index":                 strconv.Itoa(int(dataConnectorConfig.Index)),
@@ -204,7 +207,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 
 func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelineDeployment *algov1beta1.PipelineDeployment, dataConnectorConfig *algov1beta1.DataConnectorConfig) (string, error) {
 
-	config := pipelineDeployment.Spec.PipelineSpec
+	config := pipelineDeployment.Spec
 
 	for _, pipe := range config.Pipes {
 
@@ -213,10 +216,10 @@ func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelin
 		if pipe.DestName == dcName {
 
 			// Get the source topic connected to this pipe
-			for _, topic := range config.TopicConfigs {
+			for _, topic := range dataConnectorReconciler.allTopicConfigs {
 				if pipe.SourceName == topic.SourceName &&
 					pipe.SourceOutputName == topic.SourceOutputName {
-					topicName := utils.GetTopicName(topic.TopicName, &pipelineDeployment.Spec.PipelineSpec)
+					topicName := utils.GetTopicName(topic.TopicName, &pipelineDeployment.Spec)
 
 					return topicName, nil
 				}

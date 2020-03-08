@@ -164,6 +164,21 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 
 	var wg sync.WaitGroup
 
+	// Get all kafka topic configs
+	allTopicConfigs := utils.GetAllTopicConfigs(&instance.Spec)
+
+	// Create / update the kafka topics
+	reqLogger.Info("Reconciling Kakfa Topics")
+	// Iterate the topics
+	for _, topicConfig := range allTopicConfigs {
+		wg.Add(1)
+		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
+			topicReconciler := recon.NewTopicReconciler(instance, &currentTopicConfig, &request, r.client, r.scheme)
+			topicReconciler.Reconcile()
+			wg.Done()
+		}(topicConfig)
+	}
+
 	// Create the storage bucket
 	// NOTE: We aren't adding this reconciliation to the waitgroup.
 	reqLogger.Info("Reconciling the Storage Bucket")
@@ -175,23 +190,11 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		}
 	}(instance)
 
-	// Create / update the kafka topics
-	reqLogger.Info("Reconciling Kakfa Topics")
-	// Iterate the topics
-	for _, topicConfig := range instance.Spec.PipelineSpec.TopicConfigs {
-		wg.Add(1)
-		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
-			topicReconciler := recon.NewTopicReconciler(instance, &currentTopicConfig, &request, r.client, r.scheme)
-			topicReconciler.Reconcile()
-			wg.Done()
-		}(topicConfig)
-	}
-
 	// Create the kafka user
 	reqLogger.Info("Reconciling the Kafka User")
 	wg.Add(1)
 	go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
-		kafkaUserReconciler := recon.NewKafkaUserReconciler(instance, instance.Spec.PipelineSpec.TopicConfigs, &request, r.client, r.scheme)
+		kafkaUserReconciler := recon.NewKafkaUserReconciler(instance, allTopicConfigs, &request, r.client, r.scheme)
 		kafkaUserReconciler.Reconcile()
 		wg.Done()
 	}(instance)
@@ -199,11 +202,11 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	// Reconcile all algo deployments
 	reqLogger.Info("Reconciling Algos")
 	// Iterate the AlgoConfigs
-	for _, algoConfig := range instance.Spec.PipelineSpec.AlgoConfigs {
+	for _, algoConfig := range instance.Spec.Algos {
 		wg.Add(1)
 		go func(currentAlgoConfig algov1beta1.AlgoConfig) {
 			defer wg.Done()
-			algoReconciler := recon.NewAlgoReconciler(instance, &currentAlgoConfig, &request, r.client, r.scheme, kafkaTLS)
+			algoReconciler := recon.NewAlgoReconciler(instance, &currentAlgoConfig, allTopicConfigs, &request, r.client, r.scheme, kafkaTLS)
 			err = algoReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in AlgoConfig reconcile loop.")
@@ -215,7 +218,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("Reconciling Algo Metrics Service")
 	wg.Add(1)
 	go func() {
-		algoReconciler := recon.NewAlgoReconciler(instance, nil, &request, r.client, r.scheme, kafkaTLS)
+		algoReconciler := recon.NewAlgoReconciler(instance, nil, allTopicConfigs, &request, r.client, r.scheme, kafkaTLS)
 		algoReconciler.ReconcileService()
 		wg.Done()
 	}()
@@ -223,10 +226,10 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	// Reconcile all data connectors
 	reqLogger.Info("Reconciling Data Connectors")
 	// Iterate the DataConnectors
-	for _, dcConfig := range instance.Spec.PipelineSpec.DataConnectorConfigs {
+	for _, dcConfig := range instance.Spec.DataConnectors {
 		wg.Add(1)
 		go func(currentDcConfig algov1beta1.DataConnectorConfig) {
-			dcReconciler := recon.NewDataConnectorReconciler(instance, &currentDcConfig, &request, r.client, r.scheme)
+			dcReconciler := recon.NewDataConnectorReconciler(instance, &currentDcConfig, allTopicConfigs, &request, r.client, r.scheme)
 			err = dcReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in DataConnectorConfigs reconcile loop.")
@@ -236,12 +239,12 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	}
 
 	// Reconcile hook container
-	if instance.Spec.PipelineSpec.HookConfig != nil &&
-		len(instance.Spec.PipelineSpec.HookConfig.WebHooks) > 0 {
+	if instance.Spec.Hook != nil &&
+		len(instance.Spec.Hook.WebHooks) > 0 {
 		reqLogger.Info("Reconciling Hooks")
 		wg.Add(1)
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
-			hookReconciler := recon.NewHookReconciler(instance, &request, r.client, r.scheme, kafkaTLS)
+			hookReconciler := recon.NewHookReconciler(instance, allTopicConfigs, &request, r.client, r.scheme, kafkaTLS)
 			err = hookReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in Hook reconcile.")
@@ -251,8 +254,8 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	}
 
 	// Reconcile endpoint container
-	if instance.Spec.PipelineSpec.EndpointConfig != nil &&
-		len(instance.Spec.PipelineSpec.EndpointConfig.Paths) > 0 {
+	if instance.Spec.Endpoint != nil &&
+		len(instance.Spec.Endpoint.Paths) > 0 {
 		reqLogger.Info("Reconciling Endpoints")
 		wg.Add(1)
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {

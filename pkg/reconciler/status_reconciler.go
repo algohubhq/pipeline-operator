@@ -65,8 +65,8 @@ func (r *StatusReconciler) Reconcile() error {
 			Level:            "Info",
 			Type_:            "PipelineDeploymentStatus",
 			DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
-				DeploymentOwnerUserName: r.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-				DeploymentName:          r.pipelineDeployment.Spec.PipelineSpec.DeploymentName,
+				DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
+				DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
 				Status:                  r.pipelineDeployment.Status.Status,
 			},
 		}
@@ -88,8 +88,8 @@ func (r *StatusReconciler) Reconcile() error {
 						Level:            "Info",
 						Type_:            "PipelineDeployment",
 						DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
-							DeploymentOwnerUserName: r.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-							DeploymentName:          r.pipelineDeployment.Spec.PipelineSpec.DeploymentName,
+							DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
+							DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
 							Status:                  r.pipelineDeployment.Status.Status,
 						},
 					}
@@ -115,8 +115,8 @@ func (r *StatusReconciler) Reconcile() error {
 						Level:            "Info",
 						Type_:            "PipelineDeploymentPod",
 						DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
-							DeploymentOwnerUserName: r.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName,
-							DeploymentName:          r.pipelineDeployment.Spec.PipelineSpec.DeploymentName,
+							DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
+							DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
 							Status:                  r.pipelineDeployment.Status.Status,
 						},
 					}
@@ -152,8 +152,8 @@ func (r *StatusReconciler) Reconcile() error {
 func (r *StatusReconciler) getStatus(cr *algov1beta1.PipelineDeployment, request *reconcile.Request) (*algov1beta1.PipelineDeploymentStatus, error) {
 
 	pipelineDeploymentStatus := algov1beta1.PipelineDeploymentStatus{
-		DeploymentOwnerUserName: cr.Spec.PipelineSpec.DeploymentOwnerUserName,
-		DeploymentName:          cr.Spec.PipelineSpec.DeploymentName,
+		DeploymentOwnerUserName: cr.Spec.DeploymentOwnerUserName,
+		DeploymentName:          cr.Spec.DeploymentName,
 	}
 
 	logData := map[string]interface{}{
@@ -206,8 +206,8 @@ func (r *StatusReconciler) getDeploymentStatuses(cr *algov1beta1.PipelineDeploym
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.PipelineSpec.DeploymentOwnerUserName,
-				cr.Spec.PipelineSpec.DeploymentName),
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.DeploymentOwnerUserName,
+				cr.Spec.DeploymentName),
 		},
 	}
 
@@ -284,8 +284,8 @@ func (r *StatusReconciler) getStatefulSetStatuses(cr *algov1beta1.PipelineDeploy
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.PipelineSpec.DeploymentOwnerUserName,
-				cr.Spec.PipelineSpec.DeploymentName),
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.DeploymentOwnerUserName,
+				cr.Spec.DeploymentName),
 		},
 	}
 
@@ -350,8 +350,8 @@ func (r *StatusReconciler) getPodStatuses(cr *algov1beta1.PipelineDeployment, re
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.PipelineSpec.DeploymentOwnerUserName,
-				cr.Spec.PipelineSpec.DeploymentName),
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.DeploymentOwnerUserName,
+				cr.Spec.DeploymentName),
 		},
 	}
 
@@ -428,12 +428,12 @@ func (r *StatusReconciler) calculateStatus(cr *algov1beta1.PipelineDeployment,
 
 	var unreadyDeployments int32
 
-	componentCount := len(cr.Spec.PipelineSpec.AlgoConfigs)
-	componentCount = componentCount + len(cr.Spec.PipelineSpec.DataConnectorConfigs)
-	if cr.Spec.PipelineSpec.EndpointConfig != nil {
+	componentCount := len(cr.Spec.Algos)
+	componentCount = componentCount + len(cr.Spec.DataConnectors)
+	if cr.Spec.Endpoint != nil {
 		componentCount = componentCount + 1
 	}
-	if cr.Spec.PipelineSpec.HookConfig != nil && len(cr.Spec.PipelineSpec.HookConfig.WebHooks) > 0 {
+	if cr.Spec.Hook != nil && len(cr.Spec.Hook.WebHooks) > 0 {
 		componentCount = componentCount + 1
 	}
 

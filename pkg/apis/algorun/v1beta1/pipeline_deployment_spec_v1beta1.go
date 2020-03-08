@@ -10,7 +10,7 @@
 
 package v1beta1
 
-type PipelineSpec struct {
+type PipelineDeploymentSpecV1beta1 struct {
 
 	DeploymentOwnerUserName string `json:"deploymentOwnerUserName,omitempty"`
 
@@ -22,19 +22,19 @@ type PipelineSpec struct {
 
 	PipelineVersionTag string `json:"pipelineVersionTag,omitempty"`
 
+	KafkaBrokers string `json:"kafkaBrokers,omitempty"`
+
 	StorageBucket string `json:"storageBucket,omitempty"`
 
 	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
 
-	EndpointConfig *EndpointConfig `json:"endpointConfig,omitempty"`
+	Endpoint *EndpointConfig `json:"endpoint,omitempty"`
 
-	AlgoConfigs []AlgoConfig `json:"algoConfigs,omitempty"`
+	Algos []AlgoConfig `json:"algos,omitempty"`
 
-	DataConnectorConfigs []DataConnectorConfig `json:"dataConnectorConfigs,omitempty"`
+	DataConnectors []DataConnectorConfig `json:"dataConnectors,omitempty"`
 
-	HookConfig *HookConfig `json:"hookConfig,omitempty"`
-
-	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
+	Hook *HookConfig `json:"hook,omitempty"`
 
 	Pipes []PipeModel `json:"pipes,omitempty"`
 }

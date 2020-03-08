@@ -7,13 +7,6 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// PipelineDeploymentSpec defines the desired state of the PipelineDeployment
-// +k8s:openapi-gen=true
-type PipelineDeploymentSpec struct {
-	KafkaBrokers string       `json:"kafkaBrokers,omitempty"`
-	PipelineSpec PipelineSpec `json:"pipelineSpec,omitempty"`
-}
-
 // PipelineDeploymentStatus defines the observed state of PipelineDeployment
 // +k8s:openapi-gen=true
 type PipelineDeploymentStatus struct {
@@ -36,8 +29,8 @@ type PipelineDeployment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PipelineDeploymentSpec   `json:"spec,omitempty"`
-	Status PipelineDeploymentStatus `json:"status,omitempty"`
+	Spec   PipelineDeploymentSpecV1beta1 `json:"spec,omitempty"`
+	Status PipelineDeploymentStatus      `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -3,7 +3,7 @@
 # Local instance must be running to pull the swagger.json file
 java -jar ./swagger-codegen-cli.jar generate -i http://localhost:5000/swagger/v1-beta1/swagger.json -Dio.swagger.parser.util.RemoteUrl.trustAll=true -l go -o algorun-go-client -c ./swagger-config.json
 
-cp ./algorun-go-client/pipeline_spec.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/pipeline_deployment_spec_v1beta1.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/algo_config.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/data_connector_config.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/algo_runner_config.go ./pkg/apis/algorun/v1beta1/

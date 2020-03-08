@@ -29,367 +29,97 @@ spec:
         metadata:
           type: object
         spec:
-          description: PipelineDeploymentSpec defines the desired state of the PipelineDeployment
           properties:
-            imagePullPolicy:
-              type: string
-            kafkaBrokers:
-              type: string
-            pipelineSpec:
-              properties:
-                algoConfigs:
-                  items:
-                    properties:
-                      algoIndex:
-                        format: int32
-                        type: integer
-                      algoName:
-                        type: string
-                      algoOwnerUserName:
-                        type: string
-                      algoParams:
-                        items:
-                          properties:
-                            dataType:
-                              properties:
-                                mask:
-                                  type: string
-                                name:
-                                  type: string
-                                precision:
-                                  format: int32
-                                  type: integer
-                                regex:
-                                  type: string
-                                scale:
-                                  format: int32
-                                  type: integer
-                              required:
-                              - name
-                              type: object
-                            description:
-                              type: string
-                            name:
-                              type: string
-                            options:
-                              items:
-                                properties:
-                                  name:
-                                    type: string
-                                type: object
-                              type: array
-                            sortOrder:
-                              format: int32
-                              type: integer
-                            value:
-                              type: string
-                          required:
-                          - name
-                          type: object
-                        type: array
-                      algoRunnerImage:
-                        type: string
-                      algoRunnerImageTag:
-                        type: string
-                      algoVersionTag:
-                        type: string
-                      applied:
-                        type: boolean
-                      configMounts:
-                        items:
-                          properties:
-                            data:
-                              type: string
-                            mountPath:
-                              type: string
-                            name:
-                              type: string
-                          required:
-                          - data
-                          - mountPath
-                          - name
-                          type: object
-                        type: array
-                      deploymentName:
-                        type: string
-                      entrypoint:
-                        type: string
-                      executor:
-                        type: string
-                      gpuEnabled:
-                        type: boolean
-                      imageRepository:
-                        type: string
-                      imageTag:
-                        type: string
-                      inputs:
-                        items:
-                          properties:
-                            contentTypes:
-                              items:
-                                properties:
-                                  encoding:
-                                    type: string
-                                  fileExtension:
-                                    type: string
-                                  groupName:
-                                    type: string
-                                  iconClass:
-                                    type: string
-                                  name:
-                                    type: string
-                                  rfc:
-                                    type: string
-                                  rfcUrl:
-                                    type: string
-                                  subTypeName:
-                                    type: string
-                                  title:
-                                    type: string
-                                  url:
-                                    type: string
-                                type: object
-                              type: array
-                            description:
-                              type: string
-                            environmentVariable:
-                              type: string
-                            httpHeaders:
-                              type: string
-                            httpPath:
-                              type: string
-                            httpPort:
-                              format: int32
-                              type: integer
-                            httpVerb:
-                              type: string
-                            inputDeliveryType:
-                              type: string
-                            isRequired:
-                              type: boolean
-                            name:
-                              type: string
-                            parameter:
-                              type: string
-                            parameterDelimiter:
-                              type: string
-                          required:
-                          - contentTypes
-                          - inputDeliveryType
-                          - name
-                          type: object
-                        type: array
-                      livenessInitialDelaySeconds:
-                        format: int32
-                        type: integer
-                      livenessPeriodSeconds:
-                        format: int32
-                        type: integer
-                      livenessTimeoutSeconds:
-                        format: int32
-                        type: integer
-                      outputs:
-                        items:
-                          properties:
-                            contentType:
-                              properties:
-                                encoding:
-                                  type: string
-                                fileExtension:
-                                  type: string
-                                groupName:
-                                  type: string
-                                iconClass:
-                                  type: string
-                                name:
-                                  type: string
-                                rfc:
-                                  type: string
-                                rfcUrl:
-                                  type: string
-                                subTypeName:
-                                  type: string
-                                title:
-                                  type: string
-                                url:
-                                  type: string
-                              type: object
-                            description:
-                              type: string
-                            name:
-                              type: string
-                            outputDeliveryType:
-                              type: string
-                            parameter:
-                              type: string
-                          required:
-                          - contentType
-                          - name
-                          - outputDeliveryType
-                          type: object
-                        type: array
-                      readinessInitialDelaySeconds:
-                        format: int32
-                        type: integer
-                      readinessPeriodSeconds:
-                        format: int32
-                        type: integer
-                      readinessTimeoutSeconds:
-                        format: int32
-                        type: integer
-                      resource:
-                        properties:
-                          autoScale:
-                            type: boolean
-                          cpuLimitMillicores:
-                            format: int64
-                            type: integer
-                          cpuRequestMillicores:
-                            format: int64
-                            type: integer
-                          gpuLimitMillicores:
-                            format: int64
-                            type: integer
-                          instances:
-                            format: int32
-                            type: integer
-                          maxInstances:
-                            format: int32
-                            type: integer
-                          memoryLimitBytes:
-                            format: int64
-                            type: integer
-                          memoryRequestBytes:
-                            format: int64
-                            type: integer
-                          minInstances:
-                            format: int32
-                            type: integer
-                          scaleMetrics:
-                            items:
-                              properties:
-                                averageUtilization:
-                                  format: int32
-                                  type: integer
-                                averageValue:
-                                  type: string
-                                metricName:
-                                  type: string
-                                metricSelector:
-                                  type: string
-                                objectApiVersion:
-                                  type: string
-                                objectKind:
-                                  type: string
-                                objectName:
-                                  type: string
-                                resourceName:
-                                  type: string
-                                sourceType:
-                                  type: string
-                                targetType:
-                                  type: string
-                                value:
-                                  type: string
-                              type: object
-                            type: array
-                        type: object
-                      timeoutSeconds:
-                        format: int32
-                        type: integer
-                      writeAllOutputs:
-                        type: boolean
-                    type: object
-                  type: array
-                dataConnectorConfigs:
-                  items:
-                    properties:
-                      connectorClass:
-                        type: string
-                      dataConnectorType:
-                        type: string
-                      deploymentName:
-                        type: string
-                      imageRepository:
-                        type: string
-                      imageTag:
-                        type: string
-                      index:
-                        format: int32
-                        type: integer
-                      name:
-                        type: string
-                      options:
-                        items:
-                          properties:
-                            dataType:
-                              properties:
-                                mask:
-                                  type: string
-                                name:
-                                  type: string
-                                precision:
-                                  format: int32
-                                  type: integer
-                                regex:
-                                  type: string
-                                scale:
-                                  format: int32
-                                  type: integer
-                              required:
-                              - name
-                              type: object
-                            description:
-                              type: string
-                            name:
-                              type: string
-                            required:
-                              type: boolean
-                            sortOrder:
-                              format: int32
-                              type: integer
-                            value:
-                              type: string
-                          type: object
-                        type: array
-                      tasksMax:
-                        format: int32
-                        type: integer
-                      versionTag:
-                        type: string
-                    type: object
-                  type: array
-                deploymentName:
-                  type: string
-                deploymentOwnerUserName:
-                  type: string
-                endpointConfig:
-                  properties:
-                    deploymentName:
-                      type: string
-                    deploymentOwnerUserName:
-                      type: string
-                    imageRepository:
-                      type: string
-                    imageTag:
-                      type: string
-                    kafka:
+            algos:
+              items:
+                properties:
+                  algoIndex:
+                    format: int32
+                    type: integer
+                  algoName:
+                    type: string
+                  algoOwnerUserName:
+                    type: string
+                  algoParams:
+                    items:
                       properties:
-                        brokers:
-                          items:
-                            type: string
-                          type: array
-                        params:
-                          additionalProperties:
-                            type: string
+                        dataType:
+                          properties:
+                            mask:
+                              type: string
+                            name:
+                              type: string
+                            precision:
+                              format: int32
+                              type: integer
+                            regex:
+                              type: string
+                            scale:
+                              format: int32
+                              type: integer
+                          required:
+                          - name
                           type: object
+                        description:
+                          type: string
+                        name:
+                          type: string
+                        options:
+                          items:
+                            properties:
+                              name:
+                                type: string
+                            type: object
+                          type: array
+                        sortOrder:
+                          format: int32
+                          type: integer
+                        value:
+                          type: string
+                      required:
+                      - name
                       type: object
-                    paths:
-                      items:
-                        properties:
-                          connectionString:
-                            type: string
-                          contentType:
+                    type: array
+                  algoRunnerImage:
+                    type: string
+                  algoRunnerImageTag:
+                    type: string
+                  algoVersionTag:
+                    type: string
+                  applied:
+                    type: boolean
+                  configMounts:
+                    items:
+                      properties:
+                        data:
+                          type: string
+                        mountPath:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                      - data
+                      - mountPath
+                      - name
+                      type: object
+                    type: array
+                  deploymentName:
+                    type: string
+                  entrypoint:
+                    type: string
+                  executor:
+                    type: string
+                  gpuEnabled:
+                    type: boolean
+                  imageRepository:
+                    type: string
+                  imageTag:
+                    type: string
+                  inputs:
+                    items:
+                      properties:
+                        contentTypes:
+                          items:
                             properties:
                               encoding:
                                 type: string
@@ -412,309 +142,466 @@ spec:
                               url:
                                 type: string
                             type: object
-                          description:
+                          type: array
+                        description:
+                          type: string
+                        environmentVariable:
+                          type: string
+                        httpHeaders:
+                          type: string
+                        httpPath:
+                          type: string
+                        httpPort:
+                          format: int32
+                          type: integer
+                        httpVerb:
+                          type: string
+                        inputDeliveryType:
+                          type: string
+                        isRequired:
+                          type: boolean
+                        name:
+                          type: string
+                        parameter:
+                          type: string
+                        parameterDelimiter:
+                          type: string
+                      required:
+                      - contentTypes
+                      - inputDeliveryType
+                      - name
+                      type: object
+                    type: array
+                  livenessInitialDelaySeconds:
+                    format: int32
+                    type: integer
+                  livenessPeriodSeconds:
+                    format: int32
+                    type: integer
+                  livenessTimeoutSeconds:
+                    format: int32
+                    type: integer
+                  outputs:
+                    items:
+                      properties:
+                        contentType:
+                          properties:
+                            encoding:
+                              type: string
+                            fileExtension:
+                              type: string
+                            groupName:
+                              type: string
+                            iconClass:
+                              type: string
+                            name:
+                              type: string
+                            rfc:
+                              type: string
+                            rfcUrl:
+                              type: string
+                            subTypeName:
+                              type: string
+                            title:
+                              type: string
+                            url:
+                              type: string
+                          type: object
+                        description:
+                          type: string
+                        name:
+                          type: string
+                        outputDeliveryType:
+                          type: string
+                        parameter:
+                          type: string
+                      required:
+                      - contentType
+                      - name
+                      - outputDeliveryType
+                      type: object
+                    type: array
+                  readinessInitialDelaySeconds:
+                    format: int32
+                    type: integer
+                  readinessPeriodSeconds:
+                    format: int32
+                    type: integer
+                  readinessTimeoutSeconds:
+                    format: int32
+                    type: integer
+                  resource:
+                    properties:
+                      autoScale:
+                        type: boolean
+                      cpuLimitMillicores:
+                        format: int64
+                        type: integer
+                      cpuRequestMillicores:
+                        format: int64
+                        type: integer
+                      gpuLimitMillicores:
+                        format: int64
+                        type: integer
+                      instances:
+                        format: int32
+                        type: integer
+                      maxInstances:
+                        format: int32
+                        type: integer
+                      memoryLimitBytes:
+                        format: int64
+                        type: integer
+                      memoryRequestBytes:
+                        format: int64
+                        type: integer
+                      minInstances:
+                        format: int32
+                        type: integer
+                      scaleMetrics:
+                        items:
+                          properties:
+                            averageUtilization:
+                              format: int32
+                              type: integer
+                            averageValue:
+                              type: string
+                            metricName:
+                              type: string
+                            metricSelector:
+                              type: string
+                            objectApiVersion:
+                              type: string
+                            objectKind:
+                              type: string
+                            objectName:
+                              type: string
+                            resourceName:
+                              type: string
+                            sourceType:
+                              type: string
+                            targetType:
+                              type: string
+                            value:
+                              type: string
+                          type: object
+                        type: array
+                    type: object
+                  timeoutSeconds:
+                    format: int32
+                    type: integer
+                  topicConfigs:
+                    items:
+                      properties:
+                        componentType:
+                          type: string
+                        sourceName:
+                          type: string
+                        sourceOutputName:
+                          type: string
+                        topicAutoName:
+                          type: boolean
+                        topicAutoPartition:
+                          type: boolean
+                        topicName:
+                          type: string
+                        topicParams:
+                          items:
+                            properties:
+                              name:
+                                type: string
+                              value:
+                                type: string
+                            type: object
+                          type: array
+                        topicPartitions:
+                          format: int32
+                          type: integer
+                        topicReplicationFactor:
+                          format: int32
+                          type: integer
+                      type: object
+                    type: array
+                  writeAllOutputs:
+                    type: boolean
+                type: object
+              type: array
+            dataConnectors:
+              items:
+                properties:
+                  connectorClass:
+                    type: string
+                  dataConnectorType:
+                    type: string
+                  deploymentName:
+                    type: string
+                  imageRepository:
+                    type: string
+                  imageTag:
+                    type: string
+                  index:
+                    format: int32
+                    type: integer
+                  name:
+                    type: string
+                  options:
+                    items:
+                      properties:
+                        dataType:
+                          properties:
+                            mask:
+                              type: string
+                            name:
+                              type: string
+                            precision:
+                              format: int32
+                              type: integer
+                            regex:
+                              type: string
+                            scale:
+                              format: int32
+                              type: integer
+                          required:
+                          - name
+                          type: object
+                        description:
+                          type: string
+                        name:
+                          type: string
+                        required:
+                          type: boolean
+                        sortOrder:
+                          format: int32
+                          type: integer
+                        value:
+                          type: string
+                      type: object
+                    type: array
+                  tasksMax:
+                    format: int32
+                    type: integer
+                  topicConfigs:
+                    items:
+                      properties:
+                        componentType:
+                          type: string
+                        sourceName:
+                          type: string
+                        sourceOutputName:
+                          type: string
+                        topicAutoName:
+                          type: boolean
+                        topicAutoPartition:
+                          type: boolean
+                        topicName:
+                          type: string
+                        topicParams:
+                          items:
+                            properties:
+                              name:
+                                type: string
+                              value:
+                                type: string
+                            type: object
+                          type: array
+                        topicPartitions:
+                          format: int32
+                          type: integer
+                        topicReplicationFactor:
+                          format: int32
+                          type: integer
+                      type: object
+                    type: array
+                  versionTag:
+                    type: string
+                type: object
+              type: array
+            deploymentName:
+              type: string
+            deploymentOwnerUserName:
+              type: string
+            endpoint:
+              properties:
+                deploymentName:
+                  type: string
+                deploymentOwnerUserName:
+                  type: string
+                imageRepository:
+                  type: string
+                imageTag:
+                  type: string
+                kafka:
+                  properties:
+                    brokers:
+                      items:
+                        type: string
+                      type: array
+                    params:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
+                paths:
+                  items:
+                    properties:
+                      connectionString:
+                        type: string
+                      contentType:
+                        properties:
+                          encoding:
                             type: string
-                          endpointType:
+                          fileExtension:
                             type: string
-                          isDefault:
-                            type: boolean
-                          messageDataType:
+                          groupName:
+                            type: string
+                          iconClass:
                             type: string
                           name:
                             type: string
-                        type: object
-                      type: array
-                    pipelineName:
-                      type: string
-                    pipelineOwnerUserName:
-                      type: string
-                    producer:
-                      properties:
-                        cb:
-                          properties:
-                            fails:
-                              format: int32
-                              type: integer
-                            interval:
-                              format: int32
-                              type: integer
-                            requests:
-                              format: int32
-                              type: integer
-                            timeout:
-                              type: string
-                          type: object
-                        resend:
-                          properties:
-                            period:
-                              type: string
-                            rate_limit:
-                              format: int32
-                              type: integer
-                          type: object
-                        wal:
-                          properties:
-                            always_topics:
-                              items:
-                                type: string
-                              type: array
-                            disable_topics:
-                              items:
-                                type: string
-                              type: array
-                            mode:
-                              type: string
-                            path:
-                              type: string
-                            size:
-                              type: string
-                          type: object
-                      type: object
-                    resource:
-                      properties:
-                        autoScale:
-                          type: boolean
-                        cpuLimitMillicores:
-                          format: int64
-                          type: integer
-                        cpuRequestMillicores:
-                          format: int64
-                          type: integer
-                        gpuLimitMillicores:
-                          format: int64
-                          type: integer
-                        instances:
-                          format: int32
-                          type: integer
-                        maxInstances:
-                          format: int32
-                          type: integer
-                        memoryLimitBytes:
-                          format: int64
-                          type: integer
-                        memoryRequestBytes:
-                          format: int64
-                          type: integer
-                        minInstances:
-                          format: int32
-                          type: integer
-                        scaleMetrics:
-                          items:
-                            properties:
-                              averageUtilization:
-                                format: int32
-                                type: integer
-                              averageValue:
-                                type: string
-                              metricName:
-                                type: string
-                              metricSelector:
-                                type: string
-                              objectApiVersion:
-                                type: string
-                              objectKind:
-                                type: string
-                              objectName:
-                                type: string
-                              resourceName:
-                                type: string
-                              sourceType:
-                                type: string
-                              targetType:
-                                type: string
-                              value:
-                                type: string
-                            type: object
-                          type: array
-                      type: object
-                    server:
-                      properties:
-                        grpc:
-                          properties:
-                            listen:
-                              type: string
-                          type: object
-                        http:
-                          properties:
-                            listen:
-                              type: string
-                          type: object
-                        monitoring:
-                          properties:
-                            listen:
-                              type: string
-                          type: object
-                      type: object
-                  type: object
-                hookConfig:
-                  properties:
-                    deploymentName:
-                      type: string
-                    deploymentOwnerUserName:
-                      type: string
-                    imageRepository:
-                      type: string
-                    imageTag:
-                      type: string
-                    pipelineName:
-                      type: string
-                    pipelineOwnerUserName:
-                      type: string
-                    pipes:
-                      items:
-                        properties:
-                          destComponentType:
+                          rfc:
                             type: string
-                          destInputName:
+                          rfcUrl:
                             type: string
-                          destName:
+                          subTypeName:
                             type: string
-                          sourceComponentType:
+                          title:
                             type: string
-                          sourceName:
-                            type: string
-                          sourceOutputMessageDataType:
-                            type: string
-                          sourceOutputName:
+                          url:
                             type: string
                         type: object
-                      type: array
-                    resource:
-                      properties:
-                        autoScale:
-                          type: boolean
-                        cpuLimitMillicores:
-                          format: int64
-                          type: integer
-                        cpuRequestMillicores:
-                          format: int64
-                          type: integer
-                        gpuLimitMillicores:
-                          format: int64
-                          type: integer
-                        instances:
-                          format: int32
-                          type: integer
-                        maxInstances:
-                          format: int32
-                          type: integer
-                        memoryLimitBytes:
-                          format: int64
-                          type: integer
-                        memoryRequestBytes:
-                          format: int64
-                          type: integer
-                        minInstances:
-                          format: int32
-                          type: integer
-                        scaleMetrics:
-                          items:
-                            properties:
-                              averageUtilization:
-                                format: int32
-                                type: integer
-                              averageValue:
-                                type: string
-                              metricName:
-                                type: string
-                              metricSelector:
-                                type: string
-                              objectApiVersion:
-                                type: string
-                              objectKind:
-                                type: string
-                              objectName:
-                                type: string
-                              resourceName:
-                                type: string
-                              sourceType:
-                                type: string
-                              targetType:
-                                type: string
-                              value:
-                                type: string
-                            type: object
-                          type: array
-                      type: object
-                    topicConfigs:
-                      items:
-                        properties:
-                          componentType:
-                            type: string
-                          sourceName:
-                            type: string
-                          sourceOutputName:
-                            type: string
-                          topicAutoName:
-                            type: boolean
-                          topicAutoPartition:
-                            type: boolean
-                          topicName:
-                            type: string
-                          topicParams:
-                            items:
-                              properties:
-                                name:
-                                  type: string
-                                value:
-                                  type: string
-                              type: object
-                            type: array
-                          topicPartitions:
-                            format: int32
-                            type: integer
-                          topicReplicationFactor:
-                            format: int32
-                            type: integer
-                        type: object
-                      type: array
-                    webHooks:
-                      items:
-                        properties:
-                          deploymentName:
-                            type: string
-                          deploymentOwnerUserName:
-                            type: string
-                          httpHeaders:
-                            type: string
-                          httpVerb:
-                            type: string
-                          pipelineHookInputName:
-                            type: string
-                          webHookUrl:
-                            type: string
-                        type: object
-                      type: array
-                  type: object
-                imagePullPolicy:
-                  type: string
+                      description:
+                        type: string
+                      endpointType:
+                        type: string
+                      isDefault:
+                        type: boolean
+                      messageDataType:
+                        type: string
+                      name:
+                        type: string
+                    type: object
+                  type: array
                 pipelineName:
                   type: string
                 pipelineOwnerUserName:
                   type: string
-                pipelineVersionTag:
-                  type: string
-                pipes:
-                  items:
-                    properties:
-                      destComponentType:
-                        type: string
-                      destInputName:
-                        type: string
-                      destName:
-                        type: string
-                      sourceComponentType:
-                        type: string
-                      sourceName:
-                        type: string
-                      sourceOutputMessageDataType:
-                        type: string
-                      sourceOutputName:
-                        type: string
-                    type: object
-                  type: array
-                storageBucket:
-                  type: string
+                producer:
+                  properties:
+                    cb:
+                      properties:
+                        fails:
+                          format: int32
+                          type: integer
+                        interval:
+                          format: int32
+                          type: integer
+                        requests:
+                          format: int32
+                          type: integer
+                        timeout:
+                          type: string
+                      type: object
+                    resend:
+                      properties:
+                        period:
+                          type: string
+                        rate_limit:
+                          format: int32
+                          type: integer
+                      type: object
+                    wal:
+                      properties:
+                        always_topics:
+                          items:
+                            type: string
+                          type: array
+                        disable_topics:
+                          items:
+                            type: string
+                          type: array
+                        mode:
+                          type: string
+                        path:
+                          type: string
+                        size:
+                          type: string
+                      type: object
+                  type: object
+                resource:
+                  properties:
+                    autoScale:
+                      type: boolean
+                    cpuLimitMillicores:
+                      format: int64
+                      type: integer
+                    cpuRequestMillicores:
+                      format: int64
+                      type: integer
+                    gpuLimitMillicores:
+                      format: int64
+                      type: integer
+                    instances:
+                      format: int32
+                      type: integer
+                    maxInstances:
+                      format: int32
+                      type: integer
+                    memoryLimitBytes:
+                      format: int64
+                      type: integer
+                    memoryRequestBytes:
+                      format: int64
+                      type: integer
+                    minInstances:
+                      format: int32
+                      type: integer
+                    scaleMetrics:
+                      items:
+                        properties:
+                          averageUtilization:
+                            format: int32
+                            type: integer
+                          averageValue:
+                            type: string
+                          metricName:
+                            type: string
+                          metricSelector:
+                            type: string
+                          objectApiVersion:
+                            type: string
+                          objectKind:
+                            type: string
+                          objectName:
+                            type: string
+                          resourceName:
+                            type: string
+                          sourceType:
+                            type: string
+                          targetType:
+                            type: string
+                          value:
+                            type: string
+                        type: object
+                      type: array
+                  type: object
+                server:
+                  properties:
+                    grpc:
+                      properties:
+                        listen:
+                          type: string
+                      type: object
+                    http:
+                      properties:
+                        listen:
+                          type: string
+                      type: object
+                    monitoring:
+                      properties:
+                        listen:
+                          type: string
+                      type: object
+                  type: object
                 topicConfigs:
                   items:
                     properties:
@@ -748,6 +635,177 @@ spec:
                     type: object
                   type: array
               type: object
+            hook:
+              properties:
+                deploymentName:
+                  type: string
+                deploymentOwnerUserName:
+                  type: string
+                imageRepository:
+                  type: string
+                imageTag:
+                  type: string
+                pipelineName:
+                  type: string
+                pipelineOwnerUserName:
+                  type: string
+                pipes:
+                  items:
+                    properties:
+                      destComponentType:
+                        type: string
+                      destInputName:
+                        type: string
+                      destName:
+                        type: string
+                      sourceComponentType:
+                        type: string
+                      sourceName:
+                        type: string
+                      sourceOutputMessageDataType:
+                        type: string
+                      sourceOutputName:
+                        type: string
+                    type: object
+                  type: array
+                resource:
+                  properties:
+                    autoScale:
+                      type: boolean
+                    cpuLimitMillicores:
+                      format: int64
+                      type: integer
+                    cpuRequestMillicores:
+                      format: int64
+                      type: integer
+                    gpuLimitMillicores:
+                      format: int64
+                      type: integer
+                    instances:
+                      format: int32
+                      type: integer
+                    maxInstances:
+                      format: int32
+                      type: integer
+                    memoryLimitBytes:
+                      format: int64
+                      type: integer
+                    memoryRequestBytes:
+                      format: int64
+                      type: integer
+                    minInstances:
+                      format: int32
+                      type: integer
+                    scaleMetrics:
+                      items:
+                        properties:
+                          averageUtilization:
+                            format: int32
+                            type: integer
+                          averageValue:
+                            type: string
+                          metricName:
+                            type: string
+                          metricSelector:
+                            type: string
+                          objectApiVersion:
+                            type: string
+                          objectKind:
+                            type: string
+                          objectName:
+                            type: string
+                          resourceName:
+                            type: string
+                          sourceType:
+                            type: string
+                          targetType:
+                            type: string
+                          value:
+                            type: string
+                        type: object
+                      type: array
+                  type: object
+                topicConfigs:
+                  items:
+                    properties:
+                      componentType:
+                        type: string
+                      sourceName:
+                        type: string
+                      sourceOutputName:
+                        type: string
+                      topicAutoName:
+                        type: boolean
+                      topicAutoPartition:
+                        type: boolean
+                      topicName:
+                        type: string
+                      topicParams:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          type: object
+                        type: array
+                      topicPartitions:
+                        format: int32
+                        type: integer
+                      topicReplicationFactor:
+                        format: int32
+                        type: integer
+                    type: object
+                  type: array
+                webHooks:
+                  items:
+                    properties:
+                      deploymentName:
+                        type: string
+                      deploymentOwnerUserName:
+                        type: string
+                      httpHeaders:
+                        type: string
+                      httpVerb:
+                        type: string
+                      pipelineHookInputName:
+                        type: string
+                      webHookUrl:
+                        type: string
+                    type: object
+                  type: array
+              type: object
+            imagePullPolicy:
+              type: string
+            kafkaBrokers:
+              type: string
+            pipelineName:
+              type: string
+            pipelineOwnerUserName:
+              type: string
+            pipelineVersionTag:
+              type: string
+            pipes:
+              items:
+                properties:
+                  destComponentType:
+                    type: string
+                  destInputName:
+                    type: string
+                  destName:
+                    type: string
+                  sourceComponentType:
+                    type: string
+                  sourceName:
+                    type: string
+                  sourceOutputMessageDataType:
+                    type: string
+                  sourceOutputName:
+                    type: string
+                type: object
+              type: array
+            storageBucket:
+              type: string
           type: object
         status:
           description: PipelineDeploymentStatus defines the observed state of PipelineDeployment

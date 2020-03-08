@@ -38,7 +38,7 @@ type BucketReconciler struct {
 func (bucketReconciler *BucketReconciler) Reconcile() error {
 
 	kubeUtil := utils.NewKubeUtil(bucketReconciler.client, bucketReconciler.request)
-	storageSecretName, err := kubeUtil.GetStorageSecretName(&bucketReconciler.pipelineDeployment.Spec.PipelineSpec)
+	storageSecretName, err := kubeUtil.GetStorageSecretName(&bucketReconciler.pipelineDeployment.Spec)
 
 	if storageSecretName != "" && err == nil {
 
@@ -68,8 +68,8 @@ func (bucketReconciler *BucketReconciler) Reconcile() error {
 		}
 
 		bucketName := fmt.Sprintf("%s.%s",
-			strings.ToLower(bucketReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentOwnerUserName),
-			strings.ToLower(bucketReconciler.pipelineDeployment.Spec.PipelineSpec.DeploymentName))
+			strings.ToLower(bucketReconciler.pipelineDeployment.Spec.DeploymentOwnerUserName),
+			strings.ToLower(bucketReconciler.pipelineDeployment.Spec.DeploymentName))
 
 		exists, err := minioClient.BucketExists(bucketName)
 		if err != nil {

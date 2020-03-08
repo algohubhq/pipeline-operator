@@ -49,9 +49,9 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 	pipelineDeploymentSpec := topicReconciler.pipelineDeployment.Spec
 
 	// Replace the pipelineDeployment username and name in the topic string
-	topicName := utils.GetTopicName(topicReconciler.topicConfig.TopicName, &pipelineDeploymentSpec.PipelineSpec)
+	topicName := utils.GetTopicName(topicReconciler.topicConfig.TopicName, &pipelineDeploymentSpec)
 
-	newTopicSpec, err := buildTopicSpec(pipelineDeploymentSpec.PipelineSpec, topicReconciler.topicConfig)
+	newTopicSpec, err := buildTopicSpec(pipelineDeploymentSpec, topicReconciler.topicConfig)
 	if err != nil {
 		log.Error(err, "Error creating new topic config")
 	}
@@ -72,10 +72,10 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "topic",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineSpec.DeploymentOwnerUserName,
-				pipelineDeploymentSpec.PipelineSpec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineSpec.PipelineOwnerUserName,
-				pipelineDeploymentSpec.PipelineSpec.PipelineName),
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.DeploymentOwnerUserName,
+				pipelineDeploymentSpec.DeploymentName),
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineOwnerUserName,
+				pipelineDeploymentSpec.PipelineName),
 		}
 
 		newTopic := &kafkav1beta1.KafkaTopic{}
@@ -129,7 +129,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 
 }
 
-func buildTopicSpec(pipelineSpec algov1beta1.PipelineSpec, topicConfig *algov1beta1.TopicConfigModel) (kafkav1beta1.KafkaTopicSpec, error) {
+func buildTopicSpec(pipelineSpec algov1beta1.PipelineDeploymentSpecV1beta1, topicConfig *algov1beta1.TopicConfigModel) (kafkav1beta1.KafkaTopicSpec, error) {
 
 	var topicPartitions int64 = 1
 	if topicConfig.TopicAutoPartition {
@@ -141,7 +141,7 @@ func buildTopicSpec(pipelineSpec algov1beta1.PipelineSpec, topicConfig *algov1be
 				pipe.SourceOutputName == topicConfig.SourceOutputName {
 
 				// Find all destination Algos
-				for _, algoConfig := range pipelineSpec.AlgoConfigs {
+				for _, algoConfig := range pipelineSpec.Algos {
 					algoName := fmt.Sprintf("%s/%s:%s[%d]", algoConfig.AlgoOwnerUserName, algoConfig.AlgoName, algoConfig.AlgoVersionTag, algoConfig.AlgoIndex)
 					if algoName == pipe.DestName {
 						// In case MaxInstances is Zero, use the topicPartitions
@@ -152,7 +152,7 @@ func buildTopicSpec(pipelineSpec algov1beta1.PipelineSpec, topicConfig *algov1be
 				}
 
 				// Find all destination Sinks
-				for _, dcConfig := range pipelineSpec.DataConnectorConfigs {
+				for _, dcConfig := range pipelineSpec.DataConnectors {
 					dcName := fmt.Sprintf("%s:%s[%d]", dcConfig.Name, dcConfig.VersionTag, dcConfig.Index)
 					if dcName == pipe.DestName {
 						// TODO: Implement resource scaling for data connectors
@@ -167,8 +167,8 @@ func buildTopicSpec(pipelineSpec algov1beta1.PipelineSpec, topicConfig *algov1be
 				// Find all destination Hooks
 				if strings.ToLower(pipe.DestName) == "hook" {
 					// In case MaxInstances is Zero, use the topicPartitions
-					maxPartitions := utils.Max(int64(pipelineSpec.HookConfig.Resource.MaxInstances), topicPartitions)
-					maxPartitions = utils.Max(int64(pipelineSpec.HookConfig.Resource.Instances), maxPartitions)
+					maxPartitions := utils.Max(int64(pipelineSpec.Hook.Resource.MaxInstances), topicPartitions)
+					maxPartitions = utils.Max(int64(pipelineSpec.Hook.Resource.Instances), maxPartitions)
 					topicPartitions = topicPartitions + maxPartitions
 				}
 
