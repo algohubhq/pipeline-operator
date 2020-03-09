@@ -468,6 +468,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	if endpointReconciler.kafkaTLS {
 
 		kafkaParams := map[string]string{
+			"security.protocol":        "ssl",
 			"ssl.ca.location":          "/etc/ssl/certs/kafka-ca.crt",
 			"ssl.certificate.location": "/etc/ssl/certs/kafka-user.crt",
 			"ssl.key.location":         "/etc/ssl/certs/kafka-user.key",
