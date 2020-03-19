@@ -50,6 +50,9 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 
 	// Replace the pipelineDeployment username and name in the topic string
 	topicName := utils.GetTopicName(topicReconciler.topicConfig.TopicName, &pipelineDeploymentSpec)
+	// Replace _ and . for the k8s name
+	resourceName := strings.Replace(topicName, ".", "-", -1)
+	resourceName = strings.Replace(resourceName, "_", "-", -1)
 
 	newTopicSpec, err := buildTopicSpec(pipelineDeploymentSpec, topicReconciler.topicConfig)
 	if err != nil {
@@ -63,7 +66,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		Kind:    "KafkaTopic",
 		Version: "v1beta1",
 	})
-	err = topicReconciler.client.Get(context.TODO(), types.NamespacedName{Name: topicName, Namespace: topicReconciler.request.NamespacedName.Namespace}, existingTopic)
+	err = topicReconciler.client.Get(context.TODO(), types.NamespacedName{Name: resourceName, Namespace: topicReconciler.request.NamespacedName.Namespace}, existingTopic)
 
 	if err != nil && errors.IsNotFound(err) {
 		// Create the topic
@@ -80,7 +83,8 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 
 		newTopic := &kafkav1beta1.KafkaTopic{}
 		newTopic.Spec = newTopicSpec
-		newTopic.SetName(topicName)
+		newTopic.Spec.TopicName = topicName
+		newTopic.SetName(resourceName)
 		newTopic.SetNamespace(topicReconciler.request.NamespacedName.Namespace)
 		newTopic.SetLabels(labels)
 		newTopic.SetGroupVersionKind(schema.GroupVersionKind{

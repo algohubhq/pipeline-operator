@@ -525,7 +525,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	}
 
 	volumeMounts = append(volumeMounts, corev1.VolumeMount{
-		Name:      "endpoint-wal-data",
+		Name:      fmt.Sprintf("%s-wal-data", name),
 		MountPath: "/data/wal",
 	})
 
@@ -633,7 +633,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "endpoint-wal-data",
+						Name: fmt.Sprintf("%s-wal-data", name),
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						AccessModes: []corev1.PersistentVolumeAccessMode{

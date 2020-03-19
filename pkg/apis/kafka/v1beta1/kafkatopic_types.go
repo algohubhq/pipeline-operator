@@ -6,6 +6,7 @@ import (
 
 // KafkaTopicSpec defines the desired state of KafkaTopic
 type KafkaTopicSpec struct {
+	TopicName  string            `json:"topicName,omitempty"`
 	Partitions int64             `json:"partitions,omitempty"`
 	Replicas   int32             `json:"replicas,omitempty"`
 	Config     map[string]string `json:"config,omitempty"`
