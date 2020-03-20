@@ -477,6 +477,8 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	var sidecarLivenessProbe *corev1.Probe
 	if algoConfig.Executor == "Executable" {
 
+		labels["prometheus.io/scrape"] = "true"
+
 		algoCommand = []string{"/algo-runner/algo-runner"}
 		algoArgs = []string{"--config=/algo-runner/algo-runner-config.json"}
 
@@ -527,6 +529,8 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 
 	} else if algoConfig.Executor == "Delegated" {
 
+		labels["prometheus.io/scrape"] = "false"
+
 		// If delegated there is no sidecar or init container
 		// the entrypoint is ran "as is" and the kafka config is passed to the container
 		entrypoint := strings.Split(runnerConfig.Entrypoint, " ")
@@ -539,6 +543,8 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 		// TODO: Add user defined liveness/readiness probes to algo
 
 	} else {
+
+		labels["prometheus.io/scrape"] = "true"
 
 		entrypoint := strings.Split(runnerConfig.Entrypoint, " ")
 
@@ -661,14 +667,12 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 			Namespace: pipelineDeployment.Namespace,
 			Name:      algoConfig.DeploymentName,
 			Labels:    labels,
-			// Annotations: annotations,
 		}
 	} else {
 		nameMeta = metav1.ObjectMeta{
 			Namespace:    pipelineDeployment.Namespace,
 			GenerateName: name,
 			Labels:       labels,
-			// Annotations: annotations,
 		}
 	}
 
