@@ -240,7 +240,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 
 		existingHpa, err := kubeUtil.CheckForHorizontalPodAutoscaler(opts)
 
-		hpaSpec, err := kubeUtil.CreateHpaSpec(endpointName, labels, pipelineDeployment, pipelineDeployment.Spec.Endpoint.Resource)
+		hpaSpec, err := kubeUtil.CreateHpaSpec(endpointName, labels, pipelineDeployment, &pipelineDeployment.Spec.Endpoint.Resource)
 		if err != nil {
 			endpointLogger.Error(err, "Failed to create Endpoint horizontal pod autoscaler spec")
 			return err
@@ -422,7 +422,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	endpointConfig.PipelineOwnerUserName = pipelineSpec.PipelineOwnerUserName
 	endpointConfig.PipelineName = pipelineSpec.PipelineName
 	endpointConfig.Paths = pipelineSpec.Endpoint.Paths
-	endpointConfig.Kafka = &algov1beta1.EndpointKafkaConfig{
+	endpointConfig.Kafka = algov1beta1.EndpointKafkaConfig{
 		Brokers: []string{endpointReconciler.pipelineDeployment.Spec.KafkaBrokers},
 	}
 
@@ -530,7 +530,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	})
 
 	endpointCommand := []string{"/bin/deployment-endpoint"}
-	endpointEnvVars := endpointReconciler.createEnvVars(pipelineDeployment, endpointConfig)
+	endpointEnvVars := endpointReconciler.createEnvVars(pipelineDeployment, &endpointConfig)
 
 	readinessProbe := &corev1.Probe{
 		Handler:             handler,
@@ -551,7 +551,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	}
 
 	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
-	resources, resourceErr := kubeUtil.CreateResourceReqs(endpointConfig.Resource)
+	resources, resourceErr := kubeUtil.CreateResourceReqs(&endpointConfig.Resource)
 
 	if resourceErr != nil {
 		return nil, resourceErr
@@ -594,9 +594,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	}
 
 	walSize := resource.MustParse("1Gi")
-	if endpointConfig.Producer != nil &&
-		endpointConfig.Producer.Wal != nil &&
-		endpointConfig.Producer.Wal.Size != "" {
+	if endpointConfig.Producer.Wal.Size != "" {
 		var err error
 		walSize, err = resource.ParseQuantity(endpointConfig.Producer.Wal.Size)
 		if err != nil {
@@ -725,7 +723,7 @@ func (endpointReconciler *EndpointReconciler) createServiceSpec(pipelineDeployme
 
 	var httpPort int32
 	var gRPCPort int32
-	if pipelineDeployment.Spec.Endpoint.Server != nil {
+	if &pipelineDeployment.Spec.Endpoint.Server != nil {
 		u, err := url.Parse(pipelineDeployment.Spec.Endpoint.Server.Http.Listen)
 		if err != nil || u == nil {
 			httpPort = 18080

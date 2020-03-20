@@ -235,7 +235,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 		existingHpa, err := kubeUtil.CheckForHorizontalPodAutoscaler(opts)
 
-		hpaSpec, err := kubeUtil.CreateHpaSpec(algoName, labels, pipelineDeployment, algoConfig.Resource)
+		hpaSpec, err := kubeUtil.CreateHpaSpec(algoName, labels, pipelineDeployment, &algoConfig.Resource)
 		if err != nil {
 			algoLogger.Error(err, "Failed to create Algo horizontal pod autoscaler spec")
 			return err
@@ -587,7 +587,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	}
 
 	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
-	resources, resourceErr := kubeUtil.CreateResourceReqs(algoConfig.Resource)
+	resources, resourceErr := kubeUtil.CreateResourceReqs(&algoConfig.Resource)
 
 	if resourceErr != nil {
 		return nil, resourceErr
@@ -843,7 +843,7 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 
 	// Append all KafkaTopic Inputs
 	for _, input := range algoConfig.Inputs {
-		if strings.ToLower(input.InputDeliveryType) == "kafkatopic" {
+		if input.InputDeliveryType == v1beta1.INPUTDELIVERYTYPES_KAFKA_TOPIC {
 			for _, pipe := range algoReconciler.pipelineDeployment.Spec.Pipes {
 				if pipe.DestInputName == input.Name {
 					for _, tc := range algoReconciler.allTopicConfigs {
@@ -851,7 +851,7 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 							pipe.SourceOutputName == tc.SourceOutputName {
 							topicName := utils.GetTopicName(tc.TopicName, &algoReconciler.pipelineDeployment.Spec)
 							envVars = append(envVars, corev1.EnvVar{
-								Name:  fmt.Sprintf("KAFKA_INPUT_TOPIC_", strings.ToUpper(input.Name)),
+								Name:  fmt.Sprintf("KAFKA_INPUT_TOPIC_%s", strings.ToUpper(input.Name)),
 								Value: topicName,
 							})
 						}
@@ -863,12 +863,12 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 
 	// Append all KafkaTopic Outputs
 	for _, output := range algoConfig.Outputs {
-		if strings.ToLower(output.OutputDeliveryType) == "kafkatopic" {
+		if output.OutputDeliveryType == v1beta1.OUTPUTDELIVERYTYPES_KAFKA_TOPIC {
 			for _, tc := range algoConfig.TopicConfigs {
 				if output.Name == tc.SourceOutputName {
 					topicName := utils.GetTopicName(tc.TopicName, &algoReconciler.pipelineDeployment.Spec)
 					envVars = append(envVars, corev1.EnvVar{
-						Name:  fmt.Sprintf("KAFKA_INPUT_TOPIC_", strings.ToUpper(output.Name)),
+						Name:  fmt.Sprintf("KAFKA_INPUT_TOPIC_%s", strings.ToUpper(output.Name)),
 						Value: topicName,
 					})
 				}

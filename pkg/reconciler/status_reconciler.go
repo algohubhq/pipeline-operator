@@ -3,6 +3,7 @@ package reconciler
 import (
 	"context"
 	"fmt"
+	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	"strconv"
 	"strings"
@@ -63,8 +64,8 @@ func (r *StatusReconciler) Reconcile() error {
 		notifMessage := &algov1beta1.NotifMessage{
 			MessageTimestamp: time.Now(),
 			Level:            "Info",
-			Type_:            "PipelineDeploymentStatus",
-			DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
+			Type:             v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_STATUS,
+			DeploymentStatusMessage: algov1beta1.DeploymentStatusMessage{
 				DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
 				DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
 				Status:                  r.pipelineDeployment.Status.Status,
@@ -86,8 +87,8 @@ func (r *StatusReconciler) Reconcile() error {
 					notifMessage := &algov1beta1.NotifMessage{
 						MessageTimestamp: time.Now(),
 						Level:            "Info",
-						Type_:            "PipelineDeployment",
-						DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
+						Type:             v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT,
+						DeploymentStatusMessage: algov1beta1.DeploymentStatusMessage{
 							DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
 							DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
 							Status:                  r.pipelineDeployment.Status.Status,
@@ -113,8 +114,8 @@ func (r *StatusReconciler) Reconcile() error {
 					notifMessage := &algov1beta1.NotifMessage{
 						MessageTimestamp: time.Now(),
 						Level:            "Info",
-						Type_:            "PipelineDeploymentPod",
-						DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
+						Type:             v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_POD,
+						DeploymentStatusMessage: algov1beta1.DeploymentStatusMessage{
 							DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
 							DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
 							Status:                  r.pipelineDeployment.Status.Status,
@@ -430,10 +431,10 @@ func (r *StatusReconciler) calculateStatus(cr *algov1beta1.PipelineDeployment,
 
 	componentCount := len(cr.Spec.Algos)
 	componentCount = componentCount + len(cr.Spec.DataConnectors)
-	if cr.Spec.Endpoint != nil {
+	if &cr.Spec.Endpoint != nil {
 		componentCount = componentCount + 1
 	}
-	if cr.Spec.Hook != nil && len(cr.Spec.Hook.WebHooks) > 0 {
+	if &cr.Spec.Hook != nil && len(cr.Spec.Hook.WebHooks) > 0 {
 		componentCount = componentCount + 1
 	}
 

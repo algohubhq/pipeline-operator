@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
-	"strings"
 )
 
 var notifDisabled = false
@@ -33,12 +32,12 @@ func Notify(notifMessage *v1beta1.NotifMessage) {
 		}
 
 		logData := map[string]interface{}{
-			"NotifType": &notifMessage.Type_,
+			"NotifType": &notifMessage.Type,
 		}
 
 		notifLogger := log.WithValues("data", logData)
 
-		u, _ := url.Parse(fmt.Sprintf("%s/%schanged", notifEnvURL, strings.ToLower(notifMessage.Type_)))
+		u, _ := url.Parse(fmt.Sprintf("%s/%schanged", notifEnvURL, notifMessage.Type))
 		notifURL := u.String()
 
 		jsonValue, _ := json.Marshal(notifMessage)

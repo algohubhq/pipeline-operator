@@ -29,9 +29,11 @@ spec:
         metadata:
           type: object
         spec:
+          description: PipelineDeploymentSpecV1beta1 struct for PipelineDeploymentSpecV1beta1
           properties:
             algos:
               items:
+                description: AlgoConfig struct for AlgoConfig
                 properties:
                   algoIndex:
                     format: int32
@@ -42,12 +44,15 @@ spec:
                     type: string
                   algoParams:
                     items:
+                      description: AlgoParamModel struct for AlgoParamModel
                       properties:
                         dataType:
+                          description: DataTypeModel struct for DataTypeModel
                           properties:
                             mask:
                               type: string
                             name:
+                              description: DataTypes the model 'DataTypes'
                               type: string
                             precision:
                               format: int32
@@ -66,11 +71,14 @@ spec:
                           type: string
                         options:
                           items:
+                            description: DataTypeOptionModel struct for DataTypeOptionModel
                             properties:
                               name:
                                 type: string
                             type: object
                           type: array
+                        required:
+                          type: boolean
                         sortOrder:
                           format: int32
                           type: integer
@@ -90,6 +98,7 @@ spec:
                     type: boolean
                   configMounts:
                     items:
+                      description: ConfigMountModel struct for ConfigMountModel
                       properties:
                         data:
                           type: string
@@ -105,9 +114,12 @@ spec:
                     type: array
                   deploymentName:
                     type: string
+                  deploymentOwnerUserName:
+                    type: string
                   entrypoint:
                     type: string
                   executor:
+                    description: Executors the model 'Executors'
                     type: string
                   gpuEnabled:
                     type: boolean
@@ -117,29 +129,17 @@ spec:
                     type: string
                   inputs:
                     items:
+                      description: AlgoInputModel struct for AlgoInputModel
                       properties:
                         contentTypes:
                           items:
+                            description: ContentTypeModel struct for ContentTypeModel
                             properties:
-                              encoding:
-                                type: string
                               fileExtension:
-                                type: string
-                              groupName:
-                                type: string
-                              iconClass:
                                 type: string
                               name:
                                 type: string
-                              rfc:
-                                type: string
-                              rfcUrl:
-                                type: string
-                              subTypeName:
-                                type: string
                               title:
-                                type: string
-                              url:
                                 type: string
                             type: object
                           type: array
@@ -157,6 +157,7 @@ spec:
                         httpVerb:
                           type: string
                         inputDeliveryType:
+                          description: InputDeliveryTypes the model 'InputDeliveryTypes'
                           type: string
                         isRequired:
                           type: boolean
@@ -183,28 +184,16 @@ spec:
                     type: integer
                   outputs:
                     items:
+                      description: AlgoOutputModel struct for AlgoOutputModel
                       properties:
                         contentType:
+                          description: ContentTypeModel struct for ContentTypeModel
                           properties:
-                            encoding:
-                              type: string
                             fileExtension:
-                              type: string
-                            groupName:
-                              type: string
-                            iconClass:
                               type: string
                             name:
                               type: string
-                            rfc:
-                              type: string
-                            rfcUrl:
-                              type: string
-                            subTypeName:
-                              type: string
                             title:
-                              type: string
-                            url:
                               type: string
                           type: object
                         description:
@@ -212,6 +201,7 @@ spec:
                         name:
                           type: string
                         outputDeliveryType:
+                          description: OutputDeliveryTypes the model 'OutputDeliveryTypes'
                           type: string
                         parameter:
                           type: string
@@ -231,6 +221,7 @@ spec:
                     format: int32
                     type: integer
                   resource:
+                    description: ResourceModel struct for ResourceModel
                     properties:
                       autoScale:
                         type: boolean
@@ -260,6 +251,7 @@ spec:
                         type: integer
                       scaleMetrics:
                         items:
+                          description: ScaleMetricModel struct for ScaleMetricModel
                           properties:
                             averageUtilization:
                               format: int32
@@ -279,8 +271,10 @@ spec:
                             resourceName:
                               type: string
                             sourceType:
+                              description: MetricSourceTypes the model 'MetricSourceTypes'
                               type: string
                             targetType:
+                              description: MetricTargetTypes the model 'MetricTargetTypes'
                               type: string
                             value:
                               type: string
@@ -292,8 +286,10 @@ spec:
                     type: integer
                   topicConfigs:
                     items:
+                      description: TopicConfigModel struct for TopicConfigModel
                       properties:
                         componentType:
+                          description: ComponentTypes the model 'ComponentTypes'
                           type: string
                         sourceName:
                           type: string
@@ -307,6 +303,7 @@ spec:
                           type: string
                         topicParams:
                           items:
+                            description: TopicParamModel struct for TopicParamModel
                             properties:
                               name:
                                 type: string
@@ -320,18 +317,32 @@ spec:
                         topicReplicationFactor:
                           format: int32
                           type: integer
+                      required:
+                      - sourceName
+                      - sourceOutputName
                       type: object
                     type: array
                   writeAllOutputs:
                     type: boolean
+                required:
+                - algoIndex
+                - algoName
+                - algoOwnerUserName
+                - algoVersionTag
+                - deploymentName
+                - deploymentOwnerUserName
+                - imageRepository
+                - imageTag
                 type: object
               type: array
             dataConnectors:
               items:
+                description: DataConnectorConfig struct for DataConnectorConfig
                 properties:
                   connectorClass:
                     type: string
                   dataConnectorType:
+                    description: DataConnectorTypes the model 'DataConnectorTypes'
                     type: string
                   deploymentName:
                     type: string
@@ -346,12 +357,15 @@ spec:
                     type: string
                   options:
                     items:
+                      description: DataConnectorOptionModel struct for DataConnectorOptionModel
                       properties:
                         dataType:
+                          description: DataTypeModel struct for DataTypeModel
                           properties:
                             mask:
                               type: string
                             name:
+                              description: DataTypes the model 'DataTypes'
                               type: string
                             precision:
                               format: int32
@@ -382,8 +396,10 @@ spec:
                     type: integer
                   topicConfigs:
                     items:
+                      description: TopicConfigModel struct for TopicConfigModel
                       properties:
                         componentType:
+                          description: ComponentTypes the model 'ComponentTypes'
                           type: string
                         sourceName:
                           type: string
@@ -397,6 +413,7 @@ spec:
                           type: string
                         topicParams:
                           items:
+                            description: TopicParamModel struct for TopicParamModel
                             properties:
                               name:
                                 type: string
@@ -410,6 +427,9 @@ spec:
                         topicReplicationFactor:
                           format: int32
                           type: integer
+                      required:
+                      - sourceName
+                      - sourceOutputName
                       type: object
                     type: array
                   versionTag:
@@ -421,6 +441,7 @@ spec:
             deploymentOwnerUserName:
               type: string
             endpoint:
+              description: EndpointConfig struct for EndpointConfig
               properties:
                 deploymentName:
                   type: string
@@ -431,6 +452,7 @@ spec:
                 imageTag:
                   type: string
                 kafka:
+                  description: EndpointKafkaConfig struct for EndpointKafkaConfig
                   properties:
                     brokers:
                       items:
@@ -443,39 +465,29 @@ spec:
                   type: object
                 paths:
                   items:
+                    description: EndpointPathModel struct for EndpointPathModel
                     properties:
                       connectionString:
                         type: string
                       contentType:
+                        description: ContentTypeModel struct for ContentTypeModel
                         properties:
-                          encoding:
-                            type: string
                           fileExtension:
-                            type: string
-                          groupName:
-                            type: string
-                          iconClass:
                             type: string
                           name:
                             type: string
-                          rfc:
-                            type: string
-                          rfcUrl:
-                            type: string
-                          subTypeName:
-                            type: string
                           title:
-                            type: string
-                          url:
                             type: string
                         type: object
                       description:
                         type: string
                       endpointType:
+                        description: EndpointTypes the model 'EndpointTypes'
                         type: string
                       isDefault:
                         type: boolean
                       messageDataType:
+                        description: MessageDataTypes the model 'MessageDataTypes'
                         type: string
                       name:
                         type: string
@@ -486,8 +498,10 @@ spec:
                 pipelineOwnerUserName:
                   type: string
                 producer:
+                  description: EndpointProducerConfig struct for EndpointProducerConfig
                   properties:
                     cb:
+                      description: ProducerCircuitBreaker struct for ProducerCircuitBreaker
                       properties:
                         fails:
                           format: int32
@@ -502,6 +516,7 @@ spec:
                           type: string
                       type: object
                     resend:
+                      description: ProducerResend struct for ProducerResend
                       properties:
                         period:
                           type: string
@@ -510,6 +525,7 @@ spec:
                           type: integer
                       type: object
                     wal:
+                      description: ProducerWal struct for ProducerWal
                       properties:
                         always_topics:
                           items:
@@ -528,6 +544,7 @@ spec:
                       type: object
                   type: object
                 resource:
+                  description: ResourceModel struct for ResourceModel
                   properties:
                     autoScale:
                       type: boolean
@@ -557,6 +574,7 @@ spec:
                       type: integer
                     scaleMetrics:
                       items:
+                        description: ScaleMetricModel struct for ScaleMetricModel
                         properties:
                           averageUtilization:
                             format: int32
@@ -576,8 +594,10 @@ spec:
                           resourceName:
                             type: string
                           sourceType:
+                            description: MetricSourceTypes the model 'MetricSourceTypes'
                             type: string
                           targetType:
+                            description: MetricTargetTypes the model 'MetricTargetTypes'
                             type: string
                           value:
                             type: string
@@ -585,18 +605,22 @@ spec:
                       type: array
                   type: object
                 server:
+                  description: EndpointServerConfig struct for EndpointServerConfig
                   properties:
                     grpc:
+                      description: EndpointServerListen struct for EndpointServerListen
                       properties:
                         listen:
                           type: string
                       type: object
                     http:
+                      description: EndpointServerListen struct for EndpointServerListen
                       properties:
                         listen:
                           type: string
                       type: object
                     monitoring:
+                      description: EndpointServerListen struct for EndpointServerListen
                       properties:
                         listen:
                           type: string
@@ -604,8 +628,10 @@ spec:
                   type: object
                 topicConfigs:
                   items:
+                    description: TopicConfigModel struct for TopicConfigModel
                     properties:
                       componentType:
+                        description: ComponentTypes the model 'ComponentTypes'
                         type: string
                       sourceName:
                         type: string
@@ -619,6 +645,7 @@ spec:
                         type: string
                       topicParams:
                         items:
+                          description: TopicParamModel struct for TopicParamModel
                           properties:
                             name:
                               type: string
@@ -632,10 +659,14 @@ spec:
                       topicReplicationFactor:
                         format: int32
                         type: integer
+                    required:
+                    - sourceName
+                    - sourceOutputName
                     type: object
                   type: array
               type: object
             hook:
+              description: HookConfig struct for HookConfig
               properties:
                 deploymentName:
                   type: string
@@ -651,24 +682,34 @@ spec:
                   type: string
                 pipes:
                   items:
+                    description: PipeModel struct for PipeModel
                     properties:
                       destComponentType:
+                        description: ComponentTypes the model 'ComponentTypes'
                         type: string
                       destInputName:
                         type: string
                       destName:
                         type: string
                       sourceComponentType:
+                        description: ComponentTypes the model 'ComponentTypes'
                         type: string
                       sourceName:
                         type: string
                       sourceOutputMessageDataType:
+                        description: MessageDataTypes the model 'MessageDataTypes'
                         type: string
                       sourceOutputName:
                         type: string
+                    required:
+                    - destInputName
+                    - destName
+                    - sourceName
+                    - sourceOutputName
                     type: object
                   type: array
                 resource:
+                  description: ResourceModel struct for ResourceModel
                   properties:
                     autoScale:
                       type: boolean
@@ -698,6 +739,7 @@ spec:
                       type: integer
                     scaleMetrics:
                       items:
+                        description: ScaleMetricModel struct for ScaleMetricModel
                         properties:
                           averageUtilization:
                             format: int32
@@ -717,8 +759,10 @@ spec:
                           resourceName:
                             type: string
                           sourceType:
+                            description: MetricSourceTypes the model 'MetricSourceTypes'
                             type: string
                           targetType:
+                            description: MetricTargetTypes the model 'MetricTargetTypes'
                             type: string
                           value:
                             type: string
@@ -727,8 +771,10 @@ spec:
                   type: object
                 topicConfigs:
                   items:
+                    description: TopicConfigModel struct for TopicConfigModel
                     properties:
                       componentType:
+                        description: ComponentTypes the model 'ComponentTypes'
                         type: string
                       sourceName:
                         type: string
@@ -742,6 +788,7 @@ spec:
                         type: string
                       topicParams:
                         items:
+                          description: TopicParamModel struct for TopicParamModel
                           properties:
                             name:
                               type: string
@@ -755,10 +802,14 @@ spec:
                       topicReplicationFactor:
                         format: int32
                         type: integer
+                    required:
+                    - sourceName
+                    - sourceOutputName
                     type: object
                   type: array
                 webHooks:
                   items:
+                    description: WebHookModel struct for WebHookModel
                     properties:
                       deploymentName:
                         type: string
@@ -774,6 +825,11 @@ spec:
                         type: string
                     type: object
                   type: array
+              required:
+              - deploymentName
+              - deploymentOwnerUserName
+              - pipelineName
+              - pipelineOwnerUserName
               type: object
             imagePullPolicy:
               type: string
@@ -787,36 +843,54 @@ spec:
               type: string
             pipes:
               items:
+                description: PipeModel struct for PipeModel
                 properties:
                   destComponentType:
+                    description: ComponentTypes the model 'ComponentTypes'
                     type: string
                   destInputName:
                     type: string
                   destName:
                     type: string
                   sourceComponentType:
+                    description: ComponentTypes the model 'ComponentTypes'
                     type: string
                   sourceName:
                     type: string
                   sourceOutputMessageDataType:
+                    description: MessageDataTypes the model 'MessageDataTypes'
                     type: string
                   sourceOutputName:
                     type: string
+                required:
+                - destInputName
+                - destName
+                - sourceName
+                - sourceOutputName
                 type: object
               type: array
             storageBucket:
               type: string
+          required:
+          - deploymentName
+          - deploymentOwnerUserName
+          - kafkaBrokers
+          - pipelineName
+          - pipelineOwnerUserName
+          - pipelineVersionTag
           type: object
         status:
           description: PipelineDeploymentStatus defines the observed state of PipelineDeployment
           properties:
             componentStatuses:
               items:
+                description: ComponentStatus struct for ComponentStatus
                 properties:
                   available:
                     format: int32
                     type: integer
                   componentType:
+                    description: ComponentTypes the model 'ComponentTypes'
                     type: string
                   createdTimestamp:
                     type: string
@@ -851,8 +925,10 @@ spec:
               type: string
             podStatuses:
               items:
+                description: ComponentPodStatus struct for ComponentPodStatus
                 properties:
                   componentType:
+                    description: ComponentTypes the model 'ComponentTypes'
                     type: string
                   containerStatuses:
                     items:

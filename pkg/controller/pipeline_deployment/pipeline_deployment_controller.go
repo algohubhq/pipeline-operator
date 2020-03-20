@@ -113,7 +113,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 			notifMessage := &v1beta1.NotifMessage{
 				MessageTimestamp: time.Now(),
 				Level:            "Info",
-				Type_:            "PipelineDeploymentDeleted",
+				Type:             v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_DELETED,
 			}
 			utils.Notify(notifMessage)
 			return reconcile.Result{}, nil
@@ -142,7 +142,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		notifMessage := &v1beta1.NotifMessage{
 			MessageTimestamp: time.Now(),
 			Level:            "Info",
-			Type_:            "PipelineDeploymentDeleted",
+			Type:             v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_DELETED,
 		}
 		utils.Notify(notifMessage)
 
@@ -169,7 +169,6 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 
 	// Create / update the kafka topics
 	reqLogger.Info("Reconciling Kakfa Topics")
-	// Iterate the topics
 	for _, topicConfig := range allTopicConfigs {
 		wg.Add(1)
 		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
@@ -201,7 +200,6 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 
 	// Reconcile all algo deployments
 	reqLogger.Info("Reconciling Algos")
-	// Iterate the AlgoConfigs
 	for _, algoConfig := range instance.Spec.Algos {
 		wg.Add(1)
 		go func(currentAlgoConfig algov1beta1.AlgoConfig) {
@@ -225,7 +223,6 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 
 	// Reconcile all data connectors
 	reqLogger.Info("Reconciling Data Connectors")
-	// Iterate the DataConnectors
 	for _, dcConfig := range instance.Spec.DataConnectors {
 		wg.Add(1)
 		go func(currentDcConfig algov1beta1.DataConnectorConfig) {
@@ -239,8 +236,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	}
 
 	// Reconcile hook container
-	if instance.Spec.Hook != nil &&
-		len(instance.Spec.Hook.WebHooks) > 0 {
+	if instance.Spec.Hook.WebHooks != nil && len(instance.Spec.Hook.WebHooks) > 0 {
 		reqLogger.Info("Reconciling Hooks")
 		wg.Add(1)
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
@@ -254,8 +250,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	}
 
 	// Reconcile endpoint container
-	if instance.Spec.Endpoint != nil &&
-		len(instance.Spec.Endpoint.Paths) > 0 {
+	if instance.Spec.Endpoint.Paths != nil && len(instance.Spec.Endpoint.Paths) > 0 {
 		reqLogger.Info("Reconciling Endpoints")
 		wg.Add(1)
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {

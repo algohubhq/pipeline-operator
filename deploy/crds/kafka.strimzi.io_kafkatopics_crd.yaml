@@ -41,6 +41,8 @@ spec:
             replicas:
               format: int32
               type: integer
+            topicName:
+              type: string
           type: object
         status:
           description: KafkaTopicStatus defines the observed state of KafkaTopic
