@@ -65,7 +65,7 @@ func (r *StatusReconciler) Reconcile() error {
 			MessageTimestamp: time.Now(),
 			Level:            "Info",
 			Type:             v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_STATUS,
-			DeploymentStatusMessage: algov1beta1.DeploymentStatusMessage{
+			DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
 				DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
 				DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
 				Status:                  r.pipelineDeployment.Status.Status,
@@ -88,7 +88,7 @@ func (r *StatusReconciler) Reconcile() error {
 						MessageTimestamp: time.Now(),
 						Level:            "Info",
 						Type:             v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT,
-						DeploymentStatusMessage: algov1beta1.DeploymentStatusMessage{
+						DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
 							DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
 							DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
 							Status:                  r.pipelineDeployment.Status.Status,
@@ -115,7 +115,7 @@ func (r *StatusReconciler) Reconcile() error {
 						MessageTimestamp: time.Now(),
 						Level:            "Info",
 						Type:             v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_POD,
-						DeploymentStatusMessage: algov1beta1.DeploymentStatusMessage{
+						DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
 							DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
 							DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
 							Status:                  r.pipelineDeployment.Status.Status,

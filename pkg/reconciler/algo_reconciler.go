@@ -820,7 +820,7 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 
 	// Append kafka tls indicator
 	envVars = append(envVars, corev1.EnvVar{
-		Name:  "KAFKA-TLS",
+		Name:  "KAFKA_TLS",
 		Value: strconv.FormatBool(algoReconciler.kafkaTLS),
 	})
 

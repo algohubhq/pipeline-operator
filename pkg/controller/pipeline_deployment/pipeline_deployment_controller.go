@@ -154,7 +154,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	// Check for the KAFKA-TLS env variable and certs
+	// Check for the KAFKA_TLS env variable and certs
 	kafkaTLS := utils.CheckForKafkaTLS()
 
 	if kafkaTLS {

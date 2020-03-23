@@ -9,7 +9,7 @@ require (
 	github.com/operator-framework/operator-sdk v0.15.0
 	github.com/prometheus/client_golang v1.2.1
 	github.com/spf13/pflag v1.0.5
-	github.com/xorcare/pointer v1.1.0
+	github.com/xorcare/pointer v1.1.0 // indirect
 	golang.org/x/net v0.0.0-20200320181208-1c781a10960a // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	k8s.io/api v0.0.0

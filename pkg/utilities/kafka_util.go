@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-// CheckForKafkaTLS checks for the KAFKA-TLS envar and certs
+// CheckForKafkaTLS checks for the KAFKA_TLS envar and certs
 func GetKafkaClusterName() string {
 
 	// Try to load from environment variable
@@ -13,11 +13,11 @@ func GetKafkaClusterName() string {
 
 }
 
-// CheckForKafkaTLS checks for the KAFKA-TLS envar and certs
+// CheckForKafkaTLS checks for the KAFKA_TLS envar and certs
 func CheckForKafkaTLS() bool {
 
 	// Try to load from environment variable
-	kafkaTLSEnv := os.Getenv("KAFKA-TLS")
+	kafkaTLSEnv := os.Getenv("KAFKA_TLS")
 	if kafkaTLSEnv == "" {
 		return false
 	}

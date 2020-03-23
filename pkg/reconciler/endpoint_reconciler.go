@@ -594,7 +594,8 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	}
 
 	walSize := resource.MustParse("1Gi")
-	if endpointConfig.Producer.Wal.Size != "" {
+	if endpointConfig.Producer != nil &&
+		endpointConfig.Producer.Wal.Size != "" {
 		var err error
 		walSize, err = resource.ParseQuantity(endpointConfig.Producer.Wal.Size)
 		if err != nil {
@@ -723,7 +724,7 @@ func (endpointReconciler *EndpointReconciler) createServiceSpec(pipelineDeployme
 
 	var httpPort int32
 	var gRPCPort int32
-	if &pipelineDeployment.Spec.Endpoint.Server != nil {
+	if pipelineDeployment.Spec.Endpoint.Server != nil {
 		u, err := url.Parse(pipelineDeployment.Spec.Endpoint.Server.Http.Listen)
 		if err != nil || u == nil {
 			httpPort = 18080
