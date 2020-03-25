@@ -60,45 +60,6 @@ func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	}
 }
 
-// ReconcileService creates or updates all services for the algos
-func (algoReconciler *AlgoReconciler) ReconcileService() error {
-
-	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
-
-	// Check to see if the metrics / health service is already created (All algos share the same service port)
-	opts := []client.ListOption{
-		client.InNamespace(algoReconciler.request.NamespacedName.Namespace),
-		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algo.run",
-			"app.kubernetes.io/component": "algo",
-		},
-	}
-
-	existingService, err := kubeUtil.CheckForService(opts)
-	if err != nil {
-		log.Error(err, "Failed to check for existing algo metric service")
-		return err
-	}
-	if existingService == nil {
-
-		// Generate the service for the all algos
-		algoService, err := algoReconciler.createMetricServiceSpec(algoReconciler.pipelineDeployment)
-		if err != nil {
-			log.Error(err, "Failed to create algo metrics / health service spec")
-			return err
-		}
-
-		_, err = kubeUtil.CreateService(algoService)
-		if err != nil {
-			log.Error(err, "Failed to create algo metrics / health service")
-			return err
-		}
-	}
-
-	return nil
-
-}
-
 // Reconcile creates or updates all algos for the pipelineDeployment
 func (algoReconciler *AlgoReconciler) Reconcile() error {
 
@@ -200,7 +161,6 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		} else if diff := deep.Equal(existingDeployment.Spec.Template.Spec, algoDeployment.Spec.Template.Spec); diff != nil {
 			algoLogger.Info("Algo Changed. Updating deployment.", "Differences", diff)
 			deplChanged = true
-
 		}
 		if deplChanged {
 			algoName, err = kubeUtil.UpdateDeployment(algoDeployment)
@@ -276,6 +236,45 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 }
 
+// ReconcileService creates or updates all services for the algos
+func (algoReconciler *AlgoReconciler) ReconcileService() error {
+
+	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
+
+	// Check to see if the metrics / health service is already created (All algos share the same service port)
+	opts := []client.ListOption{
+		client.InNamespace(algoReconciler.request.NamespacedName.Namespace),
+		client.MatchingLabels{
+			"app.kubernetes.io/part-of":   "algo.run",
+			"app.kubernetes.io/component": "algo",
+		},
+	}
+
+	existingService, err := kubeUtil.CheckForService(opts)
+	if err != nil {
+		log.Error(err, "Failed to check for existing algo metric service")
+		return err
+	}
+	if existingService == nil {
+
+		// Generate the service for the all algos
+		algoService, err := algoReconciler.createMetricServiceSpec(algoReconciler.pipelineDeployment)
+		if err != nil {
+			log.Error(err, "Failed to create algo metrics / health service spec")
+			return err
+		}
+
+		_, err = kubeUtil.CreateService(algoService)
+		if err != nil {
+			log.Error(err, "Failed to create algo metrics / health service")
+			return err
+		}
+	}
+
+	return nil
+
+}
+
 func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment *algov1beta1.PipelineDeployment) (*corev1.Service, error) {
 
 	labels := map[string]string{
@@ -298,8 +297,9 @@ func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment
 				},
 			},
 			Selector: map[string]string{
-				"app.kubernetes.io/part-of":   "algo.run",
-				"app.kubernetes.io/component": "algo",
+				"app.kubernetes.io/part-of":    "algo.run",
+				"app.kubernetes.io/component":  "algo",
+				"algo.run/create-algo-service": "true",
 			},
 		},
 	}
@@ -477,7 +477,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	var sidecarLivenessProbe *corev1.Probe
 	if algoConfig.Executor == "Executable" {
 
-		labels["prometheus.io/scrape"] = "true"
+		labels["algo.run/create-algo-service"] = "true"
 
 		algoCommand = []string{"/algo-runner/algo-runner"}
 		algoArgs = []string{"--config=/algo-runner/algo-runner-config.json"}
@@ -529,7 +529,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 
 	} else if algoConfig.Executor == "Delegated" {
 
-		labels["prometheus.io/scrape"] = "false"
+		labels["algo.run/create-algo-service"] = "false"
 
 		// If delegated there is no sidecar or init container
 		// the entrypoint is ran "as is" and the kafka config is passed to the container
@@ -544,7 +544,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 
 	} else {
 
-		labels["prometheus.io/scrape"] = "true"
+		labels["algo.run/create-algo-service"] = "true"
 
 		entrypoint := strings.Split(runnerConfig.Entrypoint, " ")
 
