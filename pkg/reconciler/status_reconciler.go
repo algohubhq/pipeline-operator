@@ -141,9 +141,11 @@ func (r *StatusReconciler) Reconcile() error {
 			return err
 		}
 
-		// Send all notifications
-		utils.NotifyAll(notifMessages)
+	}
 
+	// Send all notifications
+	if len(notifMessages) > 0 {
+		utils.NotifyAll(notifMessages)
 	}
 
 	return nil
