@@ -12,8 +12,8 @@ package v1beta1
 // AlgoConfig struct for AlgoConfig
 type AlgoConfig struct {
 	Applied bool `json:"applied,omitempty"`
-	DeploymentOwnerUserName string `json:"deploymentOwnerUserName"`
-	DeploymentName string `json:"deploymentName"`
+	DeploymentOwnerUserName string `json:"deploymentOwnerUserName,omitempty"`
+	DeploymentName string `json:"deploymentName,omitempty"`
 	AlgoOwnerUserName string `json:"algoOwnerUserName"`
 	AlgoName string `json:"algoName"`
 	AlgoVersionTag string `json:"algoVersionTag"`

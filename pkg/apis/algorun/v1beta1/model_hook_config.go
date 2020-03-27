@@ -11,10 +11,10 @@
 package v1beta1
 // HookConfig struct for HookConfig
 type HookConfig struct {
-	DeploymentOwnerUserName string `json:"deploymentOwnerUserName"`
-	DeploymentName string `json:"deploymentName"`
-	PipelineOwnerUserName string `json:"pipelineOwnerUserName"`
-	PipelineName string `json:"pipelineName"`
+	DeploymentOwnerUserName string `json:"deploymentOwnerUserName,omitempty"`
+	DeploymentName string `json:"deploymentName,omitempty"`
+	PipelineOwnerUserName string `json:"pipelineOwnerUserName,omitempty"`
+	PipelineName string `json:"pipelineName,omitempty"`
 	ImageRepository string `json:"imageRepository,omitempty"`
 	ImageTag string `json:"imageTag,omitempty"`
 	Resource ResourceModel `json:"resource,omitempty"`
