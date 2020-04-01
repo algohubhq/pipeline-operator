@@ -803,7 +803,7 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 
 	// Append the algo instance name
 	envVars = append(envVars, corev1.EnvVar{
-		Name: "INSTANCE-NAME",
+		Name: "INSTANCE_NAME",
 		ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{
 				APIVersion: "v1",
@@ -814,7 +814,7 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 
 	// Append the required kafka servers
 	envVars = append(envVars, corev1.EnvVar{
-		Name:  "KAFKA-BROKERS",
+		Name:  "KAFKA_BROKERS",
 		Value: cr.Spec.KafkaBrokers,
 	})
 
