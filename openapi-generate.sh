@@ -35,6 +35,8 @@ cp ./algorun-go-client/model_endpoint_path_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_algo_param_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_topic_config_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_topic_param_model.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_topic_retry_strategy_model.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_topic_retry_step_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_data_type_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_data_type_option_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_content_type_model.go ./pkg/apis/algorun/v1beta1/
@@ -44,6 +46,7 @@ cp ./algorun-go-client/model_pipe_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_web_hook_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_data_connector_option_model.go ./pkg/apis/algorun/v1beta1/
 
+cp ./algorun-go-client/model_retry_strategies.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_log_levels.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_log_types.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_notif_types.go ./pkg/apis/algorun/v1beta1/

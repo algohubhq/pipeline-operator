@@ -27,6 +27,8 @@ type AlgoConfig struct {
 	AlgoParams []AlgoParamModel `json:"algoParams,omitempty"`
 	Inputs []AlgoInputModel `json:"inputs,omitempty"`
 	Outputs []AlgoOutputModel `json:"outputs,omitempty"`
+	TopicRetryEnabled bool `json:"topicRetryEnabled,omitempty"`
+	RetryStrategy TopicRetryStrategyModel `json:"retryStrategy,omitempty"`
 	WriteAllOutputs bool `json:"writeAllOutputs,omitempty"`
 	GpuEnabled bool `json:"gpuEnabled,omitempty"`
 	TimeoutSeconds int32 `json:"timeoutSeconds,omitempty"`

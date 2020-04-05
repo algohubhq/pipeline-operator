@@ -137,7 +137,13 @@ spec:
                             properties:
                               fileExtension:
                                 type: string
+                              groupName:
+                                type: string
+                              iconClass:
+                                type: string
                               name:
+                                type: string
+                              subTypeName:
                                 type: string
                               title:
                                 type: string
@@ -191,7 +197,13 @@ spec:
                           properties:
                             fileExtension:
                               type: string
+                            groupName:
+                              type: string
+                            iconClass:
+                              type: string
                             name:
+                              type: string
+                            subTypeName:
                               type: string
                             title:
                               type: string
@@ -281,6 +293,29 @@ spec:
                           type: object
                         type: array
                     type: object
+                  retryStrategy:
+                    description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
+                    properties:
+                      deadLetterSuffix:
+                        type: string
+                      steps:
+                        items:
+                          description: TopicRetryStepModel struct for TopicRetryStepModel
+                          properties:
+                            backoffDuration:
+                              type: string
+                            index:
+                              format: int32
+                              type: integer
+                            repeat:
+                              format: int32
+                              type: integer
+                          type: object
+                        type: array
+                      strategy:
+                        description: RetryStrategies the model 'RetryStrategies'
+                        type: string
+                    type: object
                   timeoutSeconds:
                     format: int32
                     type: integer
@@ -291,6 +326,31 @@ spec:
                         componentType:
                           description: ComponentTypes the model 'ComponentTypes'
                           type: string
+                        overrideRetryStrategy:
+                          type: boolean
+                        retryStrategy:
+                          description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
+                          properties:
+                            deadLetterSuffix:
+                              type: string
+                            steps:
+                              items:
+                                description: TopicRetryStepModel struct for TopicRetryStepModel
+                                properties:
+                                  backoffDuration:
+                                    type: string
+                                  index:
+                                    format: int32
+                                    type: integer
+                                  repeat:
+                                    format: int32
+                                    type: integer
+                                type: object
+                              type: array
+                            strategy:
+                              description: RetryStrategies the model 'RetryStrategies'
+                              type: string
+                          type: object
                         sourceName:
                           type: string
                         sourceOutputName:
@@ -322,6 +382,8 @@ spec:
                       - sourceOutputName
                       type: object
                     type: array
+                  topicRetryEnabled:
+                    type: boolean
                   writeAllOutputs:
                     type: boolean
                 required:
@@ -399,6 +461,31 @@ spec:
                         componentType:
                           description: ComponentTypes the model 'ComponentTypes'
                           type: string
+                        overrideRetryStrategy:
+                          type: boolean
+                        retryStrategy:
+                          description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
+                          properties:
+                            deadLetterSuffix:
+                              type: string
+                            steps:
+                              items:
+                                description: TopicRetryStepModel struct for TopicRetryStepModel
+                                properties:
+                                  backoffDuration:
+                                    type: string
+                                  index:
+                                    format: int32
+                                    type: integer
+                                  repeat:
+                                    format: int32
+                                    type: integer
+                                type: object
+                              type: array
+                            strategy:
+                              description: RetryStrategies the model 'RetryStrategies'
+                              type: string
+                          type: object
                         sourceName:
                           type: string
                         sourceOutputName:
@@ -472,7 +559,13 @@ spec:
                         properties:
                           fileExtension:
                             type: string
+                          groupName:
+                            type: string
+                          iconClass:
+                            type: string
                           name:
+                            type: string
+                          subTypeName:
                             type: string
                           title:
                             type: string
@@ -631,6 +724,31 @@ spec:
                       componentType:
                         description: ComponentTypes the model 'ComponentTypes'
                         type: string
+                      overrideRetryStrategy:
+                        type: boolean
+                      retryStrategy:
+                        description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
+                        properties:
+                          deadLetterSuffix:
+                            type: string
+                          steps:
+                            items:
+                              description: TopicRetryStepModel struct for TopicRetryStepModel
+                              properties:
+                                backoffDuration:
+                                  type: string
+                                index:
+                                  format: int32
+                                  type: integer
+                                repeat:
+                                  format: int32
+                                  type: integer
+                              type: object
+                            type: array
+                          strategy:
+                            description: RetryStrategies the model 'RetryStrategies'
+                            type: string
+                        type: object
                       sourceName:
                         type: string
                       sourceOutputName:
@@ -774,6 +892,31 @@ spec:
                       componentType:
                         description: ComponentTypes the model 'ComponentTypes'
                         type: string
+                      overrideRetryStrategy:
+                        type: boolean
+                      retryStrategy:
+                        description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
+                        properties:
+                          deadLetterSuffix:
+                            type: string
+                          steps:
+                            items:
+                              description: TopicRetryStepModel struct for TopicRetryStepModel
+                              properties:
+                                backoffDuration:
+                                  type: string
+                                index:
+                                  format: int32
+                                  type: integer
+                                repeat:
+                                  format: int32
+                                  type: integer
+                              type: object
+                            type: array
+                          strategy:
+                            description: RetryStrategies the model 'RetryStrategies'
+                            type: string
+                        type: object
                       sourceName:
                         type: string
                       sourceOutputName:

@@ -20,7 +20,7 @@ type EndpointConfig struct {
 	Resource ResourceModel `json:"resource,omitempty"`
 	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
 	Paths []EndpointPathModel `json:"paths,omitempty"`
-	Server *EndpointServerConfig `json:"server,omitempty"`
-	Producer *EndpointProducerConfig `json:"producer,omitempty"`
+	Server EndpointServerConfig `json:"server,omitempty"`
+	Producer EndpointProducerConfig `json:"producer,omitempty"`
 	Kafka EndpointKafkaConfig `json:"kafka,omitempty"`
 }

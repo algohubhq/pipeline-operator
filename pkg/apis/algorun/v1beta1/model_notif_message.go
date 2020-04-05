@@ -21,5 +21,5 @@ type NotifMessage struct {
 	Summary *string `json:"summary,omitempty"`
 	Url *string `json:"url,omitempty"`
 	Type NotifTypes `json:"type,omitempty"`
-	DeploymentStatusMessage *DeploymentStatusMessage `json:"deploymentStatusMessage,omitempty"`
+	DeploymentStatusMessage DeploymentStatusMessage `json:"deploymentStatusMessage,omitempty"`
 }

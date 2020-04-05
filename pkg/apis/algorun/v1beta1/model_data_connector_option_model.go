@@ -16,5 +16,5 @@ type DataConnectorOptionModel struct {
 	Name string `json:"name,omitempty"`
 	Description *string `json:"description,omitempty"`
 	Value string `json:"value,omitempty"`
-	DataType *DataTypeModel `json:"dataType,omitempty"`
+	DataType DataTypeModel `json:"dataType,omitempty"`
 }

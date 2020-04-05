@@ -925,6 +925,8 @@ func (algoReconciler *AlgoReconciler) createRunnerConfig(pipelineDeploymentSpec 
 		AlgoParams:              algoConfig.AlgoParams,
 		Inputs:                  algoConfig.Inputs,
 		Outputs:                 algoConfig.Outputs,
+		TopicRetryEnabled:       algoConfig.TopicRetryEnabled,
+		RetryStrategy:           algoConfig.RetryStrategy,
 		WriteAllOutputs:         algoConfig.WriteAllOutputs,
 		GpuEnabled:              algoConfig.GpuEnabled,
 		TimeoutSeconds:          algoConfig.TimeoutSeconds,

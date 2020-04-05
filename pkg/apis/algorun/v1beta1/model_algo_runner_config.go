@@ -27,6 +27,8 @@ type AlgoRunnerConfig struct {
 	WriteAllOutputs bool `json:"writeAllOutputs,omitempty"`
 	Pipes []PipeModel `json:"pipes,omitempty"`
 	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
+	TopicRetryEnabled bool `json:"topicRetryEnabled,omitempty"`
+	RetryStrategy TopicRetryStrategyModel `json:"retryStrategy,omitempty"`
 	GpuEnabled bool `json:"gpuEnabled,omitempty"`
 	TimeoutSeconds int32 `json:"timeoutSeconds,omitempty"`
 }
