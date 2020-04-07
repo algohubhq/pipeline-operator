@@ -20,7 +20,7 @@ type AlgoRunnerConfig struct {
 	AlgoVersionTag string `json:"algoVersionTag"`
 	AlgoIndex int32 `json:"algoIndex"`
 	Entrypoint string `json:"entrypoint,omitempty"`
-	Executor Executors `json:"executor,omitempty"`
+	Executor *Executors `json:"executor,omitempty"`
 	AlgoParams []AlgoParamModel `json:"algoParams,omitempty"`
 	Inputs []AlgoInputModel `json:"inputs,omitempty"`
 	Outputs []AlgoOutputModel `json:"outputs,omitempty"`
@@ -28,7 +28,7 @@ type AlgoRunnerConfig struct {
 	Pipes []PipeModel `json:"pipes,omitempty"`
 	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
 	TopicRetryEnabled bool `json:"topicRetryEnabled,omitempty"`
-	RetryStrategy TopicRetryStrategyModel `json:"retryStrategy,omitempty"`
+	RetryStrategy *TopicRetryStrategyModel `json:"retryStrategy,omitempty"`
 	GpuEnabled bool `json:"gpuEnabled,omitempty"`
 	TimeoutSeconds int32 `json:"timeoutSeconds,omitempty"`
 }

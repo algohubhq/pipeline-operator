@@ -152,7 +152,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 
 		existingHpa, err := kubeUtil.CheckForHorizontalPodAutoscaler(opts)
 
-		hpaSpec, err := kubeUtil.CreateHpaSpec(hookName, labels, pipelineDeployment, &pipelineDeployment.Spec.Hook.Resource)
+		hpaSpec, err := kubeUtil.CreateHpaSpec(hookName, labels, pipelineDeployment, pipelineDeployment.Spec.Hook.Resource)
 		if err != nil {
 			hookLogger.Error(err, "Failed to create Hook horizontal pod autoscaler spec")
 			return err
@@ -239,7 +239,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 	var containers []corev1.Container
 
 	hookCommand := []string{"/hook-runner/hook-runner"}
-	hookEnvVars := hookReconciler.createEnvVars(pipelineDeployment, &hookConfig)
+	hookEnvVars := hookReconciler.createEnvVars(pipelineDeployment, hookConfig)
 
 	readinessProbe := &corev1.Probe{
 		Handler:             handler,
@@ -260,7 +260,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 	}
 
 	kubeUtil := utils.NewKubeUtil(hookReconciler.client, hookReconciler.request)
-	resources, resourceErr := kubeUtil.CreateResourceReqs(&hookConfig.Resource)
+	resources, resourceErr := kubeUtil.CreateResourceReqs(hookConfig.Resource)
 
 	if resourceErr != nil {
 		return nil, resourceErr

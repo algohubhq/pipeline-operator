@@ -110,10 +110,12 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 			// Return and don't requeue
 			reqLogger.Info("PipelineDeployment resource not found. Ignoring since object must be deleted.")
 			// Sending a notification that an pipelineDeployment was deleted. Just not sure which one!
+			loglevel := v1beta1.LOGLEVELS_INFO
+			notifType := v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_DELETED
 			notifMessage := &v1beta1.NotifMessage{
 				MessageTimestamp: time.Now(),
-				Level:            "Info",
-				Type:             v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_DELETED,
+				Level:            &loglevel,
+				Type:             &notifType,
 			}
 			utils.Notify(notifMessage)
 			return reconcile.Result{}, nil
@@ -139,10 +141,12 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		}
 
 		// Send the delete notification
+		loglevel := v1beta1.LOGLEVELS_INFO
+		notifType := v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_DELETED
 		notifMessage := &v1beta1.NotifMessage{
 			MessageTimestamp: time.Now(),
-			Level:            "Info",
-			Type:             v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_DELETED,
+			Level:            &loglevel,
+			Type:             &notifType,
 		}
 		utils.Notify(notifMessage)
 
@@ -198,7 +202,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		wg.Done()
 	}(instance)
 
-	// Reconcile all algo deployments
+	// // Reconcile all algo deployments
 	reqLogger.Info("Reconciling Algos")
 	for _, algoConfig := range instance.Spec.Algos {
 		wg.Add(1)
@@ -212,7 +216,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		}(algoConfig)
 	}
 
-	// Reconcile the algo metrics service
+	// // Reconcile the algo metrics service
 	reqLogger.Info("Reconciling Algo Metrics Service")
 	wg.Add(1)
 	go func() {
@@ -221,7 +225,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		wg.Done()
 	}()
 
-	// Reconcile all data connectors
+	// // Reconcile all data connectors
 	reqLogger.Info("Reconciling Data Connectors")
 	for _, dcConfig := range instance.Spec.DataConnectors {
 		wg.Add(1)
@@ -235,7 +239,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		}(dcConfig)
 	}
 
-	// Reconcile hook container
+	// // Reconcile hook container
 	if instance.Spec.Hook.WebHooks != nil && len(instance.Spec.Hook.WebHooks) > 0 {
 		reqLogger.Info("Reconciling Hooks")
 		wg.Add(1)
@@ -249,7 +253,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		}(instance)
 	}
 
-	// Reconcile endpoint container
+	// // Reconcile endpoint container
 	if instance.Spec.Endpoint.Paths != nil && len(instance.Spec.Endpoint.Paths) > 0 {
 		reqLogger.Info("Reconciling Endpoints")
 		wg.Add(1)

@@ -17,10 +17,10 @@ type EndpointConfig struct {
 	PipelineName string `json:"pipelineName,omitempty"`
 	ImageRepository string `json:"imageRepository,omitempty"`
 	ImageTag string `json:"imageTag,omitempty"`
-	Resource ResourceModel `json:"resource,omitempty"`
+	Resource *ResourceModel `json:"resource,omitempty"`
 	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
 	Paths []EndpointPathModel `json:"paths,omitempty"`
-	Server EndpointServerConfig `json:"server,omitempty"`
-	Producer EndpointProducerConfig `json:"producer,omitempty"`
-	Kafka EndpointKafkaConfig `json:"kafka,omitempty"`
+	Server *EndpointServerConfig `json:"server,omitempty"`
+	Producer *EndpointProducerConfig `json:"producer,omitempty"`
+	Kafka *EndpointKafkaConfig `json:"kafka,omitempty"`
 }

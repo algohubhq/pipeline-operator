@@ -13,9 +13,9 @@ package v1beta1
 type EndpointPathModel struct {
 	Name string `json:"name,omitempty"`
 	IsDefault bool `json:"isDefault,omitempty"`
-	Description *string `json:"description,omitempty"`
-	ConnectionString *string `json:"connectionString,omitempty"`
-	EndpointType EndpointTypes `json:"endpointType,omitempty"`
-	MessageDataType MessageDataTypes `json:"messageDataType,omitempty"`
-	ContentType ContentTypeModel `json:"contentType,omitempty"`
+	Description string `json:"description,omitempty"`
+	ConnectionString string `json:"connectionString,omitempty"`
+	EndpointType *EndpointTypes `json:"endpointType,omitempty"`
+	MessageDataType *MessageDataTypes `json:"messageDataType,omitempty"`
+	ContentType *ContentTypeModel `json:"contentType,omitempty"`
 }

@@ -626,6 +626,8 @@ spec:
                           items:
                             type: string
                           type: array
+                        in_memory:
+                          type: boolean
                         mode:
                           type: string
                         path:

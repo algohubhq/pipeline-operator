@@ -11,7 +11,7 @@
 package v1beta1
 // EndpointServerConfig struct for EndpointServerConfig
 type EndpointServerConfig struct {
-	Http EndpointServerListen `json:"http,omitempty"`
-	Grpc EndpointServerListen `json:"grpc,omitempty"`
-	Monitoring EndpointServerListen `json:"monitoring,omitempty"`
+	Http *EndpointServerListen `json:"http,omitempty"`
+	Grpc *EndpointServerListen `json:"grpc,omitempty"`
+	Monitoring *EndpointServerListen `json:"monitoring,omitempty"`
 }

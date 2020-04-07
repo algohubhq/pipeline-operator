@@ -11,7 +11,7 @@
 package v1beta1
 // EndpointProducerConfig struct for EndpointProducerConfig
 type EndpointProducerConfig struct {
-	Cb ProducerCircuitBreaker `json:"cb,omitempty"`
-	Resend ProducerResend `json:"resend,omitempty"`
-	Wal ProducerWal `json:"wal,omitempty"`
+	Cb *ProducerCircuitBreaker `json:"cb,omitempty"`
+	Resend *ProducerResend `json:"resend,omitempty"`
+	Wal *ProducerWal `json:"wal,omitempty"`
 }

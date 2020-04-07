@@ -16,10 +16,10 @@ import (
 type NotifMessage struct {
 	Key string `json:"key,omitempty"`
 	MessageTimestamp time.Time `json:"messageTimestamp,omitempty"`
-	Level LogLevels `json:"level,omitempty"`
-	Title *string `json:"title,omitempty"`
-	Summary *string `json:"summary,omitempty"`
-	Url *string `json:"url,omitempty"`
-	Type NotifTypes `json:"type,omitempty"`
-	DeploymentStatusMessage DeploymentStatusMessage `json:"deploymentStatusMessage,omitempty"`
+	Level *LogLevels `json:"level,omitempty"`
+	Title string `json:"title,omitempty"`
+	Summary string `json:"summary,omitempty"`
+	Url string `json:"url,omitempty"`
+	Type *NotifTypes `json:"type,omitempty"`
+	DeploymentStatusMessage *DeploymentStatusMessage `json:"deploymentStatusMessage,omitempty"`
 }

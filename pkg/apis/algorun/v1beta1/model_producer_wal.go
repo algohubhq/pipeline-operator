@@ -12,6 +12,7 @@ package v1beta1
 // ProducerWal struct for ProducerWal
 type ProducerWal struct {
 	Mode string `json:"mode,omitempty"`
+	InMemory bool `json:"in_memory,omitempty"`
 	Path string `json:"path,omitempty"`
 	Size string `json:"size,omitempty"`
 	AlwaysTopics []string `json:"always_topics,omitempty"`

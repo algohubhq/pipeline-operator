@@ -37,7 +37,7 @@ func Notify(notifMessage *v1beta1.NotifMessage) {
 
 		notifLogger := log.WithValues("data", logData)
 
-		u, _ := url.Parse(fmt.Sprintf("%s/%schanged", notifEnvURL, notifMessage.Type))
+		u, _ := url.Parse(fmt.Sprintf("%s/%schanged", notifEnvURL, *notifMessage.Type))
 		notifURL := u.String()
 
 		jsonValue, _ := json.Marshal(notifMessage)

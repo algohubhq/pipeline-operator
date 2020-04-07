@@ -11,5 +11,5 @@
 package v1beta1
 // DataTypeOptionModel struct for DataTypeOptionModel
 type DataTypeOptionModel struct {
-	Name *string `json:"name,omitempty"`
+	Name string `json:"name,omitempty"`
 }

@@ -195,7 +195,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 		existingHpa, err := kubeUtil.CheckForHorizontalPodAutoscaler(opts)
 
-		hpaSpec, err := kubeUtil.CreateHpaSpec(algoName, labels, pipelineDeployment, &algoConfig.Resource)
+		hpaSpec, err := kubeUtil.CreateHpaSpec(algoName, labels, pipelineDeployment, algoConfig.Resource)
 		if err != nil {
 			algoLogger.Error(err, "Failed to create Algo horizontal pod autoscaler spec")
 			return err
@@ -475,7 +475,8 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	var algoLivenessProbe *corev1.Probe
 	var sidecarReadinessProbe *corev1.Probe
 	var sidecarLivenessProbe *corev1.Probe
-	if algoConfig.Executor == "Executable" {
+
+	if *algoConfig.Executor == v1beta1.EXECUTORS_EXECUTABLE {
 
 		labels["algo.run/create-algo-service"] = "true"
 
@@ -527,7 +528,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 			FailureThreshold:    3,
 		}
 
-	} else if algoConfig.Executor == "Delegated" {
+	} else if *algoConfig.Executor == v1beta1.EXECUTORS_DELEGATED {
 
 		labels["algo.run/create-algo-service"] = "false"
 
@@ -593,7 +594,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	}
 
 	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
-	resources, resourceErr := kubeUtil.CreateResourceReqs(&algoConfig.Resource)
+	resources, resourceErr := kubeUtil.CreateResourceReqs(algoConfig.Resource)
 
 	if resourceErr != nil {
 		return nil, resourceErr
@@ -847,7 +848,7 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 
 	// Append all KafkaTopic Inputs
 	for _, input := range algoConfig.Inputs {
-		if input.InputDeliveryType == v1beta1.INPUTDELIVERYTYPES_KAFKA_TOPIC {
+		if *input.InputDeliveryType == v1beta1.INPUTDELIVERYTYPES_KAFKA_TOPIC {
 			for _, pipe := range algoReconciler.pipelineDeployment.Spec.Pipes {
 				if pipe.DestInputName == input.Name {
 					for _, tc := range algoReconciler.allTopicConfigs {
@@ -867,7 +868,7 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 
 	// Append all KafkaTopic Outputs
 	for _, output := range algoConfig.Outputs {
-		if output.OutputDeliveryType == v1beta1.OUTPUTDELIVERYTYPES_KAFKA_TOPIC {
+		if *output.OutputDeliveryType == v1beta1.OUTPUTDELIVERYTYPES_KAFKA_TOPIC {
 			for _, tc := range algoConfig.TopicConfigs {
 				if output.Name == tc.SourceOutputName {
 					topicName := utils.GetTopicName(tc.TopicName, &algoReconciler.pipelineDeployment.Spec)

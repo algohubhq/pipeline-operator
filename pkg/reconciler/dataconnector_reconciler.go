@@ -177,7 +177,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 			dcConfig["tasks.max"] = strconv.Itoa(int(dataConnectorConfig.TasksMax))
 
 			// If Sink. need to add the source topics
-			if dataConnectorConfig.DataConnectorType == v1beta1.DATACONNECTORTYPES_SINK {
+			if *dataConnectorConfig.DataConnectorType == v1beta1.DATACONNECTORTYPES_SINK {
 				topicName, err := dataConnectorReconciler.getDcSourceTopic(pipelineDeployment, dataConnectorConfig)
 				dcConfig["topics"] = topicName
 

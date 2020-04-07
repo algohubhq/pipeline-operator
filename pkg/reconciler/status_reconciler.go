@@ -61,11 +61,13 @@ func (r *StatusReconciler) Reconcile() error {
 	if r.pipelineDeployment.Status.Status != pipelineDeploymentStatus.Status {
 		r.pipelineDeployment.Status.Status = pipelineDeploymentStatus.Status
 
+		loglevel := v1beta1.LOGLEVELS_INFO
+		notifType := v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_STATUS
 		notifMessage := &algov1beta1.NotifMessage{
 			MessageTimestamp: time.Now(),
-			Level:            "Info",
-			Type:             v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_STATUS,
-			DeploymentStatusMessage: algov1beta1.DeploymentStatusMessage{
+			Level:            &loglevel,
+			Type:             &notifType,
+			DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
 				DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
 				DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
 				Status:                  r.pipelineDeployment.Status.Status,
@@ -84,11 +86,13 @@ func (r *StatusReconciler) Reconcile() error {
 				if diff := deep.Equal(deplStatus, newDeplStatus); diff != nil {
 					deplStatus = newDeplStatus
 					reqLogger.Info("Deployment Status Differences", "Differences", diff)
+					loglevel := v1beta1.LOGLEVELS_INFO
+					notifType := v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT
 					notifMessage := &algov1beta1.NotifMessage{
 						MessageTimestamp: time.Now(),
-						Level:            "Info",
-						Type:             v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT,
-						DeploymentStatusMessage: algov1beta1.DeploymentStatusMessage{
+						Level:            &loglevel,
+						Type:             &notifType,
+						DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
 							DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
 							DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
 							Status:                  r.pipelineDeployment.Status.Status,
@@ -111,11 +115,13 @@ func (r *StatusReconciler) Reconcile() error {
 					podStatus = newPodStatus
 
 					// reqLogger.Info("Deployment Pod Status Differences", "Differences", diff)
+					loglevel := v1beta1.LOGLEVELS_INFO
+					notifType := v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_POD
 					notifMessage := &algov1beta1.NotifMessage{
 						MessageTimestamp: time.Now(),
-						Level:            "Info",
-						Type:             v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT_POD,
-						DeploymentStatusMessage: algov1beta1.DeploymentStatusMessage{
+						Level:            &loglevel,
+						Type:             &notifType,
+						DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
 							DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
 							DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
 							Status:                  r.pipelineDeployment.Status.Status,
@@ -242,15 +248,18 @@ func (r *StatusReconciler) getDeploymentStatuses(cr *algov1beta1.PipelineDeploym
 
 		switch deployment.Labels["app.kubernetes.io/component"] {
 		case "algo":
-			componentStatus.ComponentType = "Algo"
+			compType := v1beta1.COMPONENTTYPES_ALGO
+			componentStatus.ComponentType = &compType
 			componentStatus.Name = strings.Replace(deployment.Labels["algo.run/algo"], ".", "/", 1)
 			componentStatus.VersionTag = deployment.Labels["algo.run/algo-version"]
 		case "dataconnector":
-			componentStatus.ComponentType = "DataConnector"
+			compType := v1beta1.COMPONENTTYPES_DATA_CONNECTOR
+			componentStatus.ComponentType = &compType
 			componentStatus.Name = strings.Replace(deployment.Labels["algo.run/dataconnector"], ".", "/", 1)
 			componentStatus.VersionTag = deployment.Labels["algo.run/dataconnector-version"]
 		case "hook":
-			componentStatus.ComponentType = "Hook"
+			compType := v1beta1.COMPONENTTYPES_HOOK
+			componentStatus.ComponentType = &compType
 			componentStatus.Name = deployment.Labels["app.kubernetes.io/component"]
 		}
 
@@ -318,7 +327,8 @@ func (r *StatusReconciler) getStatefulSetStatuses(cr *algov1beta1.PipelineDeploy
 
 		switch sf.Labels["app.kubernetes.io/component"] {
 		case "endpoint":
-			componentStatus.ComponentType = "Endpoint"
+			compType := v1beta1.COMPONENTTYPES_ENDPOINT
+			componentStatus.ComponentType = &compType
 			componentStatus.Name = sf.Labels["app.kubernetes.io/component"]
 		}
 

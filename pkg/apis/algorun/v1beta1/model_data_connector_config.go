@@ -12,7 +12,7 @@ package v1beta1
 // DataConnectorConfig struct for DataConnectorConfig
 type DataConnectorConfig struct {
 	DeploymentName string `json:"deploymentName,omitempty"`
-	DataConnectorType DataConnectorTypes `json:"dataConnectorType,omitempty"`
+	DataConnectorType *DataConnectorTypes `json:"dataConnectorType,omitempty"`
 	Name string `json:"name,omitempty"`
 	VersionTag string `json:"versionTag,omitempty"`
 	Index int32 `json:"index,omitempty"`

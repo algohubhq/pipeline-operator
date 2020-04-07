@@ -427,17 +427,17 @@ func (d *KubeUtil) CreateHpaSpec(targetName string, labels map[string]string, pi
 
 		// Create the Metric target
 		metricTarget := autoscalev2beta2.MetricTarget{}
-		switch metric.TargetType {
+		switch *metric.TargetType {
 		case "Utilization":
 			metricTarget.Type = autoscalev2beta2.UtilizationMetricType
-			metricTarget.AverageUtilization = metric.AverageUtilization
+			metricTarget.AverageUtilization = &metric.AverageUtilization
 		case "Value":
 			metricTarget.Type = autoscalev2beta2.ValueMetricType
-			qty, _ := resource.ParseQuantity(fmt.Sprintf("%s", *metric.Value))
+			qty, _ := resource.ParseQuantity(fmt.Sprintf("%s", metric.Value))
 			metricTarget.Value = &qty
 		case "AverageValue":
 			metricTarget.Type = autoscalev2beta2.AverageValueMetricType
-			qty, _ := resource.ParseQuantity(fmt.Sprintf("%s", *metric.AverageValue))
+			qty, _ := resource.ParseQuantity(fmt.Sprintf("%s", metric.AverageValue))
 			metricTarget.AverageValue = &qty
 		default:
 			metricTarget.Type = autoscalev2beta2.UtilizationMetricType
@@ -445,29 +445,29 @@ func (d *KubeUtil) CreateHpaSpec(targetName string, labels map[string]string, pi
 		}
 
 		var metricSelector *metav1.LabelSelector
-		if *metric.MetricSelector != "" {
-			metricSelector, _ = metav1.ParseToLabelSelector(*metric.MetricSelector)
+		if metric.MetricSelector != "" {
+			metricSelector, _ = metav1.ParseToLabelSelector(metric.MetricSelector)
 		}
 
 		// Get the metric source type constant
-		switch metric.SourceType {
+		switch *metric.SourceType {
 		case "Resource":
 			metricSpec.Type = autoscalev2beta2.ResourceMetricSourceType
 			metricSpec.Resource = &autoscalev2beta2.ResourceMetricSource{
-				Name:   corev1.ResourceName(*metric.ResourceName),
+				Name:   corev1.ResourceName(metric.ResourceName),
 				Target: metricTarget,
 			}
 		case "Object":
 			metricSpec.Type = autoscalev2beta2.ObjectMetricSourceType
 			metricSpec.Object = &autoscalev2beta2.ObjectMetricSource{
 				DescribedObject: autoscalev2beta2.CrossVersionObjectReference{
-					APIVersion: *metric.ObjectApiVersion,
-					Kind:       *metric.ObjectKind,
-					Name:       *metric.ObjectName,
+					APIVersion: metric.ObjectApiVersion,
+					Kind:       metric.ObjectKind,
+					Name:       metric.ObjectName,
 				},
 				Target: metricTarget,
 				Metric: autoscalev2beta2.MetricIdentifier{
-					Name:     *metric.MetricName,
+					Name:     metric.MetricName,
 					Selector: metricSelector,
 				},
 			}
@@ -475,7 +475,7 @@ func (d *KubeUtil) CreateHpaSpec(targetName string, labels map[string]string, pi
 			metricSpec.Type = autoscalev2beta2.PodsMetricSourceType
 			metricSpec.Pods = &autoscalev2beta2.PodsMetricSource{
 				Metric: autoscalev2beta2.MetricIdentifier{
-					Name:     *metric.MetricName,
+					Name:     metric.MetricName,
 					Selector: metricSelector,
 				},
 				Target: metricTarget,
@@ -484,7 +484,7 @@ func (d *KubeUtil) CreateHpaSpec(targetName string, labels map[string]string, pi
 			metricSpec.Type = autoscalev2beta2.ExternalMetricSourceType
 			metricSpec.External = &autoscalev2beta2.ExternalMetricSource{
 				Metric: autoscalev2beta2.MetricIdentifier{
-					Name:     *metric.MetricName,
+					Name:     metric.MetricName,
 					Selector: metricSelector,
 				},
 				Target: metricTarget,

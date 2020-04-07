@@ -17,7 +17,7 @@ type HookConfig struct {
 	PipelineName string `json:"pipelineName,omitempty"`
 	ImageRepository string `json:"imageRepository,omitempty"`
 	ImageTag string `json:"imageTag,omitempty"`
-	Resource ResourceModel `json:"resource,omitempty"`
+	Resource *ResourceModel `json:"resource,omitempty"`
 	WebHooks []WebHookModel `json:"webHooks,omitempty"`
 	Pipes []PipeModel `json:"pipes,omitempty"`
 	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`

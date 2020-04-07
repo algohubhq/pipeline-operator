@@ -19,9 +19,9 @@ type PipelineDeploymentSpecV1beta1 struct {
 	KafkaBrokers string `json:"kafkaBrokers"`
 	StorageBucket string `json:"storageBucket,omitempty"`
 	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
-	Endpoint EndpointConfig `json:"endpoint,omitempty"`
+	Endpoint *EndpointConfig `json:"endpoint,omitempty"`
 	Algos []AlgoConfig `json:"algos,omitempty"`
 	DataConnectors []DataConnectorConfig `json:"dataConnectors,omitempty"`
-	Hook HookConfig `json:"hook,omitempty"`
+	Hook *HookConfig `json:"hook,omitempty"`
 	Pipes []PipeModel `json:"pipes,omitempty"`
 }

@@ -5,6 +5,7 @@ java -jar ./openapi-generator-cli-4.2.3.jar generate -i http://localhost:5000/sw
 -g go \
 -p enumClassPrefix=true \
 -p packageName=v1beta1 \
+-t openapi-template \
 -o algorun-go-client
 
 cp ./algorun-go-client/model_pipeline_deployment_spec_v1beta1.go ./pkg/apis/algorun/v1beta1/
