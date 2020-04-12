@@ -47,7 +47,7 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 
 	pipelineDeploymentSpec := kafkaUserReconciler.pipelineDeployment.Spec
 
-	kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeploymentSpec.DeploymentOwnerUserName,
+	kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeploymentSpec.DeploymentOwner,
 		pipelineDeploymentSpec.DeploymentName)
 
 	kafkaUserSpec := buildKafkaUserSpec(&pipelineDeploymentSpec, kafkaUserReconciler.topicConfigs)
@@ -63,9 +63,9 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "kafka-user",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.DeploymentOwner,
 				pipelineDeploymentSpec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineOwnerUserName,
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineOwner,
 				pipelineDeploymentSpec.PipelineName),
 		}
 

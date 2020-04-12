@@ -68,7 +68,7 @@ func (bucketReconciler *BucketReconciler) Reconcile() error {
 		}
 
 		bucketName := fmt.Sprintf("%s.%s",
-			strings.ToLower(bucketReconciler.pipelineDeployment.Spec.DeploymentOwnerUserName),
+			strings.ToLower(bucketReconciler.pipelineDeployment.Spec.DeploymentOwner),
 			strings.ToLower(bucketReconciler.pipelineDeployment.Spec.DeploymentName))
 
 		exists, err := minioClient.BucketExists(bucketName)

@@ -59,10 +59,16 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 	dcName := strings.ToLower(fmt.Sprintf("%s-%s-%d", pipelineDeployment.Spec.DeploymentName, dataConnectorConfig.Name, dataConnectorConfig.Index))
 	// Set the image name
 	var imageName string
-	if dataConnectorConfig.ImageTag == "" || dataConnectorConfig.ImageTag == "latest" {
-		imageName = fmt.Sprintf("%s:latest", dataConnectorConfig.ImageRepository)
+	if dataConnectorConfig.Image == nil {
+		err := errorsbase.New("Data Connector Image is empty")
+		log.Error(err,
+			fmt.Sprintf("Data Connector image cannot be empty for [%s]", dataConnectorConfig.Name))
+		return err
+	}
+	if dataConnectorConfig.Image.Tag == "" || dataConnectorConfig.Image.Tag == "latest" {
+		imageName = fmt.Sprintf("%s:latest", dataConnectorConfig.Image.Repository)
 	} else {
-		imageName = fmt.Sprintf("%s:%s", dataConnectorConfig.ImageRepository, dataConnectorConfig.ImageTag)
+		imageName = fmt.Sprintf("%s:%s", dataConnectorConfig.Image.Repository, dataConnectorConfig.Image.Tag)
 	}
 	// dcName := strings.TrimRight(utils.Short(dcName, 20), "-")
 	// check to see if data connector already exists
@@ -82,9 +88,9 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "dataconnector",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
 				pipelineDeployment.Spec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwnerUserName,
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 				pipelineDeployment.Spec.PipelineName),
 			"algo.run/dataconnector":         dataConnectorConfig.Name,
 			"algo.run/dataconnector-version": dataConnectorConfig.VersionTag,

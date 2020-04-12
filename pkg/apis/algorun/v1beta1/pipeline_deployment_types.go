@@ -10,11 +10,11 @@ import (
 // PipelineDeploymentStatus defines the observed state of PipelineDeployment
 // +k8s:openapi-gen=true
 type PipelineDeploymentStatus struct {
-	DeploymentOwnerUserName string               `json:"deploymentOwnerUserName,omitempty"`
-	DeploymentName          string               `json:"deploymentName,omitempty"`
-	Status                  string               `json:"status,omitempty"`
-	ComponentStatuses       []ComponentStatus    `json:"componentStatuses,omitempty"`
-	PodStatuses             []ComponentPodStatus `json:"podStatuses,omitempty"`
+	DeploymentOwner   string               `json:"deploymentOwner,omitempty"`
+	DeploymentName    string               `json:"deploymentName,omitempty"`
+	Status            string               `json:"status,omitempty"`
+	ComponentStatuses []ComponentStatus    `json:"componentStatuses,omitempty"`
+	PodStatuses       []ComponentPodStatus `json:"podStatuses,omitempty"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html

@@ -11,16 +11,17 @@
 package v1beta1
 // EndpointConfig struct for EndpointConfig
 type EndpointConfig struct {
-	DeploymentOwnerUserName string `json:"deploymentOwnerUserName,omitempty"`
+	DeploymentOwner string `json:"deploymentOwner,omitempty"`
 	DeploymentName string `json:"deploymentName,omitempty"`
-	PipelineOwnerUserName string `json:"pipelineOwnerUserName,omitempty"`
+	PipelineOwner string `json:"pipelineOwner,omitempty"`
 	PipelineName string `json:"pipelineName,omitempty"`
-	ImageRepository string `json:"imageRepository,omitempty"`
-	ImageTag string `json:"imageTag,omitempty"`
+	Image *ContainerImageModel `json:"image,omitempty"`
 	Resource *ResourceModel `json:"resource,omitempty"`
-	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
+	Topics []TopicConfigModel `json:"topics,omitempty"`
 	Paths []EndpointPathModel `json:"paths,omitempty"`
 	Server *EndpointServerConfig `json:"server,omitempty"`
 	Producer *EndpointProducerConfig `json:"producer,omitempty"`
 	Kafka *EndpointKafkaConfig `json:"kafka,omitempty"`
+	LivenessProbe *ProbeModel `json:"livenessProbe,omitempty"`
+	ReadinessProbe *ProbeModel `json:"readinessProbe,omitempty"`
 }

@@ -40,58 +40,19 @@ spec:
                     type: integer
                   algoName:
                     type: string
-                  algoOwnerUserName:
+                  algoOwner:
                     type: string
-                  algoParams:
-                    items:
-                      description: AlgoParamModel struct for AlgoParamModel
-                      properties:
-                        dataType:
-                          description: DataTypeModel struct for DataTypeModel
-                          properties:
-                            mask:
-                              type: string
-                            name:
-                              description: DataTypes the model 'DataTypes'
-                              type: string
-                            precision:
-                              format: int32
-                              type: integer
-                            regex:
-                              type: string
-                            scale:
-                              format: int32
-                              type: integer
-                          required:
-                          - name
-                          type: object
-                        description:
-                          type: string
-                        name:
-                          type: string
-                        options:
-                          items:
-                            description: DataTypeOptionModel struct for DataTypeOptionModel
-                            properties:
-                              name:
-                                type: string
-                            type: object
-                          type: array
-                        required:
-                          type: boolean
-                        sortOrder:
-                          format: int32
-                          type: integer
-                        value:
-                          type: string
-                      required:
-                      - name
-                      type: object
-                    type: array
                   algoRunnerImage:
-                    type: string
-                  algoRunnerImageTag:
-                    type: string
+                    description: ContainerImageModel struct for ContainerImageModel
+                    properties:
+                      imagePullPolicy:
+                        description: ImagePullPolicies the model 'ImagePullPolicies'
+                        type: string
+                      repository:
+                        type: string
+                      tag:
+                        type: string
+                    type: object
                   algoVersionTag:
                     type: string
                   applied:
@@ -114,7 +75,7 @@ spec:
                     type: array
                   deploymentName:
                     type: string
-                  deploymentOwnerUserName:
+                  deploymentOwner:
                     type: string
                   entrypoint:
                     type: string
@@ -123,10 +84,17 @@ spec:
                     type: string
                   gpuEnabled:
                     type: boolean
-                  imageRepository:
-                    type: string
-                  imageTag:
-                    type: string
+                  image:
+                    description: ContainerImageModel struct for ContainerImageModel
+                    properties:
+                      imagePullPolicy:
+                        description: ImagePullPolicies the model 'ImagePullPolicies'
+                        type: string
+                      repository:
+                        type: string
+                      tag:
+                        type: string
+                    type: object
                   inputs:
                     items:
                       description: AlgoInputModel struct for AlgoInputModel
@@ -179,15 +147,19 @@ spec:
                       - name
                       type: object
                     type: array
-                  livenessInitialDelaySeconds:
-                    format: int32
-                    type: integer
-                  livenessPeriodSeconds:
-                    format: int32
-                    type: integer
-                  livenessTimeoutSeconds:
-                    format: int32
-                    type: integer
+                  livenessProbe:
+                    description: ProbeModel struct for ProbeModel
+                    properties:
+                      failureThreshold:
+                        format: int32
+                        type: integer
+                      initialDelaySeconds:
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        format: int32
+                        type: integer
+                    type: object
                   outputs:
                     items:
                       description: AlgoOutputModel struct for AlgoOutputModel
@@ -223,15 +195,65 @@ spec:
                       - outputDeliveryType
                       type: object
                     type: array
-                  readinessInitialDelaySeconds:
-                    format: int32
-                    type: integer
-                  readinessPeriodSeconds:
-                    format: int32
-                    type: integer
-                  readinessTimeoutSeconds:
-                    format: int32
-                    type: integer
+                  parameters:
+                    items:
+                      description: AlgoParamModel struct for AlgoParamModel
+                      properties:
+                        dataType:
+                          description: DataTypeModel struct for DataTypeModel
+                          properties:
+                            mask:
+                              type: string
+                            name:
+                              description: DataTypes the model 'DataTypes'
+                              type: string
+                            precision:
+                              format: int32
+                              type: integer
+                            regex:
+                              type: string
+                            scale:
+                              format: int32
+                              type: integer
+                          required:
+                          - name
+                          type: object
+                        description:
+                          type: string
+                        name:
+                          type: string
+                        options:
+                          items:
+                            description: DataTypeOptionModel struct for DataTypeOptionModel
+                            properties:
+                              name:
+                                type: string
+                            type: object
+                          type: array
+                        required:
+                          type: boolean
+                        sortOrder:
+                          format: int32
+                          type: integer
+                        value:
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  readinessProbe:
+                    description: ProbeModel struct for ProbeModel
+                    properties:
+                      failureThreshold:
+                        format: int32
+                        type: integer
+                      initialDelaySeconds:
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        format: int32
+                        type: integer
+                    type: object
                   resource:
                     description: ResourceModel struct for ResourceModel
                     properties:
@@ -293,6 +315,8 @@ spec:
                           type: object
                         type: array
                     type: object
+                  retryEnabled:
+                    type: boolean
                   retryStrategy:
                     description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
                     properties:
@@ -319,7 +343,7 @@ spec:
                   timeoutSeconds:
                     format: int32
                     type: integer
-                  topicConfigs:
+                  topics:
                     items:
                       description: TopicConfigModel struct for TopicConfigModel
                       properties:
@@ -382,17 +406,14 @@ spec:
                       - sourceOutputName
                       type: object
                     type: array
-                  topicRetryEnabled:
-                    type: boolean
                   writeAllOutputs:
                     type: boolean
                 required:
                 - algoIndex
                 - algoName
-                - algoOwnerUserName
+                - algoOwner
                 - algoVersionTag
-                - imageRepository
-                - imageTag
+                - image
                 type: object
               type: array
             dataConnectors:
@@ -406,13 +427,33 @@ spec:
                     type: string
                   deploymentName:
                     type: string
-                  imageRepository:
-                    type: string
-                  imageTag:
-                    type: string
+                  image:
+                    description: ContainerImageModel struct for ContainerImageModel
+                    properties:
+                      imagePullPolicy:
+                        description: ImagePullPolicies the model 'ImagePullPolicies'
+                        type: string
+                      repository:
+                        type: string
+                      tag:
+                        type: string
+                    type: object
                   index:
                     format: int32
                     type: integer
+                  livenessProbe:
+                    description: ProbeModel struct for ProbeModel
+                    properties:
+                      failureThreshold:
+                        format: int32
+                        type: integer
+                      initialDelaySeconds:
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        format: int32
+                        type: integer
+                    type: object
                   name:
                     type: string
                   options:
@@ -451,10 +492,23 @@ spec:
                           type: string
                       type: object
                     type: array
+                  readinessProbe:
+                    description: ProbeModel struct for ProbeModel
+                    properties:
+                      failureThreshold:
+                        format: int32
+                        type: integer
+                      initialDelaySeconds:
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        format: int32
+                        type: integer
+                    type: object
                   tasksMax:
                     format: int32
                     type: integer
-                  topicConfigs:
+                  topics:
                     items:
                       description: TopicConfigModel struct for TopicConfigModel
                       properties:
@@ -519,23 +573,34 @@ spec:
                     type: array
                   versionTag:
                     type: string
+                required:
+                - image
                 type: object
               type: array
             deploymentName:
               type: string
-            deploymentOwnerUserName:
+            deploymentNamespace:
+              type: string
+            deploymentOwner:
               type: string
             endpoint:
               description: EndpointConfig struct for EndpointConfig
               properties:
                 deploymentName:
                   type: string
-                deploymentOwnerUserName:
+                deploymentOwner:
                   type: string
-                imageRepository:
-                  type: string
-                imageTag:
-                  type: string
+                image:
+                  description: ContainerImageModel struct for ContainerImageModel
+                  properties:
+                    imagePullPolicy:
+                      description: ImagePullPolicies the model 'ImagePullPolicies'
+                      type: string
+                    repository:
+                      type: string
+                    tag:
+                      type: string
+                  type: object
                 kafka:
                   description: EndpointKafkaConfig struct for EndpointKafkaConfig
                   properties:
@@ -547,6 +612,19 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
+                  type: object
+                livenessProbe:
+                  description: ProbeModel struct for ProbeModel
+                  properties:
+                    failureThreshold:
+                      format: int32
+                      type: integer
+                    initialDelaySeconds:
+                      format: int32
+                      type: integer
+                    periodSeconds:
+                      format: int32
+                      type: integer
                   type: object
                 paths:
                   items:
@@ -586,7 +664,7 @@ spec:
                   type: array
                 pipelineName:
                   type: string
-                pipelineOwnerUserName:
+                pipelineOwner:
                   type: string
                 producer:
                   description: EndpointProducerConfig struct for EndpointProducerConfig
@@ -635,6 +713,19 @@ spec:
                         size:
                           type: string
                       type: object
+                  type: object
+                readinessProbe:
+                  description: ProbeModel struct for ProbeModel
+                  properties:
+                    failureThreshold:
+                      format: int32
+                      type: integer
+                    initialDelaySeconds:
+                      format: int32
+                      type: integer
+                    periodSeconds:
+                      format: int32
+                      type: integer
                   type: object
                 resource:
                   description: ResourceModel struct for ResourceModel
@@ -719,7 +810,7 @@ spec:
                           type: string
                       type: object
                   type: object
-                topicConfigs:
+                topics:
                   items:
                     description: TopicConfigModel struct for TopicConfigModel
                     properties:
@@ -788,15 +879,35 @@ spec:
               properties:
                 deploymentName:
                   type: string
-                deploymentOwnerUserName:
+                deploymentOwner:
                   type: string
-                imageRepository:
-                  type: string
-                imageTag:
-                  type: string
+                image:
+                  description: ContainerImageModel struct for ContainerImageModel
+                  properties:
+                    imagePullPolicy:
+                      description: ImagePullPolicies the model 'ImagePullPolicies'
+                      type: string
+                    repository:
+                      type: string
+                    tag:
+                      type: string
+                  type: object
+                livenessProbe:
+                  description: ProbeModel struct for ProbeModel
+                  properties:
+                    failureThreshold:
+                      format: int32
+                      type: integer
+                    initialDelaySeconds:
+                      format: int32
+                      type: integer
+                    periodSeconds:
+                      format: int32
+                      type: integer
+                  type: object
                 pipelineName:
                   type: string
-                pipelineOwnerUserName:
+                pipelineOwner:
                   type: string
                 pipes:
                   items:
@@ -826,6 +937,19 @@ spec:
                     - sourceOutputName
                     type: object
                   type: array
+                readinessProbe:
+                  description: ProbeModel struct for ProbeModel
+                  properties:
+                    failureThreshold:
+                      format: int32
+                      type: integer
+                    initialDelaySeconds:
+                      format: int32
+                      type: integer
+                    periodSeconds:
+                      format: int32
+                      type: integer
+                  type: object
                 resource:
                   description: ResourceModel struct for ResourceModel
                   properties:
@@ -887,7 +1011,7 @@ spec:
                         type: object
                       type: array
                   type: object
-                topicConfigs:
+                topics:
                   items:
                     description: TopicConfigModel struct for TopicConfigModel
                     properties:
@@ -956,7 +1080,7 @@ spec:
                     properties:
                       deploymentName:
                         type: string
-                      deploymentOwnerUserName:
+                      deploymentOwner:
                         type: string
                       httpHeaders:
                         type: string
@@ -969,13 +1093,11 @@ spec:
                     type: object
                   type: array
               type: object
-            imagePullPolicy:
-              type: string
             kafkaBrokers:
               type: string
             pipelineName:
               type: string
-            pipelineOwnerUserName:
+            pipelineOwner:
               type: string
             pipelineVersionTag:
               type: string
@@ -1011,10 +1133,10 @@ spec:
               type: string
           required:
           - deploymentName
-          - deploymentOwnerUserName
+          - deploymentOwner
           - kafkaBrokers
           - pipelineName
-          - pipelineOwnerUserName
+          - pipelineOwner
           - pipelineVersionTag
           type: object
         status:
@@ -1059,7 +1181,7 @@ spec:
               type: array
             deploymentName:
               type: string
-            deploymentOwnerUserName:
+            deploymentOwner:
               type: string
             podStatuses:
               items:

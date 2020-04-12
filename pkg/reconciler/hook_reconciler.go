@@ -3,6 +3,7 @@ package reconciler
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
@@ -29,7 +30,7 @@ func NewHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	kafkaTLS bool) HookReconciler {
 	return HookReconciler{
 		pipelineDeployment: pipelineDeployment,
-		allTopicConfigs:    allTopicConfigs,
+		allTopics:          allTopicConfigs,
 		request:            request,
 		client:             client,
 		scheme:             scheme,
@@ -40,7 +41,7 @@ func NewHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 // HookReconciler reconciles an Hook object
 type HookReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
-	allTopicConfigs    []algov1beta1.TopicConfigModel
+	allTopics          []algov1beta1.TopicConfigModel
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
@@ -62,9 +63,9 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 		"app.kubernetes.io/part-of":    "algo.run",
 		"app.kubernetes.io/component":  "hook",
 		"app.kubernetes.io/managed-by": "pipeline-operator",
-		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
 			pipelineDeployment.Spec.DeploymentName),
-		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwnerUserName,
+		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 			pipelineDeployment.Spec.PipelineName),
 	}
 
@@ -74,7 +75,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "hook",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", hookReconciler.pipelineDeployment.Spec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", hookReconciler.pipelineDeployment.Spec.DeploymentOwner,
 				hookReconciler.pipelineDeployment.Spec.DeploymentName),
 		},
 	}
@@ -139,9 +140,9 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "hook-hpa",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
 				pipelineDeployment.Spec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwnerUserName,
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 				pipelineDeployment.Spec.PipelineName),
 		}
 
@@ -199,32 +200,37 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 	pipelineDeployment := hookReconciler.pipelineDeployment
 	pipelineSpec := hookReconciler.pipelineDeployment.Spec
 	hookConfig := pipelineSpec.Hook
-	hookConfig.DeploymentOwnerUserName = pipelineSpec.DeploymentOwnerUserName
+	hookConfig.DeploymentOwner = pipelineSpec.DeploymentOwner
 	hookConfig.DeploymentName = pipelineSpec.DeploymentName
-	hookConfig.PipelineOwnerUserName = pipelineSpec.PipelineOwnerUserName
+	hookConfig.PipelineOwner = pipelineSpec.PipelineOwner
 	hookConfig.PipelineName = pipelineSpec.PipelineName
 	hookConfig.WebHooks = pipelineSpec.Hook.WebHooks
 	hookConfig.Pipes = pipelineSpec.Pipes
-	hookConfig.TopicConfigs = hookReconciler.allTopicConfigs
+	hookConfig.Topics = hookReconciler.allTopics
 
 	// Set the image name
-	var imageName string
-	if hookConfig.ImageTag == "" || hookConfig.ImageTag == "latest" {
-		imageName = fmt.Sprintf("%s:latest", hookConfig.ImageRepository)
-	} else {
-		imageName = fmt.Sprintf("%s:%s", hookConfig.ImageRepository, hookConfig.ImageTag)
-	}
-
-	var imagePullPolicy corev1.PullPolicy
-	switch pipelineDeployment.Spec.ImagePullPolicy {
-	case "Never":
-		imagePullPolicy = corev1.PullNever
-	case "PullAlways":
-		imagePullPolicy = corev1.PullAlways
-	case "IfNotPresent":
-		imagePullPolicy = corev1.PullIfNotPresent
-	default:
-		imagePullPolicy = corev1.PullIfNotPresent
+	imagePullPolicy := corev1.PullIfNotPresent
+	imageName := os.Getenv("HOOK_IMAGE")
+	if imageName == "" {
+		if hookConfig.Image == nil {
+			imageName = "algohub/hook-runner:latest"
+		} else {
+			if hookConfig.Image.Tag == "" {
+				imageName = fmt.Sprintf("%s:latest", hookConfig.Image.Repository)
+			} else {
+				imageName = fmt.Sprintf("%s:%s", hookConfig.Image.Repository, hookConfig.Image.Tag)
+			}
+			switch *hookConfig.Image.ImagePullPolicy {
+			case "Never":
+				imagePullPolicy = corev1.PullNever
+			case "PullAlways":
+				imagePullPolicy = corev1.PullAlways
+			case "IfNotPresent":
+				imagePullPolicy = corev1.PullIfNotPresent
+			default:
+				imagePullPolicy = corev1.PullIfNotPresent
+			}
+		}
 	}
 
 	// Configure the readiness and liveness

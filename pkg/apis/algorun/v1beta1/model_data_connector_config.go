@@ -16,10 +16,11 @@ type DataConnectorConfig struct {
 	Name string `json:"name,omitempty"`
 	VersionTag string `json:"versionTag,omitempty"`
 	Index int32 `json:"index,omitempty"`
-	ImageRepository string `json:"imageRepository,omitempty"`
-	ImageTag string `json:"imageTag,omitempty"`
+	Image *ContainerImageModel `json:"image"`
 	ConnectorClass string `json:"connectorClass,omitempty"`
 	TasksMax int32 `json:"tasksMax,omitempty"`
-	TopicConfigs []TopicConfigModel `json:"topicConfigs,omitempty"`
+	Topics []TopicConfigModel `json:"topics,omitempty"`
 	Options []DataConnectorOptionModel `json:"options,omitempty"`
+	LivenessProbe *ProbeModel `json:"livenessProbe,omitempty"`
+	ReadinessProbe *ProbeModel `json:"readinessProbe,omitempty"`
 }

@@ -75,9 +75,9 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "topic",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.DeploymentOwner,
 				pipelineDeploymentSpec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineOwnerUserName,
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineOwner,
 				pipelineDeploymentSpec.PipelineName),
 		}
 
@@ -146,7 +146,7 @@ func buildTopicSpec(pipelineSpec algov1beta1.PipelineDeploymentSpecV1beta1, topi
 
 				// Find all destination Algos
 				for _, algoConfig := range pipelineSpec.Algos {
-					algoName := fmt.Sprintf("%s/%s:%s[%d]", algoConfig.AlgoOwnerUserName, algoConfig.AlgoName, algoConfig.AlgoVersionTag, algoConfig.AlgoIndex)
+					algoName := fmt.Sprintf("%s/%s:%s[%d]", algoConfig.AlgoOwner, algoConfig.AlgoName, algoConfig.AlgoVersionTag, algoConfig.AlgoIndex)
 					if algoName == pipe.DestName {
 						// In case MaxInstances is Zero, use the topicPartitions
 						maxPartitions := utils.Max(int64(algoConfig.Resource.MaxInstances), topicPartitions)

@@ -519,7 +519,7 @@ func (d *KubeUtil) CreateHpaSpec(targetName string, labels map[string]string, pi
 func (d *KubeUtil) GetStorageSecretName(pipelineSpec *v1beta1.PipelineDeploymentSpecV1beta1) (storageSecretName string, err error) {
 
 	// Check for the specific deployment storage secret
-	secretName := fmt.Sprintf("storage-%s-%s", pipelineSpec.DeploymentOwnerUserName, pipelineSpec.DeploymentName)
+	secretName := fmt.Sprintf("storage-%s-%s", pipelineSpec.DeploymentOwner, pipelineSpec.DeploymentName)
 	secret := &corev1.Secret{}
 	namespacedName := types.NamespacedName{
 		Name:      secretName,

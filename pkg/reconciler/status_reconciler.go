@@ -68,9 +68,9 @@ func (r *StatusReconciler) Reconcile() error {
 			Level:            &loglevel,
 			Type:             &notifType,
 			DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
-				DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
-				DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
-				Status:                  r.pipelineDeployment.Status.Status,
+				DeploymentOwner: r.pipelineDeployment.Spec.DeploymentOwner,
+				DeploymentName:  r.pipelineDeployment.Spec.DeploymentName,
+				Status:          r.pipelineDeployment.Status.Status,
 			},
 		}
 
@@ -93,9 +93,9 @@ func (r *StatusReconciler) Reconcile() error {
 						Level:            &loglevel,
 						Type:             &notifType,
 						DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
-							DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
-							DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
-							Status:                  r.pipelineDeployment.Status.Status,
+							DeploymentOwner: r.pipelineDeployment.Spec.DeploymentOwner,
+							DeploymentName:  r.pipelineDeployment.Spec.DeploymentName,
+							Status:          r.pipelineDeployment.Status.Status,
 						},
 					}
 
@@ -122,9 +122,9 @@ func (r *StatusReconciler) Reconcile() error {
 						Level:            &loglevel,
 						Type:             &notifType,
 						DeploymentStatusMessage: &algov1beta1.DeploymentStatusMessage{
-							DeploymentOwnerUserName: r.pipelineDeployment.Spec.DeploymentOwnerUserName,
-							DeploymentName:          r.pipelineDeployment.Spec.DeploymentName,
-							Status:                  r.pipelineDeployment.Status.Status,
+							DeploymentOwner: r.pipelineDeployment.Spec.DeploymentOwner,
+							DeploymentName:  r.pipelineDeployment.Spec.DeploymentName,
+							Status:          r.pipelineDeployment.Status.Status,
 						},
 					}
 
@@ -161,8 +161,8 @@ func (r *StatusReconciler) Reconcile() error {
 func (r *StatusReconciler) getStatus(cr *algov1beta1.PipelineDeployment, request *reconcile.Request) (*algov1beta1.PipelineDeploymentStatus, error) {
 
 	pipelineDeploymentStatus := algov1beta1.PipelineDeploymentStatus{
-		DeploymentOwnerUserName: cr.Spec.DeploymentOwnerUserName,
-		DeploymentName:          cr.Spec.DeploymentName,
+		DeploymentOwner: cr.Spec.DeploymentOwner,
+		DeploymentName:  cr.Spec.DeploymentName,
 	}
 
 	logData := map[string]interface{}{
@@ -215,7 +215,7 @@ func (r *StatusReconciler) getDeploymentStatuses(cr *algov1beta1.PipelineDeploym
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.DeploymentOwner,
 				cr.Spec.DeploymentName),
 		},
 	}
@@ -296,7 +296,7 @@ func (r *StatusReconciler) getStatefulSetStatuses(cr *algov1beta1.PipelineDeploy
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.DeploymentOwner,
 				cr.Spec.DeploymentName),
 		},
 	}
@@ -363,7 +363,7 @@ func (r *StatusReconciler) getPodStatuses(cr *algov1beta1.PipelineDeployment, re
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", cr.Spec.DeploymentOwner,
 				cr.Spec.DeploymentName),
 		},
 	}

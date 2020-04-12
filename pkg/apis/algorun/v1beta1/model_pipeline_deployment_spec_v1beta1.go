@@ -11,14 +11,14 @@
 package v1beta1
 // PipelineDeploymentSpecV1beta1 struct for PipelineDeploymentSpecV1beta1
 type PipelineDeploymentSpecV1beta1 struct {
-	DeploymentOwnerUserName string `json:"deploymentOwnerUserName"`
+	DeploymentNamespace string `json:"deploymentNamespace,omitempty"`
+	DeploymentOwner string `json:"deploymentOwner"`
 	DeploymentName string `json:"deploymentName"`
-	PipelineOwnerUserName string `json:"pipelineOwnerUserName"`
+	PipelineOwner string `json:"pipelineOwner"`
 	PipelineName string `json:"pipelineName"`
 	PipelineVersionTag string `json:"pipelineVersionTag"`
 	KafkaBrokers string `json:"kafkaBrokers"`
 	StorageBucket string `json:"storageBucket,omitempty"`
-	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
 	Endpoint *EndpointConfig `json:"endpoint,omitempty"`
 	Algos []AlgoConfig `json:"algos,omitempty"`
 	DataConnectors []DataConnectorConfig `json:"dataConnectors,omitempty"`

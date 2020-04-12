@@ -90,7 +90,7 @@ func (endpointReconciler *EndpointReconciler) reconcileService() (*serviceConfig
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "endpoint",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", endpointReconciler.pipelineDeployment.Spec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", endpointReconciler.pipelineDeployment.Spec.DeploymentOwner,
 				endpointReconciler.pipelineDeployment.Spec.DeploymentName),
 		},
 	}
@@ -143,16 +143,16 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 
 	endpointLogger.Info("Reconciling Endpoint")
 
-	name := fmt.Sprintf("endpoint-%s-%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+	name := fmt.Sprintf("endpoint-%s-%s", pipelineDeployment.Spec.DeploymentOwner,
 		pipelineDeployment.Spec.DeploymentName)
 
 	labels := map[string]string{
 		"app.kubernetes.io/part-of":    "algo.run",
 		"app.kubernetes.io/component":  "endpoint",
 		"app.kubernetes.io/managed-by": "pipeline-operator",
-		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
 			pipelineDeployment.Spec.DeploymentName),
-		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwnerUserName,
+		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 			pipelineDeployment.Spec.PipelineName),
 	}
 
@@ -162,7 +162,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "endpoint",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", endpointReconciler.pipelineDeployment.Spec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", endpointReconciler.pipelineDeployment.Spec.DeploymentOwner,
 				endpointReconciler.pipelineDeployment.Spec.DeploymentName),
 		},
 	}
@@ -227,9 +227,9 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "endpoint-hpa",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
 				pipelineDeployment.Spec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwnerUserName,
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 				pipelineDeployment.Spec.PipelineName),
 		}
 
@@ -314,7 +314,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "mapping",
 			"algo.run/mapping-protocol":   protocol,
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", endpointReconciler.pipelineDeployment.Spec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", endpointReconciler.pipelineDeployment.Spec.DeploymentOwner,
 				endpointReconciler.pipelineDeployment.Spec.DeploymentName),
 		},
 	}
@@ -328,14 +328,14 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 
 	var prefix string
 	if protocol == "grpc" {
-		prefix = fmt.Sprintf("/run/grpc/%s/%s/", pipelineDeployment.Spec.DeploymentOwnerUserName,
+		prefix = fmt.Sprintf("/run/grpc/%s/%s/", pipelineDeployment.Spec.DeploymentOwner,
 			pipelineDeployment.Spec.DeploymentName)
 	} else {
-		prefix = fmt.Sprintf("/run/http/%s/%s/", pipelineDeployment.Spec.DeploymentOwnerUserName,
+		prefix = fmt.Sprintf("/run/http/%s/%s/", pipelineDeployment.Spec.DeploymentOwner,
 			pipelineDeployment.Spec.DeploymentName)
 	}
 
-	rewrite := fmt.Sprintf("/%s/%s/", pipelineDeployment.Spec.DeploymentOwnerUserName,
+	rewrite := fmt.Sprintf("/%s/%s/", pipelineDeployment.Spec.DeploymentOwner,
 		pipelineDeployment.Spec.DeploymentName)
 
 	if (err == nil && existingMapping == nil) || (err != nil && errors.IsNotFound(err)) {
@@ -347,9 +347,9 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 			"app.kubernetes.io/component":  "mapping",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
 			"algo.run/mapping-protocol":    protocol,
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
 				pipelineDeployment.Spec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwnerUserName,
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 				pipelineDeployment.Spec.PipelineName),
 		}
 
@@ -417,9 +417,9 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	pipelineDeployment := endpointReconciler.pipelineDeployment
 	pipelineSpec := endpointReconciler.pipelineDeployment.Spec
 	endpointConfig := pipelineSpec.Endpoint
-	endpointConfig.DeploymentOwnerUserName = pipelineSpec.DeploymentOwnerUserName
+	endpointConfig.DeploymentOwner = pipelineSpec.DeploymentOwner
 	endpointConfig.DeploymentName = pipelineSpec.DeploymentName
-	endpointConfig.PipelineOwnerUserName = pipelineSpec.PipelineOwnerUserName
+	endpointConfig.PipelineOwner = pipelineSpec.PipelineOwner
 	endpointConfig.PipelineName = pipelineSpec.PipelineName
 	endpointConfig.Paths = pipelineSpec.Endpoint.Paths
 	endpointConfig.Kafka = &algov1beta1.EndpointKafkaConfig{
@@ -427,29 +427,28 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	}
 
 	// Set the image name
+	imagePullPolicy := corev1.PullIfNotPresent
 	imageName := os.Getenv("ENDPOINT_IMAGE")
 	if imageName == "" {
-		if endpointConfig.ImageRepository == "" {
+		if endpointConfig.Image == nil {
 			imageName = "algohub/deployment-endpoint:latest"
 		} else {
-			if endpointConfig.ImageTag == "" {
-				imageName = fmt.Sprintf("%s:latest", endpointConfig.ImageRepository)
+			if endpointConfig.Image.Tag == "" {
+				imageName = fmt.Sprintf("%s:latest", endpointConfig.Image.Repository)
 			} else {
-				imageName = fmt.Sprintf("%s:%s", endpointConfig.ImageRepository, endpointConfig.ImageTag)
+				imageName = fmt.Sprintf("%s:%s", endpointConfig.Image.Repository, endpointConfig.Image.Tag)
+			}
+			switch *endpointConfig.Image.ImagePullPolicy {
+			case "Never":
+				imagePullPolicy = corev1.PullNever
+			case "PullAlways":
+				imagePullPolicy = corev1.PullAlways
+			case "IfNotPresent":
+				imagePullPolicy = corev1.PullIfNotPresent
+			default:
+				imagePullPolicy = corev1.PullIfNotPresent
 			}
 		}
-	}
-
-	var imagePullPolicy corev1.PullPolicy
-	switch pipelineDeployment.Spec.ImagePullPolicy {
-	case "Never":
-		imagePullPolicy = corev1.PullNever
-	case "PullAlways":
-		imagePullPolicy = corev1.PullAlways
-	case "IfNotPresent":
-		imagePullPolicy = corev1.PullIfNotPresent
-	default:
-		imagePullPolicy = corev1.PullIfNotPresent
 	}
 
 	// Configure the readiness and liveness
@@ -475,7 +474,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 		}
 		endpointConfig.Kafka.Params = kafkaParams
 
-		kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+		kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeployment.Spec.DeploymentOwner,
 			pipelineDeployment.Spec.DeploymentName)
 		kafkaCaSecretName := fmt.Sprintf("%s-cluster-ca-cert", utils.GetKafkaClusterName())
 
@@ -719,9 +718,9 @@ func (endpointReconciler *EndpointReconciler) createServiceSpec(pipelineDeployme
 		"app.kubernetes.io/part-of":    "algo.run",
 		"app.kubernetes.io/component":  "endpoint",
 		"app.kubernetes.io/managed-by": "pipeline-operator",
-		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
 			pipelineDeployment.Spec.DeploymentName),
-		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwnerUserName,
+		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 			pipelineDeployment.Spec.PipelineName),
 	}
 

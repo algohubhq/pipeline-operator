@@ -11,7 +11,7 @@
 package v1beta1
 // DeploymentStatusMessage struct for DeploymentStatusMessage
 type DeploymentStatusMessage struct {
-	DeploymentOwnerUserName string `json:"deploymentOwnerUserName,omitempty"`
+	DeploymentOwner string `json:"deploymentOwner,omitempty"`
 	DeploymentName string `json:"deploymentName,omitempty"`
 	Status string `json:"status,omitempty"`
 	ComponentStatus []ComponentStatus `json:"componentStatus,omitempty"`

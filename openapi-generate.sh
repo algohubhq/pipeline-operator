@@ -17,6 +17,8 @@ cp ./algorun-go-client/model_component_status.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_resource_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_scale_metric_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_config_mount_model.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_container_image_model.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_probe_model.go ./pkg/apis/algorun/v1beta1/
 # uncomment if algo pod status is updated but there will be manual edits
 # cp ./algorun-go-client/model_component_pod_status.go ./pkg/apis/algorun/v1beta1/
 
@@ -47,6 +49,7 @@ cp ./algorun-go-client/model_pipe_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_web_hook_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_data_connector_option_model.go ./pkg/apis/algorun/v1beta1/
 
+cp ./algorun-go-client/model_image_pull_policies.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_retry_strategies.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_log_levels.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_log_types.go ./pkg/apis/algorun/v1beta1/

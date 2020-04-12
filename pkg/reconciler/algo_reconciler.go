@@ -68,7 +68,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	request := algoReconciler.request
 
 	logData := map[string]interface{}{
-		"AlgoOwner":      algoConfig.AlgoOwnerUserName,
+		"AlgoOwner":      algoConfig.AlgoOwner,
 		"AlgoName":       algoConfig.AlgoName,
 		"AlgoVersionTag": algoConfig.AlgoVersionTag,
 		"Index":          algoConfig.AlgoIndex,
@@ -84,11 +84,11 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		"app.kubernetes.io/part-of":    "algo.run",
 		"app.kubernetes.io/component":  "algo",
 		"app.kubernetes.io/managed-by": "pipeline-operator",
-		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
 			pipelineDeployment.Spec.DeploymentName),
-		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwnerUserName,
+		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 			pipelineDeployment.Spec.PipelineName),
-		"algo.run/algo": fmt.Sprintf("%s.%s", algoConfig.AlgoOwnerUserName,
+		"algo.run/algo": fmt.Sprintf("%s.%s", algoConfig.AlgoOwner,
 			algoConfig.AlgoName),
 		"algo.run/algo-version": algoConfig.AlgoVersionTag,
 		"algo.run/index":        strconv.Itoa(int(algoConfig.AlgoIndex)),
@@ -103,10 +103,10 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "algo",
 			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s",
-				pipelineDeployment.Spec.DeploymentOwnerUserName,
+				pipelineDeployment.Spec.DeploymentOwner,
 				pipelineDeployment.Spec.DeploymentName),
 			"algo.run/algo": fmt.Sprintf("%s.%s",
-				algoConfig.AlgoOwnerUserName,
+				algoConfig.AlgoOwner,
 				algoConfig.AlgoName),
 			"algo.run/algo-version": algoConfig.AlgoVersionTag,
 			"algo.run/index":        fmt.Sprintf("%v", algoConfig.AlgoIndex),
@@ -178,11 +178,11 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "algo-hpa",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
 				pipelineDeployment.Spec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwnerUserName,
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 				pipelineDeployment.Spec.PipelineName),
-			"algo.run/algo": fmt.Sprintf("%s.%s", algoReconciler.algoConfig.AlgoOwnerUserName,
+			"algo.run/algo": fmt.Sprintf("%s.%s", algoReconciler.algoConfig.AlgoOwner,
 				algoReconciler.algoConfig.AlgoName),
 			"algo.run/algo-version": algoReconciler.algoConfig.AlgoVersionTag,
 			"algo.run/index":        strconv.Itoa(int(algoReconciler.algoConfig.AlgoIndex)),
@@ -316,15 +316,16 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 
 	// Set the image name
 	var imageName string
-	if algoConfig.ImageTag == "" || algoConfig.ImageTag == "latest" {
-		imageName = fmt.Sprintf("%s:latest", algoConfig.ImageRepository)
+	if algoConfig.Image != nil {
+		imageName = fmt.Sprintf("%s:%s", algoConfig.Image.Repository, algoConfig.Image.Tag)
 	} else {
-		imageName = fmt.Sprintf("%s:%s", algoConfig.ImageRepository, algoConfig.ImageTag)
+		imageName = fmt.Sprintf("%s:latest", algoConfig.Image.Repository)
 	}
 
 	// Set the algo-runner-sidecar name
 	var sidecarImageName string
-	if algoConfig.AlgoRunnerImage == "" {
+	imagePullPolicy := corev1.PullIfNotPresent
+	if algoConfig.AlgoRunnerImage == nil {
 		algoRunnerImage := os.Getenv("ALGORUNNER_IMAGE")
 		if algoRunnerImage == "" {
 			sidecarImageName = "algohub/algo-runner:latest"
@@ -332,23 +333,21 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 			sidecarImageName = algoRunnerImage
 		}
 	} else {
-		if algoConfig.AlgoRunnerImageTag == "" {
+		if algoConfig.AlgoRunnerImage.Tag == "" {
 			sidecarImageName = fmt.Sprintf("%s:latest", algoConfig.AlgoRunnerImage)
 		} else {
-			sidecarImageName = fmt.Sprintf("%s:%s", algoConfig.AlgoRunnerImage, algoConfig.AlgoRunnerImageTag)
+			sidecarImageName = fmt.Sprintf("%s:%s", algoConfig.AlgoRunnerImage.Repository, algoConfig.AlgoRunnerImage.Tag)
 		}
-	}
-
-	var imagePullPolicy corev1.PullPolicy
-	switch pipelineDeployment.Spec.ImagePullPolicy {
-	case "Never":
-		imagePullPolicy = corev1.PullNever
-	case "PullAlways":
-		imagePullPolicy = corev1.PullAlways
-	case "IfNotPresent":
-		imagePullPolicy = corev1.PullIfNotPresent
-	default:
-		imagePullPolicy = corev1.PullIfNotPresent
+		switch *algoConfig.AlgoRunnerImage.ImagePullPolicy {
+		case "Never":
+			imagePullPolicy = corev1.PullNever
+		case "PullAlways":
+			imagePullPolicy = corev1.PullAlways
+		case "IfNotPresent":
+			imagePullPolicy = corev1.PullIfNotPresent
+		default:
+			imagePullPolicy = corev1.PullIfNotPresent
+		}
 	}
 
 	// Configure the readiness and liveness
@@ -359,24 +358,25 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 			Port:   intstr.FromInt(10080),
 		},
 	}
+
+	var readinessProbe *corev1.Probe
+	var livenessProbe *corev1.Probe
 	// Set resonable probe defaults if blank
-	if algoConfig.ReadinessInitialDelaySeconds == 0 {
-		algoConfig.ReadinessInitialDelaySeconds = 10
+	if algoConfig.ReadinessProbe != nil {
+		readinessProbe = &corev1.Probe{
+			Handler:             handler,
+			InitialDelaySeconds: algoConfig.ReadinessProbe.InitialDelaySeconds,
+			FailureThreshold:    algoConfig.ReadinessProbe.FailureThreshold,
+			PeriodSeconds:       algoConfig.ReadinessProbe.PeriodSeconds,
+		}
 	}
-	if algoConfig.ReadinessTimeoutSeconds == 0 {
-		algoConfig.ReadinessTimeoutSeconds = 10
-	}
-	if algoConfig.ReadinessPeriodSeconds == 0 {
-		algoConfig.ReadinessPeriodSeconds = 20
-	}
-	if algoConfig.LivenessInitialDelaySeconds == 0 {
-		algoConfig.LivenessInitialDelaySeconds = 10
-	}
-	if algoConfig.LivenessTimeoutSeconds == 0 {
-		algoConfig.LivenessTimeoutSeconds = 10
-	}
-	if algoConfig.LivenessPeriodSeconds == 0 {
-		algoConfig.LivenessPeriodSeconds = 20
+	if algoConfig.LivenessProbe == nil {
+		livenessProbe = &corev1.Probe{
+			Handler:             handler,
+			InitialDelaySeconds: algoConfig.LivenessProbe.InitialDelaySeconds,
+			FailureThreshold:    algoConfig.LivenessProbe.FailureThreshold,
+			PeriodSeconds:       algoConfig.LivenessProbe.PeriodSeconds,
+		}
 	}
 
 	// Create kafka tls volumes and mounts if tls enabled
@@ -385,7 +385,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	volumeMounts := []corev1.VolumeMount{}
 	if algoReconciler.kafkaTLS {
 
-		kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeployment.Spec.DeploymentOwnerUserName,
+		kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeployment.Spec.DeploymentOwner,
 			pipelineDeployment.Spec.DeploymentName)
 		kafkaCaSecretName := fmt.Sprintf("%s-cluster-ca-cert", utils.GetKafkaClusterName())
 
@@ -471,10 +471,6 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	var algoArgs []string
 	var algoEnvVars []corev1.EnvVar
 	var sidecarEnvVars []corev1.EnvVar
-	var algoReadinessProbe *corev1.Probe
-	var algoLivenessProbe *corev1.Probe
-	var sidecarReadinessProbe *corev1.Probe
-	var sidecarLivenessProbe *corev1.Probe
 
 	if *algoConfig.Executor == v1beta1.EXECUTORS_EXECUTABLE {
 
@@ -510,24 +506,6 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 		}
 		initContainers = append(initContainers, initContainer)
 
-		algoReadinessProbe = &corev1.Probe{
-			Handler:             handler,
-			InitialDelaySeconds: algoConfig.ReadinessInitialDelaySeconds,
-			TimeoutSeconds:      algoConfig.ReadinessTimeoutSeconds,
-			PeriodSeconds:       algoConfig.ReadinessPeriodSeconds,
-			SuccessThreshold:    1,
-			FailureThreshold:    3,
-		}
-
-		algoLivenessProbe = &corev1.Probe{
-			Handler:             handler,
-			InitialDelaySeconds: algoConfig.LivenessInitialDelaySeconds,
-			TimeoutSeconds:      algoConfig.LivenessTimeoutSeconds,
-			PeriodSeconds:       algoConfig.LivenessPeriodSeconds,
-			SuccessThreshold:    1,
-			FailureThreshold:    3,
-		}
-
 	} else if *algoConfig.Executor == v1beta1.EXECUTORS_DELEGATED {
 
 		labels["algo.run/create-algo-service"] = "false"
@@ -557,32 +535,14 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 
 		sidecarEnvVars = algoReconciler.createEnvVars(pipelineDeployment, runnerConfig, algoConfig)
 
-		sidecarReadinessProbe = &corev1.Probe{
-			Handler:             handler,
-			InitialDelaySeconds: algoConfig.ReadinessInitialDelaySeconds,
-			TimeoutSeconds:      algoConfig.ReadinessTimeoutSeconds,
-			PeriodSeconds:       algoConfig.ReadinessPeriodSeconds,
-			SuccessThreshold:    1,
-			FailureThreshold:    3,
-		}
-
-		sidecarLivenessProbe = &corev1.Probe{
-			Handler:             handler,
-			InitialDelaySeconds: algoConfig.LivenessInitialDelaySeconds,
-			TimeoutSeconds:      algoConfig.LivenessTimeoutSeconds,
-			PeriodSeconds:       algoConfig.LivenessPeriodSeconds,
-			SuccessThreshold:    1,
-			FailureThreshold:    3,
-		}
-
 		sidecarContainer := corev1.Container{
 			Name:                     "algo-runner-sidecar",
 			Image:                    sidecarImageName,
 			Command:                  sidecarCommand,
 			Args:                     sidecarArgs,
 			Env:                      sidecarEnvVars,
-			LivenessProbe:            sidecarLivenessProbe,
-			ReadinessProbe:           sidecarReadinessProbe,
+			LivenessProbe:            livenessProbe,
+			ReadinessProbe:           readinessProbe,
 			ImagePullPolicy:          imagePullPolicy,
 			TerminationMessagePath:   "/dev/termination-log",
 			TerminationMessagePolicy: "File",
@@ -651,8 +611,8 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 		Env:                      algoEnvVars,
 		Resources:                *resources,
 		ImagePullPolicy:          imagePullPolicy,
-		LivenessProbe:            algoLivenessProbe,
-		ReadinessProbe:           algoReadinessProbe,
+		LivenessProbe:            livenessProbe,
+		ReadinessProbe:           readinessProbe,
 		TerminationMessagePath:   "/dev/termination-log",
 		TerminationMessagePolicy: "File",
 		VolumeMounts:             volumeMounts,
@@ -733,9 +693,9 @@ func (algoReconciler *AlgoReconciler) createConfigMap(algoConfig *v1beta1.AlgoCo
 	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
 	// Create all config mounts
 	name := fmt.Sprintf("%s-%s-%s-%s-config",
-		algoReconciler.pipelineDeployment.Spec.DeploymentOwnerUserName,
+		algoReconciler.pipelineDeployment.Spec.DeploymentOwner,
 		algoReconciler.pipelineDeployment.Spec.DeploymentName,
-		algoConfig.AlgoOwnerUserName,
+		algoConfig.AlgoOwner,
 		algoConfig.AlgoName)
 	data := make(map[string]string)
 
@@ -869,7 +829,7 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 	// Append all KafkaTopic Outputs
 	for _, output := range algoConfig.Outputs {
 		if *output.OutputDeliveryType == v1beta1.OUTPUTDELIVERYTYPES_KAFKA_TOPIC {
-			for _, tc := range algoConfig.TopicConfigs {
+			for _, tc := range algoConfig.Topics {
 				if output.Name == tc.SourceOutputName {
 					topicName := utils.GetTopicName(tc.TopicName, &algoReconciler.pipelineDeployment.Spec)
 					envVars = append(envVars, corev1.EnvVar{
@@ -911,26 +871,26 @@ func (algoReconciler *AlgoReconciler) createSelector(constraints []string) map[s
 func (algoReconciler *AlgoReconciler) createRunnerConfig(pipelineDeploymentSpec *algov1beta1.PipelineDeploymentSpecV1beta1, algoConfig *v1beta1.AlgoConfig) *v1beta1.AlgoRunnerConfig {
 
 	runnerConfig := &v1beta1.AlgoRunnerConfig{
-		DeploymentOwnerUserName: pipelineDeploymentSpec.DeploymentOwnerUserName,
-		DeploymentName:          pipelineDeploymentSpec.DeploymentName,
-		PipelineOwnerUserName:   pipelineDeploymentSpec.PipelineOwnerUserName,
-		PipelineName:            pipelineDeploymentSpec.PipelineName,
-		Pipes:                   pipelineDeploymentSpec.Pipes,
-		TopicConfigs:            algoReconciler.allTopicConfigs,
-		AlgoOwnerUserName:       algoConfig.AlgoOwnerUserName,
-		AlgoName:                algoConfig.AlgoName,
-		AlgoVersionTag:          algoConfig.AlgoVersionTag,
-		AlgoIndex:               algoConfig.AlgoIndex,
-		Entrypoint:              algoConfig.Entrypoint,
-		Executor:                algoConfig.Executor,
-		AlgoParams:              algoConfig.AlgoParams,
-		Inputs:                  algoConfig.Inputs,
-		Outputs:                 algoConfig.Outputs,
-		TopicRetryEnabled:       algoConfig.TopicRetryEnabled,
-		RetryStrategy:           algoConfig.RetryStrategy,
-		WriteAllOutputs:         algoConfig.WriteAllOutputs,
-		GpuEnabled:              algoConfig.GpuEnabled,
-		TimeoutSeconds:          algoConfig.TimeoutSeconds,
+		DeploymentOwner: pipelineDeploymentSpec.DeploymentOwner,
+		DeploymentName:  pipelineDeploymentSpec.DeploymentName,
+		PipelineOwner:   pipelineDeploymentSpec.PipelineOwner,
+		PipelineName:    pipelineDeploymentSpec.PipelineName,
+		Pipes:           pipelineDeploymentSpec.Pipes,
+		Topics:          algoReconciler.allTopicConfigs,
+		AlgoOwner:       algoConfig.AlgoOwner,
+		AlgoName:        algoConfig.AlgoName,
+		AlgoVersionTag:  algoConfig.AlgoVersionTag,
+		AlgoIndex:       algoConfig.AlgoIndex,
+		Entrypoint:      algoConfig.Entrypoint,
+		Executor:        algoConfig.Executor,
+		Parameters:      algoConfig.Parameters,
+		Inputs:          algoConfig.Inputs,
+		Outputs:         algoConfig.Outputs,
+		RetryEnabled:    algoConfig.RetryEnabled,
+		RetryStrategy:   algoConfig.RetryStrategy,
+		WriteAllOutputs: algoConfig.WriteAllOutputs,
+		GpuEnabled:      algoConfig.GpuEnabled,
+		TimeoutSeconds:  algoConfig.TimeoutSeconds,
 	}
 
 	return runnerConfig
