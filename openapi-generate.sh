@@ -9,20 +9,30 @@ java -jar ./openapi-generator-cli-4.2.3.jar generate -i http://localhost:5000/sw
 -o algorun-go-client
 
 cp ./algorun-go-client/model_pipeline_deployment_spec_v1beta1.go ./pkg/apis/algorun/v1beta1/
-cp ./algorun-go-client/model_algo_config.go ./pkg/apis/algorun/v1beta1/
-cp ./algorun-go-client/model_data_connector_config.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_algo_spec.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_algo_param_spec.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_algo_input_spec.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_algo_output_spec.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_data_connector_spec.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_algo_runner_config.go ./pkg/apis/algorun/v1beta1/
-cp ./algorun-go-client/model_hook_config.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_hook_spec.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_component_status.go ./pkg/apis/algorun/v1beta1/
-cp ./algorun-go-client/model_resource_model.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_resource_requirements_v1.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_auto_scaling_spec.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_scale_metric_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_config_mount_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_container_image_model.go ./pkg/apis/algorun/v1beta1/
-cp ./algorun-go-client/model_probe_model.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_probe_v1.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_exec_action_v1.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_http_get_action_v1.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_http_header_v1.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_tcp_socket_action_v1.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_int32_or_string_v1.go ./pkg/apis/algorun/v1beta1/
 # uncomment if algo pod status is updated but there will be manual edits
 # cp ./algorun-go-client/model_component_pod_status.go ./pkg/apis/algorun/v1beta1/
 
-cp ./algorun-go-client/model_endpoint_config.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_endpoint_spec.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_endpoint_path_spec.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_endpoint_server_config.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_endpoint_producer_config.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_endpoint_kafka_config.go ./pkg/apis/algorun/v1beta1/

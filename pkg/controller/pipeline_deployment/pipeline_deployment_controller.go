@@ -171,17 +171,6 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	// Get all kafka topic configs
 	allTopicConfigs := utils.GetAllTopicConfigs(&instance.Spec)
 
-	// Create / update the kafka topics
-	reqLogger.Info("Reconciling Kakfa Topics")
-	for _, topicConfig := range allTopicConfigs {
-		wg.Add(1)
-		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
-			topicReconciler := recon.NewTopicReconciler(instance, &currentTopicConfig, &request, r.client, r.scheme)
-			topicReconciler.Reconcile()
-			wg.Done()
-		}(topicConfig)
-	}
-
 	// Create the storage bucket
 	// NOTE: We aren't adding this reconciliation to the waitgroup.
 	reqLogger.Info("Reconciling the Storage Bucket")
@@ -206,7 +195,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("Reconciling Algos")
 	for _, algoConfig := range instance.Spec.Algos {
 		wg.Add(1)
-		go func(currentAlgoConfig algov1beta1.AlgoConfig) {
+		go func(currentAlgoConfig algov1beta1.AlgoSpec) {
 			defer wg.Done()
 			algoReconciler := recon.NewAlgoReconciler(instance, &currentAlgoConfig, allTopicConfigs, &request, r.client, r.scheme, kafkaTLS)
 			err = algoReconciler.Reconcile()
@@ -229,7 +218,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("Reconciling Data Connectors")
 	for _, dcConfig := range instance.Spec.DataConnectors {
 		wg.Add(1)
-		go func(currentDcConfig algov1beta1.DataConnectorConfig) {
+		go func(currentDcConfig algov1beta1.DataConnectorSpec) {
 			dcReconciler := recon.NewDataConnectorReconciler(instance, &currentDcConfig, allTopicConfigs, &request, r.client, r.scheme)
 			err = dcReconciler.Reconcile()
 			if err != nil {

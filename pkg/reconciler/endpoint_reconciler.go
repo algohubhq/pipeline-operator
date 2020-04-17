@@ -143,6 +143,15 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 
 	endpointLogger.Info("Reconciling Endpoint")
 
+	// Creat the Kafka Topics
+	log.Info("Reconciling Kakfa Topics for Data Connector outputs")
+	for _, path := range pipelineDeployment.Spec.Endpoint.Paths {
+		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
+			topicReconciler := NewTopicReconciler(endpointReconciler.pipelineDeployment, "Endpoint", &currentTopicConfig, endpointReconciler.request, endpointReconciler.client, endpointReconciler.scheme)
+			topicReconciler.Reconcile()
+		}(*path.Topic)
+	}
+
 	name := fmt.Sprintf("endpoint-%s-%s", pipelineDeployment.Spec.DeploymentOwner,
 		pipelineDeployment.Spec.DeploymentName)
 
@@ -221,7 +230,8 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 	}
 
 	// Setup the horizontal pod autoscaler
-	if pipelineDeployment.Spec.Endpoint.Resource.AutoScale {
+	if pipelineDeployment.Spec.Endpoint.Autoscaling != nil &&
+		pipelineDeployment.Spec.Endpoint.Autoscaling.Enabled {
 
 		labels := map[string]string{
 			"app.kubernetes.io/part-of":    "algo.run",
@@ -240,7 +250,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 
 		existingHpa, err := kubeUtil.CheckForHorizontalPodAutoscaler(opts)
 
-		hpaSpec, err := kubeUtil.CreateHpaSpec(endpointName, labels, pipelineDeployment, pipelineDeployment.Spec.Endpoint.Resource)
+		hpaSpec, err := kubeUtil.CreateHpaSpec(endpointName, labels, pipelineDeployment, pipelineDeployment.Spec.Endpoint.Autoscaling)
 		if err != nil {
 			endpointLogger.Error(err, "Failed to create Endpoint horizontal pod autoscaler spec")
 			return err
@@ -550,7 +560,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	}
 
 	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
-	resources, resourceErr := kubeUtil.CreateResourceReqs(endpointConfig.Resource)
+	resources, resourceErr := kubeUtil.CreateResourceReqs(endpointConfig.Resources)
 
 	if resourceErr != nil {
 		return nil, resourceErr
@@ -614,7 +624,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Replicas:             &endpointConfig.Resource.Instances,
+			Replicas:             &endpointConfig.Replicas,
 			RevisionHistoryLimit: utils.Int32p(10),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: nameMeta,
@@ -657,7 +667,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 
 }
 
-func (endpointReconciler *EndpointReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, endpointConfig *v1beta1.EndpointConfig) []corev1.EnvVar {
+func (endpointReconciler *EndpointReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, endpointConfig *v1beta1.EndpointSpec) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
 

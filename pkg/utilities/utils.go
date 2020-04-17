@@ -1,35 +1,49 @@
 package utilities
 
 import (
+	"fmt"
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	"strings"
 )
 
+func GetAlgoFullName(algoSpec *v1beta1.AlgoSpec) string {
+	algoName := fmt.Sprintf("%s/%s:%s[%d]", algoSpec.Owner, algoSpec.Name, algoSpec.Version, algoSpec.Index)
+	return algoName
+}
+
+func GetDcFullName(dcSpec *v1beta1.DataConnectorSpec) string {
+	dcName := fmt.Sprintf("%s:%s[%d]", dcSpec.Name, dcSpec.VersionTag, dcSpec.Index)
+	return dcName
+}
+
 func GetTopicName(topic string, pipelineSpec *v1beta1.PipelineDeploymentSpecV1beta1) string {
 	topicName := strings.ToLower(strings.Replace(topic, "{deploymentownerusername}", pipelineSpec.DeploymentOwner, -1))
 	topicName = strings.ToLower(strings.Replace(topicName, "{deploymentname}", pipelineSpec.DeploymentName, -1))
-
 	return topicName
 }
 
-func GetAllTopicConfigs(pipelineSpec *v1beta1.PipelineDeploymentSpecV1beta1) []v1beta1.TopicConfigModel {
+func GetAllTopicConfigs(pipelineSpec *v1beta1.PipelineDeploymentSpecV1beta1) map[string]*v1beta1.TopicConfigModel {
 
-	allTopics := make([]v1beta1.TopicConfigModel, 0)
+	allTopics := make(map[string]*v1beta1.TopicConfigModel, 0)
 	for _, algo := range pipelineSpec.Algos {
-		for _, topicConfig := range algo.Topics {
-			allTopics = append(allTopics, topicConfig)
+		for _, output := range algo.Outputs {
+			source := fmt.Sprintf("%s|%s", GetAlgoFullName(&algo), output.Name)
+			allTopics[source] = output.Topic
 		}
 	}
 	for _, dc := range pipelineSpec.DataConnectors {
 		for _, topicConfig := range dc.Topics {
-			allTopics = append(allTopics, topicConfig)
+			source := fmt.Sprintf("%s|%s", GetDcFullName(&dc), topicConfig.OutputName)
+			allTopics[source] = &topicConfig
 		}
 	}
-	for _, topicConfig := range pipelineSpec.Endpoint.Topics {
-		allTopics = append(allTopics, topicConfig)
+	for _, path := range pipelineSpec.Endpoint.Paths {
+		source := fmt.Sprintf("Endpoint|%s", path.Name)
+		allTopics[source] = path.Topic
 	}
 	for _, topicConfig := range pipelineSpec.Hook.Topics {
-		allTopics = append(allTopics, topicConfig)
+		source := fmt.Sprintf("Hook|%s", topicConfig.OutputName)
+		allTopics[source] = &topicConfig
 	}
 
 	return allTopics

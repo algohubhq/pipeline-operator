@@ -22,12 +22,14 @@ import (
 
 // NewTopicReconciler returns a new TopicReconciler
 func NewTopicReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
+	componentName string,
 	topicConfig *v1beta1.TopicConfigModel,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme) TopicReconciler {
 	return TopicReconciler{
 		pipelineDeployment: pipelineDeployment,
+		componentName:      componentName,
 		topicConfig:        topicConfig,
 		request:            request,
 		client:             client,
@@ -38,6 +40,7 @@ func NewTopicReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 // TopicReconciler reconciles an Topic object
 type TopicReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
+	componentName      string
 	topicConfig        *v1beta1.TopicConfigModel
 	request            *reconcile.Request
 	client             client.Client
@@ -54,7 +57,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 	resourceName := strings.Replace(topicName, ".", "-", -1)
 	resourceName = strings.Replace(resourceName, "_", "-", -1)
 
-	newTopicSpec, err := buildTopicSpec(pipelineDeploymentSpec, topicReconciler.topicConfig)
+	newTopicSpec, err := topicReconciler.buildTopicSpec(pipelineDeploymentSpec, topicReconciler.topicConfig)
 	if err != nil {
 		log.Error(err, "Error creating new topic config")
 	}
@@ -133,24 +136,24 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 
 }
 
-func buildTopicSpec(pipelineSpec algov1beta1.PipelineDeploymentSpecV1beta1, topicConfig *algov1beta1.TopicConfigModel) (kafkav1beta1.KafkaTopicSpec, error) {
+func (topicReconciler *TopicReconciler) buildTopicSpec(pipelineSpec algov1beta1.PipelineDeploymentSpecV1beta1, topicConfig *algov1beta1.TopicConfigModel) (kafkav1beta1.KafkaTopicSpec, error) {
 
 	var topicPartitions int64 = 1
-	if topicConfig.TopicAutoPartition {
+	if topicConfig.AutoPartition {
 		// Set the topic partitions by summing the destination instance count + 50%
 		for _, pipe := range pipelineSpec.Pipes {
 
 			// Match the Source Pipe
-			if pipe.SourceName == topicConfig.SourceName &&
-				pipe.SourceOutputName == topicConfig.SourceOutputName {
+			if pipe.SourceName == topicReconciler.componentName &&
+				pipe.SourceOutputName == topicConfig.OutputName {
 
 				// Find all destination Algos
 				for _, algoConfig := range pipelineSpec.Algos {
-					algoName := fmt.Sprintf("%s/%s:%s[%d]", algoConfig.AlgoOwner, algoConfig.AlgoName, algoConfig.AlgoVersionTag, algoConfig.AlgoIndex)
+					algoName := utils.GetAlgoFullName(&algoConfig)
 					if algoName == pipe.DestName {
 						// In case MaxInstances is Zero, use the topicPartitions
-						maxPartitions := utils.Max(int64(algoConfig.Resource.MaxInstances), topicPartitions)
-						maxPartitions = utils.Max(int64(algoConfig.Resource.Instances), maxPartitions)
+						maxPartitions := utils.Max(int64(algoConfig.Autoscaling.MaxReplicas), topicPartitions)
+						maxPartitions = utils.Max(int64(algoConfig.Replicas), maxPartitions)
 						topicPartitions = topicPartitions + maxPartitions
 					}
 				}
@@ -171,8 +174,8 @@ func buildTopicSpec(pipelineSpec algov1beta1.PipelineDeploymentSpecV1beta1, topi
 				// Find all destination Hooks
 				if strings.ToLower(pipe.DestName) == "hook" {
 					// In case MaxInstances is Zero, use the topicPartitions
-					maxPartitions := utils.Max(int64(pipelineSpec.Hook.Resource.MaxInstances), topicPartitions)
-					maxPartitions = utils.Max(int64(pipelineSpec.Hook.Resource.Instances), maxPartitions)
+					maxPartitions := utils.Max(int64(pipelineSpec.Hook.Autoscaling.MaxReplicas), topicPartitions)
+					maxPartitions = utils.Max(int64(pipelineSpec.Hook.Replicas), maxPartitions)
 					topicPartitions = topicPartitions + maxPartitions
 				}
 
@@ -183,8 +186,8 @@ func buildTopicSpec(pipelineSpec algov1beta1.PipelineDeploymentSpecV1beta1, topi
 		topicPartitions = topicPartitions + int64(math.Round(float64(topicPartitions)*0.5))
 
 	} else {
-		if topicConfig.TopicPartitions > 0 {
-			topicPartitions = int64(topicConfig.TopicPartitions)
+		if topicConfig.Partitions > 0 {
+			topicPartitions = int64(topicConfig.Partitions)
 		}
 	}
 
@@ -195,7 +198,7 @@ func buildTopicSpec(pipelineSpec algov1beta1.PipelineDeploymentSpecV1beta1, topi
 
 	newTopicSpec := kafkav1beta1.KafkaTopicSpec{
 		Partitions: topicPartitions,
-		Replicas:   topicConfig.TopicReplicationFactor,
+		Replicas:   topicConfig.ReplicationFactor,
 		Config:     config,
 	}
 

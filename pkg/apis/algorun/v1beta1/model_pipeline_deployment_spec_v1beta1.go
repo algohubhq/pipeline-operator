@@ -19,9 +19,9 @@ type PipelineDeploymentSpecV1beta1 struct {
 	PipelineVersionTag string `json:"pipelineVersionTag"`
 	KafkaBrokers string `json:"kafkaBrokers"`
 	StorageBucket string `json:"storageBucket,omitempty"`
-	Endpoint *EndpointConfig `json:"endpoint,omitempty"`
-	Algos []AlgoConfig `json:"algos,omitempty"`
-	DataConnectors []DataConnectorConfig `json:"dataConnectors,omitempty"`
-	Hook *HookConfig `json:"hook,omitempty"`
+	Endpoint *EndpointSpec `json:"endpoint,omitempty"`
+	Algos []AlgoSpec `json:"algos,omitempty"`
+	DataConnectors []DataConnectorSpec `json:"dataConnectors,omitempty"`
+	Hook *HookSpec `json:"hook,omitempty"`
 	Pipes []PipeModel `json:"pipes,omitempty"`
 }

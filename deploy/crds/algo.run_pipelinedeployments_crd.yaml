@@ -33,15 +33,8 @@ spec:
           properties:
             algos:
               items:
-                description: AlgoConfig struct for AlgoConfig
+                description: AlgoSpec struct for AlgoSpec
                 properties:
-                  algoIndex:
-                    format: int32
-                    type: integer
-                  algoName:
-                    type: string
-                  algoOwner:
-                    type: string
                   algoRunnerImage:
                     description: ContainerImageModel struct for ContainerImageModel
                     properties:
@@ -53,10 +46,51 @@ spec:
                       tag:
                         type: string
                     type: object
-                  algoVersionTag:
-                    type: string
                   applied:
                     type: boolean
+                  autoscaling:
+                    description: AutoScalingSpec struct for AutoScalingSpec
+                    properties:
+                      enabled:
+                        type: boolean
+                      maxReplicas:
+                        format: int32
+                        type: integer
+                      metrics:
+                        items:
+                          description: ScaleMetricModel struct for ScaleMetricModel
+                          properties:
+                            averageUtilization:
+                              format: int32
+                              type: integer
+                            averageValue:
+                              type: string
+                            metricName:
+                              type: string
+                            metricSelector:
+                              type: string
+                            objectApiVersion:
+                              type: string
+                            objectKind:
+                              type: string
+                            objectName:
+                              type: string
+                            resourceName:
+                              type: string
+                            sourceType:
+                              description: MetricSourceTypes the model 'MetricSourceTypes'
+                              type: string
+                            targetType:
+                              description: MetricTargetTypes the model 'MetricTargetTypes'
+                              type: string
+                            value:
+                              type: string
+                          type: object
+                        type: array
+                      minReplicas:
+                        format: int32
+                        type: integer
+                    type: object
                   configMounts:
                     items:
                       description: ConfigMountModel struct for ConfigMountModel
@@ -95,30 +129,17 @@ spec:
                       tag:
                         type: string
                     type: object
+                  index:
+                    format: int32
+                    type: integer
                   inputs:
                     items:
-                      description: AlgoInputModel struct for AlgoInputModel
+                      description: AlgoInputSpec struct for AlgoInputSpec
                       properties:
                         contentTypes:
                           items:
-                            description: ContentTypeModel struct for ContentTypeModel
-                            properties:
-                              fileExtension:
-                                type: string
-                              groupName:
-                                type: string
-                              iconClass:
-                                type: string
-                              name:
-                                type: string
-                              subTypeName:
-                                type: string
-                              title:
-                                type: string
-                            type: object
+                            type: string
                           type: array
-                        description:
-                          type: string
                         environmentVariable:
                           type: string
                         httpHeaders:
@@ -148,39 +169,91 @@ spec:
                       type: object
                     type: array
                   livenessProbe:
-                    description: ProbeModel struct for ProbeModel
+                    description: ProbeV1 struct for ProbeV1
                     properties:
+                      exec:
+                        description: ExecActionV1 struct for ExecActionV1
+                        properties:
+                          command:
+                            items:
+                              type: string
+                            type: array
+                        type: object
                       failureThreshold:
                         format: int32
                         type: integer
+                      httpGet:
+                        description: HttpGetActionV1 struct for HttpGetActionV1
+                        properties:
+                          host:
+                            type: string
+                          httpHeaders:
+                            items:
+                              description: HttpHeaderV1 struct for HttpHeaderV1
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  type: string
+                              type: object
+                            type: array
+                          path:
+                            type: string
+                          port:
+                            description: Int32OrStringV1 struct for Int32OrStringV1
+                            properties:
+                              int32Value:
+                                format: int32
+                                type: integer
+                              isInt32:
+                                type: boolean
+                              isString:
+                                type: boolean
+                              stringValue:
+                                type: string
+                            type: object
+                          scheme:
+                            type: string
+                        type: object
                       initialDelaySeconds:
                         format: int32
                         type: integer
                       periodSeconds:
                         format: int32
                         type: integer
+                      successThreshold:
+                        format: int32
+                        type: integer
+                      tcpSocket:
+                        description: TcpSocketActionV1 struct for TcpSocketActionV1
+                        properties:
+                          host:
+                            type: string
+                          port:
+                            description: Int32OrStringV1 struct for Int32OrStringV1
+                            properties:
+                              int32Value:
+                                format: int32
+                                type: integer
+                              isInt32:
+                                type: boolean
+                              isString:
+                                type: boolean
+                              stringValue:
+                                type: string
+                            type: object
+                        type: object
+                      timeoutSeconds:
+                        format: int32
+                        type: integer
                     type: object
+                  name:
+                    type: string
                   outputs:
                     items:
-                      description: AlgoOutputModel struct for AlgoOutputModel
+                      description: AlgoOutputSpec struct for AlgoOutputSpec
                       properties:
                         contentType:
-                          description: ContentTypeModel struct for ContentTypeModel
-                          properties:
-                            fileExtension:
-                              type: string
-                            groupName:
-                              type: string
-                            iconClass:
-                              type: string
-                            name:
-                              type: string
-                            subTypeName:
-                              type: string
-                            title:
-                              type: string
-                          type: object
-                        description:
                           type: string
                         name:
                           type: string
@@ -189,47 +262,77 @@ spec:
                           type: string
                         parameter:
                           type: string
+                        topic:
+                          description: TopicConfigModel struct for TopicConfigModel
+                          properties:
+                            autoName:
+                              type: boolean
+                            autoPartition:
+                              type: boolean
+                            outputName:
+                              type: string
+                            overrideRetryStrategy:
+                              type: boolean
+                            partitions:
+                              format: int32
+                              type: integer
+                            replicationFactor:
+                              format: int32
+                              type: integer
+                            retryStrategy:
+                              description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
+                              properties:
+                                deadLetterSuffix:
+                                  type: string
+                                steps:
+                                  items:
+                                    description: TopicRetryStepModel struct for TopicRetryStepModel
+                                    properties:
+                                      backoffDuration:
+                                        type: string
+                                      index:
+                                        format: int32
+                                        type: integer
+                                      repeat:
+                                        format: int32
+                                        type: integer
+                                    type: object
+                                  type: array
+                                strategy:
+                                  description: RetryStrategies the model 'RetryStrategies'
+                                  type: string
+                              required:
+                              - strategy
+                              type: object
+                            topicName:
+                              type: string
+                            topicParams:
+                              items:
+                                description: TopicParamModel struct for TopicParamModel
+                                properties:
+                                  name:
+                                    type: string
+                                  value:
+                                    type: string
+                                type: object
+                              type: array
+                          required:
+                          - outputName
+                          type: object
                       required:
                       - contentType
                       - name
                       - outputDeliveryType
                       type: object
                     type: array
+                  owner:
+                    type: string
                   parameters:
                     items:
-                      description: AlgoParamModel struct for AlgoParamModel
+                      description: AlgoParamSpec struct for AlgoParamSpec
                       properties:
-                        dataType:
-                          description: DataTypeModel struct for DataTypeModel
-                          properties:
-                            mask:
-                              type: string
-                            name:
-                              description: DataTypes the model 'DataTypes'
-                              type: string
-                            precision:
-                              format: int32
-                              type: integer
-                            regex:
-                              type: string
-                            scale:
-                              format: int32
-                              type: integer
-                          required:
-                          - name
-                          type: object
-                        description:
-                          type: string
                         name:
                           type: string
-                        options:
-                          items:
-                            description: DataTypeOptionModel struct for DataTypeOptionModel
-                            properties:
-                              name:
-                                type: string
-                            type: object
-                          type: array
                         required:
                           type: boolean
                         sortOrder:
@@ -242,48 +345,154 @@ spec:
                       type: object
                     type: array
                   readinessProbe:
-                    description: ProbeModel struct for ProbeModel
+                    description: ProbeV1 struct for ProbeV1
                     properties:
+                      exec:
+                        description: ExecActionV1 struct for ExecActionV1
+                        properties:
+                          command:
+                            items:
+                              type: string
+                            type: array
+                        type: object
                       failureThreshold:
                         format: int32
                         type: integer
+                      httpGet:
+                        description: HttpGetActionV1 struct for HttpGetActionV1
+                        properties:
+                          host:
+                            type: string
+                          httpHeaders:
+                            items:
+                              description: HttpHeaderV1 struct for HttpHeaderV1
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  type: string
+                              type: object
+                            type: array
+                          path:
+                            type: string
+                          port:
+                            description: Int32OrStringV1 struct for Int32OrStringV1
+                            properties:
+                              int32Value:
+                                format: int32
+                                type: integer
+                              isInt32:
+                                type: boolean
+                              isString:
+                                type: boolean
+                              stringValue:
+                                type: string
+                            type: object
+                          scheme:
+                            type: string
+                        type: object
                       initialDelaySeconds:
                         format: int32
                         type: integer
                       periodSeconds:
                         format: int32
                         type: integer
+                      successThreshold:
+                        format: int32
+                        type: integer
+                      tcpSocket:
+                        description: TcpSocketActionV1 struct for TcpSocketActionV1
+                        properties:
+                          host:
+                            type: string
+                          port:
+                            description: Int32OrStringV1 struct for Int32OrStringV1
+                            properties:
+                              int32Value:
+                                format: int32
+                                type: integer
+                              isInt32:
+                                type: boolean
+                              isString:
+                                type: boolean
+                              stringValue:
+                                type: string
+                            type: object
+                        type: object
+                      timeoutSeconds:
+                        format: int32
+                        type: integer
                     type: object
-                  resource:
-                    description: ResourceModel struct for ResourceModel
+                  replicas:
+                    format: int32
+                    type: integer
+                  resources:
+                    description: ResourceRequirementsV1 struct for ResourceRequirementsV1
                     properties:
-                      autoScale:
+                      limits:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      requests:
+                        additionalProperties:
+                          type: string
+                        type: object
+                    type: object
+                  retryEnabled:
+                    type: boolean
+                  retryStrategy:
+                    description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
+                    properties:
+                      deadLetterSuffix:
+                        type: string
+                      steps:
+                        items:
+                          description: TopicRetryStepModel struct for TopicRetryStepModel
+                          properties:
+                            backoffDuration:
+                              type: string
+                            index:
+                              format: int32
+                              type: integer
+                            repeat:
+                              format: int32
+                              type: integer
+                          type: object
+                        type: array
+                      strategy:
+                        description: RetryStrategies the model 'RetryStrategies'
+                        type: string
+                    required:
+                    - strategy
+                    type: object
+                  timeoutSeconds:
+                    format: int32
+                    type: integer
+                  version:
+                    type: string
+                  writeAllOutputs:
+                    type: boolean
+                required:
+                - image
+                - index
+                - name
+                - owner
+                - version
+                type: object
+              type: array
+            dataConnectors:
+              items:
+                description: DataConnectorSpec struct for DataConnectorSpec
+                properties:
+                  autoscaling:
+                    description: AutoScalingSpec struct for AutoScalingSpec
+                    properties:
+                      enabled:
                         type: boolean
-                      cpuLimitMillicores:
-                        format: int64
-                        type: integer
-                      cpuRequestMillicores:
-                        format: int64
-                        type: integer
-                      gpuLimitMillicores:
-                        format: int64
-                        type: integer
-                      instances:
+                      maxReplicas:
                         format: int32
                         type: integer
-                      maxInstances:
-                        format: int32
-                        type: integer
-                      memoryLimitBytes:
-                        format: int64
-                        type: integer
-                      memoryRequestBytes:
-                        format: int64
-                        type: integer
-                      minInstances:
-                        format: int32
-                        type: integer
-                      scaleMetrics:
+                      metrics:
                         items:
                           description: ScaleMetricModel struct for ScaleMetricModel
                           properties:
@@ -314,112 +523,10 @@ spec:
                               type: string
                           type: object
                         type: array
+                      minReplicas:
+                        format: int32
+                        type: integer
                     type: object
-                  retryEnabled:
-                    type: boolean
-                  retryStrategy:
-                    description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
-                    properties:
-                      deadLetterSuffix:
-                        type: string
-                      steps:
-                        items:
-                          description: TopicRetryStepModel struct for TopicRetryStepModel
-                          properties:
-                            backoffDuration:
-                              type: string
-                            index:
-                              format: int32
-                              type: integer
-                            repeat:
-                              format: int32
-                              type: integer
-                          type: object
-                        type: array
-                      strategy:
-                        description: RetryStrategies the model 'RetryStrategies'
-                        type: string
-                    type: object
-                  timeoutSeconds:
-                    format: int32
-                    type: integer
-                  topics:
-                    items:
-                      description: TopicConfigModel struct for TopicConfigModel
-                      properties:
-                        componentType:
-                          description: ComponentTypes the model 'ComponentTypes'
-                          type: string
-                        overrideRetryStrategy:
-                          type: boolean
-                        retryStrategy:
-                          description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
-                          properties:
-                            deadLetterSuffix:
-                              type: string
-                            steps:
-                              items:
-                                description: TopicRetryStepModel struct for TopicRetryStepModel
-                                properties:
-                                  backoffDuration:
-                                    type: string
-                                  index:
-                                    format: int32
-                                    type: integer
-                                  repeat:
-                                    format: int32
-                                    type: integer
-                                type: object
-                              type: array
-                            strategy:
-                              description: RetryStrategies the model 'RetryStrategies'
-                              type: string
-                          type: object
-                        sourceName:
-                          type: string
-                        sourceOutputName:
-                          type: string
-                        topicAutoName:
-                          type: boolean
-                        topicAutoPartition:
-                          type: boolean
-                        topicName:
-                          type: string
-                        topicParams:
-                          items:
-                            description: TopicParamModel struct for TopicParamModel
-                            properties:
-                              name:
-                                type: string
-                              value:
-                                type: string
-                            type: object
-                          type: array
-                        topicPartitions:
-                          format: int32
-                          type: integer
-                        topicReplicationFactor:
-                          format: int32
-                          type: integer
-                      required:
-                      - sourceName
-                      - sourceOutputName
-                      type: object
-                    type: array
-                  writeAllOutputs:
-                    type: boolean
-                required:
-                - algoIndex
-                - algoName
-                - algoOwner
-                - algoVersionTag
-                - image
-                type: object
-              type: array
-            dataConnectors:
-              items:
-                description: DataConnectorConfig struct for DataConnectorConfig
-                properties:
                   connectorClass:
                     type: string
                   dataConnectorType:
@@ -442,15 +549,81 @@ spec:
                     format: int32
                     type: integer
                   livenessProbe:
-                    description: ProbeModel struct for ProbeModel
+                    description: ProbeV1 struct for ProbeV1
                     properties:
+                      exec:
+                        description: ExecActionV1 struct for ExecActionV1
+                        properties:
+                          command:
+                            items:
+                              type: string
+                            type: array
+                        type: object
                       failureThreshold:
                         format: int32
                         type: integer
+                      httpGet:
+                        description: HttpGetActionV1 struct for HttpGetActionV1
+                        properties:
+                          host:
+                            type: string
+                          httpHeaders:
+                            items:
+                              description: HttpHeaderV1 struct for HttpHeaderV1
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  type: string
+                              type: object
+                            type: array
+                          path:
+                            type: string
+                          port:
+                            description: Int32OrStringV1 struct for Int32OrStringV1
+                            properties:
+                              int32Value:
+                                format: int32
+                                type: integer
+                              isInt32:
+                                type: boolean
+                              isString:
+                                type: boolean
+                              stringValue:
+                                type: string
+                            type: object
+                          scheme:
+                            type: string
+                        type: object
                       initialDelaySeconds:
                         format: int32
                         type: integer
                       periodSeconds:
+                        format: int32
+                        type: integer
+                      successThreshold:
+                        format: int32
+                        type: integer
+                      tcpSocket:
+                        description: TcpSocketActionV1 struct for TcpSocketActionV1
+                        properties:
+                          host:
+                            type: string
+                          port:
+                            description: Int32OrStringV1 struct for Int32OrStringV1
+                            properties:
+                              int32Value:
+                                format: int32
+                                type: integer
+                              isInt32:
+                                type: boolean
+                              isString:
+                                type: boolean
+                              stringValue:
+                                type: string
+                            type: object
+                        type: object
+                      timeoutSeconds:
                         format: int32
                         type: integer
                     type: object
@@ -493,17 +666,98 @@ spec:
                       type: object
                     type: array
                   readinessProbe:
-                    description: ProbeModel struct for ProbeModel
+                    description: ProbeV1 struct for ProbeV1
                     properties:
+                      exec:
+                        description: ExecActionV1 struct for ExecActionV1
+                        properties:
+                          command:
+                            items:
+                              type: string
+                            type: array
+                        type: object
                       failureThreshold:
                         format: int32
                         type: integer
+                      httpGet:
+                        description: HttpGetActionV1 struct for HttpGetActionV1
+                        properties:
+                          host:
+                            type: string
+                          httpHeaders:
+                            items:
+                              description: HttpHeaderV1 struct for HttpHeaderV1
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  type: string
+                              type: object
+                            type: array
+                          path:
+                            type: string
+                          port:
+                            description: Int32OrStringV1 struct for Int32OrStringV1
+                            properties:
+                              int32Value:
+                                format: int32
+                                type: integer
+                              isInt32:
+                                type: boolean
+                              isString:
+                                type: boolean
+                              stringValue:
+                                type: string
+                            type: object
+                          scheme:
+                            type: string
+                        type: object
                       initialDelaySeconds:
                         format: int32
                         type: integer
                       periodSeconds:
                         format: int32
                         type: integer
+                      successThreshold:
+                        format: int32
+                        type: integer
+                      tcpSocket:
+                        description: TcpSocketActionV1 struct for TcpSocketActionV1
+                        properties:
+                          host:
+                            type: string
+                          port:
+                            description: Int32OrStringV1 struct for Int32OrStringV1
+                            properties:
+                              int32Value:
+                                format: int32
+                                type: integer
+                              isInt32:
+                                type: boolean
+                              isString:
+                                type: boolean
+                              stringValue:
+                                type: string
+                            type: object
+                        type: object
+                      timeoutSeconds:
+                        format: int32
+                        type: integer
+                    type: object
+                  replicas:
+                    format: int32
+                    type: integer
+                  resources:
+                    description: ResourceRequirementsV1 struct for ResourceRequirementsV1
+                    properties:
+                      limits:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      requests:
+                        additionalProperties:
+                          type: string
+                        type: object
                     type: object
                   tasksMax:
                     format: int32
@@ -512,11 +766,20 @@ spec:
                     items:
                       description: TopicConfigModel struct for TopicConfigModel
                       properties:
-                        componentType:
-                          description: ComponentTypes the model 'ComponentTypes'
+                        autoName:
+                          type: boolean
+                        autoPartition:
+                          type: boolean
+                        outputName:
                           type: string
                         overrideRetryStrategy:
                           type: boolean
+                        partitions:
+                          format: int32
+                          type: integer
+                        replicationFactor:
+                          format: int32
+                          type: integer
                         retryStrategy:
                           description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
                           properties:
@@ -539,15 +802,9 @@ spec:
                             strategy:
                               description: RetryStrategies the model 'RetryStrategies'
                               type: string
+                          required:
+                          - strategy
                           type: object
-                        sourceName:
-                          type: string
-                        sourceOutputName:
-                          type: string
-                        topicAutoName:
-                          type: boolean
-                        topicAutoPartition:
-                          type: boolean
                         topicName:
                           type: string
                         topicParams:
@@ -560,15 +817,8 @@ spec:
                                 type: string
                             type: object
                           type: array
-                        topicPartitions:
-                          format: int32
-                          type: integer
-                        topicReplicationFactor:
-                          format: int32
-                          type: integer
                       required:
-                      - sourceName
-                      - sourceOutputName
+                      - outputName
                       type: object
                     type: array
                   versionTag:
@@ -584,8 +834,51 @@ spec:
             deploymentOwner:
               type: string
             endpoint:
-              description: EndpointConfig struct for EndpointConfig
+              description: EndpointSpec struct for EndpointSpec
               properties:
+                autoscaling:
+                  description: AutoScalingSpec struct for AutoScalingSpec
+                  properties:
+                    enabled:
+                      type: boolean
+                    maxReplicas:
+                      format: int32
+                      type: integer
+                    metrics:
+                      items:
+                        description: ScaleMetricModel struct for ScaleMetricModel
+                        properties:
+                          averageUtilization:
+                            format: int32
+                            type: integer
+                          averageValue:
+                            type: string
+                          metricName:
+                            type: string
+                          metricSelector:
+                            type: string
+                          objectApiVersion:
+                            type: string
+                          objectKind:
+                            type: string
+                          objectName:
+                            type: string
+                          resourceName:
+                            type: string
+                          sourceType:
+                            description: MetricSourceTypes the model 'MetricSourceTypes'
+                            type: string
+                          targetType:
+                            description: MetricTargetTypes the model 'MetricTargetTypes'
+                            type: string
+                          value:
+                            type: string
+                        type: object
+                      type: array
+                    minReplicas:
+                      format: int32
+                      type: integer
+                  type: object
                 deploymentName:
                   type: string
                 deploymentOwner:
@@ -614,41 +907,89 @@ spec:
                       type: object
                   type: object
                 livenessProbe:
-                  description: ProbeModel struct for ProbeModel
+                  description: ProbeV1 struct for ProbeV1
                   properties:
+                    exec:
+                      description: ExecActionV1 struct for ExecActionV1
+                      properties:
+                        command:
+                          items:
+                            type: string
+                          type: array
+                      type: object
                     failureThreshold:
                       format: int32
                       type: integer
+                    httpGet:
+                      description: HttpGetActionV1 struct for HttpGetActionV1
+                      properties:
+                        host:
+                          type: string
+                        httpHeaders:
+                          items:
+                            description: HttpHeaderV1 struct for HttpHeaderV1
+                            properties:
+                              name:
+                                type: string
+                              value:
+                                type: string
+                            type: object
+                          type: array
+                        path:
+                          type: string
+                        port:
+                          description: Int32OrStringV1 struct for Int32OrStringV1
+                          properties:
+                            int32Value:
+                              format: int32
+                              type: integer
+                            isInt32:
+                              type: boolean
+                            isString:
+                              type: boolean
+                            stringValue:
+                              type: string
+                          type: object
+                        scheme:
+                          type: string
+                      type: object
                     initialDelaySeconds:
                       format: int32
                       type: integer
                     periodSeconds:
                       format: int32
                       type: integer
+                    successThreshold:
+                      format: int32
+                      type: integer
+                    tcpSocket:
+                      description: TcpSocketActionV1 struct for TcpSocketActionV1
+                      properties:
+                        host:
+                          type: string
+                        port:
+                          description: Int32OrStringV1 struct for Int32OrStringV1
+                          properties:
+                            int32Value:
+                              format: int32
+                              type: integer
+                            isInt32:
+                              type: boolean
+                            isString:
+                              type: boolean
+                            stringValue:
+                              type: string
+                          type: object
+                      type: object
+                    timeoutSeconds:
+                      format: int32
+                      type: integer
                   type: object
                 paths:
                   items:
-                    description: EndpointPathModel struct for EndpointPathModel
+                    description: EndpointPathSpec struct for EndpointPathSpec
                     properties:
-                      connectionString:
-                        type: string
                       contentType:
-                        description: ContentTypeModel struct for ContentTypeModel
-                        properties:
-                          fileExtension:
-                            type: string
-                          groupName:
-                            type: string
-                          iconClass:
-                            type: string
-                          name:
-                            type: string
-                          subTypeName:
-                            type: string
-                          title:
-                            type: string
-                        type: object
-                      description:
                         type: string
                       endpointType:
                         description: EndpointTypes the model 'EndpointTypes'
@@ -660,6 +1001,63 @@ spec:
                         type: string
                       name:
                         type: string
+                      topic:
+                        description: TopicConfigModel struct for TopicConfigModel
+                        properties:
+                          autoName:
+                            type: boolean
+                          autoPartition:
+                            type: boolean
+                          outputName:
+                            type: string
+                          overrideRetryStrategy:
+                            type: boolean
+                          partitions:
+                            format: int32
+                            type: integer
+                          replicationFactor:
+                            format: int32
+                            type: integer
+                          retryStrategy:
+                            description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
+                            properties:
+                              deadLetterSuffix:
+                                type: string
+                              steps:
+                                items:
+                                  description: TopicRetryStepModel struct for TopicRetryStepModel
+                                  properties:
+                                    backoffDuration:
+                                      type: string
+                                    index:
+                                      format: int32
+                                      type: integer
+                                    repeat:
+                                      format: int32
+                                      type: integer
+                                  type: object
+                                type: array
+                              strategy:
+                                description: RetryStrategies the model 'RetryStrategies'
+                                type: string
+                            required:
+                            - strategy
+                            type: object
+                          topicName:
+                            type: string
+                          topicParams:
+                            items:
+                              description: TopicParamModel struct for TopicParamModel
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  type: string
+                              type: object
+                            type: array
+                        required:
+                        - outputName
+                        type: object
                     type: object
                   type: array
                 pipelineName:
@@ -715,48 +1113,134 @@ spec:
                       type: object
                   type: object
                 readinessProbe:
-                  description: ProbeModel struct for ProbeModel
+                  description: ProbeV1 struct for ProbeV1
                   properties:
+                    exec:
+                      description: ExecActionV1 struct for ExecActionV1
+                      properties:
+                        command:
+                          items:
+                            type: string
+                          type: array
+                      type: object
                     failureThreshold:
                       format: int32
                       type: integer
+                    httpGet:
+                      description: HttpGetActionV1 struct for HttpGetActionV1
+                      properties:
+                        host:
+                          type: string
+                        httpHeaders:
+                          items:
+                            description: HttpHeaderV1 struct for HttpHeaderV1
+                            properties:
+                              name:
+                                type: string
+                              value:
+                                type: string
+                            type: object
+                          type: array
+                        path:
+                          type: string
+                        port:
+                          description: Int32OrStringV1 struct for Int32OrStringV1
+                          properties:
+                            int32Value:
+                              format: int32
+                              type: integer
+                            isInt32:
+                              type: boolean
+                            isString:
+                              type: boolean
+                            stringValue:
+                              type: string
+                          type: object
+                        scheme:
+                          type: string
+                      type: object
                     initialDelaySeconds:
                       format: int32
                       type: integer
                     periodSeconds:
                       format: int32
                       type: integer
+                    successThreshold:
+                      format: int32
+                      type: integer
+                    tcpSocket:
+                      description: TcpSocketActionV1 struct for TcpSocketActionV1
+                      properties:
+                        host:
+                          type: string
+                        port:
+                          description: Int32OrStringV1 struct for Int32OrStringV1
+                          properties:
+                            int32Value:
+                              format: int32
+                              type: integer
+                            isInt32:
+                              type: boolean
+                            isString:
+                              type: boolean
+                            stringValue:
+                              type: string
+                          type: object
+                      type: object
+                    timeoutSeconds:
+                      format: int32
+                      type: integer
                   type: object
-                resource:
-                  description: ResourceModel struct for ResourceModel
+                replicas:
+                  format: int32
+                  type: integer
+                resources:
+                  description: ResourceRequirementsV1 struct for ResourceRequirementsV1
                   properties:
-                    autoScale:
+                    limits:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    requests:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
+                server:
+                  description: EndpointServerConfig struct for EndpointServerConfig
+                  properties:
+                    grpc:
+                      description: EndpointServerListen struct for EndpointServerListen
+                      properties:
+                        listen:
+                          type: string
+                      type: object
+                    http:
+                      description: EndpointServerListen struct for EndpointServerListen
+                      properties:
+                        listen:
+                          type: string
+                      type: object
+                    monitoring:
+                      description: EndpointServerListen struct for EndpointServerListen
+                      properties:
+                        listen:
+                          type: string
+                      type: object
+                  type: object
+              type: object
+            hook:
+              description: HookSpec struct for HookSpec
+              properties:
+                autoscaling:
+                  description: AutoScalingSpec struct for AutoScalingSpec
+                  properties:
+                    enabled:
                       type: boolean
-                    cpuLimitMillicores:
-                      format: int64
-                      type: integer
-                    cpuRequestMillicores:
-                      format: int64
-                      type: integer
-                    gpuLimitMillicores:
-                      format: int64
-                      type: integer
-                    instances:
+                    maxReplicas:
                       format: int32
                       type: integer
-                    maxInstances:
-                      format: int32
-                      type: integer
-                    memoryLimitBytes:
-                      format: int64
-                      type: integer
-                    memoryRequestBytes:
-                      format: int64
-                      type: integer
-                    minInstances:
-                      format: int32
-                      type: integer
-                    scaleMetrics:
+                    metrics:
                       items:
                         description: ScaleMetricModel struct for ScaleMetricModel
                         properties:
@@ -787,96 +1271,10 @@ spec:
                             type: string
                         type: object
                       type: array
+                    minReplicas:
+                      format: int32
+                      type: integer
                   type: object
-                server:
-                  description: EndpointServerConfig struct for EndpointServerConfig
-                  properties:
-                    grpc:
-                      description: EndpointServerListen struct for EndpointServerListen
-                      properties:
-                        listen:
-                          type: string
-                      type: object
-                    http:
-                      description: EndpointServerListen struct for EndpointServerListen
-                      properties:
-                        listen:
-                          type: string
-                      type: object
-                    monitoring:
-                      description: EndpointServerListen struct for EndpointServerListen
-                      properties:
-                        listen:
-                          type: string
-                      type: object
-                  type: object
-                topics:
-                  items:
-                    description: TopicConfigModel struct for TopicConfigModel
-                    properties:
-                      componentType:
-                        description: ComponentTypes the model 'ComponentTypes'
-                        type: string
-                      overrideRetryStrategy:
-                        type: boolean
-                      retryStrategy:
-                        description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
-                        properties:
-                          deadLetterSuffix:
-                            type: string
-                          steps:
-                            items:
-                              description: TopicRetryStepModel struct for TopicRetryStepModel
-                              properties:
-                                backoffDuration:
-                                  type: string
-                                index:
-                                  format: int32
-                                  type: integer
-                                repeat:
-                                  format: int32
-                                  type: integer
-                              type: object
-                            type: array
-                          strategy:
-                            description: RetryStrategies the model 'RetryStrategies'
-                            type: string
-                        type: object
-                      sourceName:
-                        type: string
-                      sourceOutputName:
-                        type: string
-                      topicAutoName:
-                        type: boolean
-                      topicAutoPartition:
-                        type: boolean
-                      topicName:
-                        type: string
-                      topicParams:
-                        items:
-                          description: TopicParamModel struct for TopicParamModel
-                          properties:
-                            name:
-                              type: string
-                            value:
-                              type: string
-                          type: object
-                        type: array
-                      topicPartitions:
-                        format: int32
-                        type: integer
-                      topicReplicationFactor:
-                        format: int32
-                        type: integer
-                    required:
-                    - sourceName
-                    - sourceOutputName
-                    type: object
-                  type: array
-              type: object
-            hook:
-              description: HookConfig struct for HookConfig
-              properties:
                 deploymentName:
                   type: string
                 deploymentOwner:
@@ -893,15 +1291,81 @@ spec:
                       type: string
                   type: object
                 livenessProbe:
-                  description: ProbeModel struct for ProbeModel
+                  description: ProbeV1 struct for ProbeV1
                   properties:
+                    exec:
+                      description: ExecActionV1 struct for ExecActionV1
+                      properties:
+                        command:
+                          items:
+                            type: string
+                          type: array
+                      type: object
                     failureThreshold:
                       format: int32
                       type: integer
+                    httpGet:
+                      description: HttpGetActionV1 struct for HttpGetActionV1
+                      properties:
+                        host:
+                          type: string
+                        httpHeaders:
+                          items:
+                            description: HttpHeaderV1 struct for HttpHeaderV1
+                            properties:
+                              name:
+                                type: string
+                              value:
+                                type: string
+                            type: object
+                          type: array
+                        path:
+                          type: string
+                        port:
+                          description: Int32OrStringV1 struct for Int32OrStringV1
+                          properties:
+                            int32Value:
+                              format: int32
+                              type: integer
+                            isInt32:
+                              type: boolean
+                            isString:
+                              type: boolean
+                            stringValue:
+                              type: string
+                          type: object
+                        scheme:
+                          type: string
+                      type: object
                     initialDelaySeconds:
                       format: int32
                       type: integer
                     periodSeconds:
+                      format: int32
+                      type: integer
+                    successThreshold:
+                      format: int32
+                      type: integer
+                    tcpSocket:
+                      description: TcpSocketActionV1 struct for TcpSocketActionV1
+                      properties:
+                        host:
+                          type: string
+                        port:
+                          description: Int32OrStringV1 struct for Int32OrStringV1
+                          properties:
+                            int32Value:
+                              format: int32
+                              type: integer
+                            isInt32:
+                              type: boolean
+                            isString:
+                              type: boolean
+                            stringValue:
+                              type: string
+                          type: object
+                      type: object
+                    timeoutSeconds:
                       format: int32
                       type: integer
                   type: object
@@ -938,88 +1402,117 @@ spec:
                     type: object
                   type: array
                 readinessProbe:
-                  description: ProbeModel struct for ProbeModel
+                  description: ProbeV1 struct for ProbeV1
                   properties:
+                    exec:
+                      description: ExecActionV1 struct for ExecActionV1
+                      properties:
+                        command:
+                          items:
+                            type: string
+                          type: array
+                      type: object
                     failureThreshold:
                       format: int32
                       type: integer
+                    httpGet:
+                      description: HttpGetActionV1 struct for HttpGetActionV1
+                      properties:
+                        host:
+                          type: string
+                        httpHeaders:
+                          items:
+                            description: HttpHeaderV1 struct for HttpHeaderV1
+                            properties:
+                              name:
+                                type: string
+                              value:
+                                type: string
+                            type: object
+                          type: array
+                        path:
+                          type: string
+                        port:
+                          description: Int32OrStringV1 struct for Int32OrStringV1
+                          properties:
+                            int32Value:
+                              format: int32
+                              type: integer
+                            isInt32:
+                              type: boolean
+                            isString:
+                              type: boolean
+                            stringValue:
+                              type: string
+                          type: object
+                        scheme:
+                          type: string
+                      type: object
                     initialDelaySeconds:
                       format: int32
                       type: integer
                     periodSeconds:
                       format: int32
                       type: integer
+                    successThreshold:
+                      format: int32
+                      type: integer
+                    tcpSocket:
+                      description: TcpSocketActionV1 struct for TcpSocketActionV1
+                      properties:
+                        host:
+                          type: string
+                        port:
+                          description: Int32OrStringV1 struct for Int32OrStringV1
+                          properties:
+                            int32Value:
+                              format: int32
+                              type: integer
+                            isInt32:
+                              type: boolean
+                            isString:
+                              type: boolean
+                            stringValue:
+                              type: string
+                          type: object
+                      type: object
+                    timeoutSeconds:
+                      format: int32
+                      type: integer
                   type: object
-                resource:
-                  description: ResourceModel struct for ResourceModel
+                replicas:
+                  format: int32
+                  type: integer
+                resources:
+                  description: ResourceRequirementsV1 struct for ResourceRequirementsV1
                   properties:
-                    autoScale:
-                      type: boolean
-                    cpuLimitMillicores:
-                      format: int64
-                      type: integer
-                    cpuRequestMillicores:
-                      format: int64
-                      type: integer
-                    gpuLimitMillicores:
-                      format: int64
-                      type: integer
-                    instances:
-                      format: int32
-                      type: integer
-                    maxInstances:
-                      format: int32
-                      type: integer
-                    memoryLimitBytes:
-                      format: int64
-                      type: integer
-                    memoryRequestBytes:
-                      format: int64
-                      type: integer
-                    minInstances:
-                      format: int32
-                      type: integer
-                    scaleMetrics:
-                      items:
-                        description: ScaleMetricModel struct for ScaleMetricModel
-                        properties:
-                          averageUtilization:
-                            format: int32
-                            type: integer
-                          averageValue:
-                            type: string
-                          metricName:
-                            type: string
-                          metricSelector:
-                            type: string
-                          objectApiVersion:
-                            type: string
-                          objectKind:
-                            type: string
-                          objectName:
-                            type: string
-                          resourceName:
-                            type: string
-                          sourceType:
-                            description: MetricSourceTypes the model 'MetricSourceTypes'
-                            type: string
-                          targetType:
-                            description: MetricTargetTypes the model 'MetricTargetTypes'
-                            type: string
-                          value:
-                            type: string
-                        type: object
-                      type: array
+                    limits:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    requests:
+                      additionalProperties:
+                        type: string
+                      type: object
                   type: object
                 topics:
                   items:
                     description: TopicConfigModel struct for TopicConfigModel
                     properties:
-                      componentType:
-                        description: ComponentTypes the model 'ComponentTypes'
+                      autoName:
+                        type: boolean
+                      autoPartition:
+                        type: boolean
+                      outputName:
                         type: string
                       overrideRetryStrategy:
                         type: boolean
+                      partitions:
+                        format: int32
+                        type: integer
+                      replicationFactor:
+                        format: int32
+                        type: integer
                       retryStrategy:
                         description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
                         properties:
@@ -1042,15 +1535,9 @@ spec:
                           strategy:
                             description: RetryStrategies the model 'RetryStrategies'
                             type: string
+                        required:
+                        - strategy
                         type: object
-                      sourceName:
-                        type: string
-                      sourceOutputName:
-                        type: string
-                      topicAutoName:
-                        type: boolean
-                      topicAutoPartition:
-                        type: boolean
                       topicName:
                         type: string
                       topicParams:
@@ -1063,15 +1550,8 @@ spec:
                               type: string
                           type: object
                         type: array
-                      topicPartitions:
-                        format: int32
-                        type: integer
-                      topicReplicationFactor:
-                        format: int32
-                        type: integer
                     required:
-                    - sourceName
-                    - sourceOutputName
+                    - outputName
                     type: object
                   type: array
                 webHooks:

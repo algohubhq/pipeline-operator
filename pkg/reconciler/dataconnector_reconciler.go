@@ -24,8 +24,8 @@ import (
 
 // NewDataConnectorReconciler returns a new DataConnectorReconciler
 func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
-	dataConnectorConfig *v1beta1.DataConnectorConfig,
-	allTopicConfigs []algov1beta1.TopicConfigModel,
+	dataConnectorConfig *v1beta1.DataConnectorSpec,
+	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme) DataConnectorReconciler {
@@ -42,8 +42,8 @@ func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployme
 // DataConnectorReconciler reconciles an dataConnectorConfig object
 type DataConnectorReconciler struct {
 	pipelineDeployment  *algov1beta1.PipelineDeployment
-	dataConnectorConfig *v1beta1.DataConnectorConfig
-	allTopicConfigs     []algov1beta1.TopicConfigModel
+	dataConnectorConfig *v1beta1.DataConnectorSpec
+	allTopicConfigs     map[string]*v1beta1.TopicConfigModel
 	request             *reconcile.Request
 	client              client.Client
 	scheme              *runtime.Scheme
@@ -54,6 +54,16 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 
 	pipelineDeployment := dataConnectorReconciler.pipelineDeployment
 	dataConnectorConfig := dataConnectorReconciler.dataConnectorConfig
+
+	// Creat the Kafka Topics
+	log.Info("Reconciling Kakfa Topics for Data Connector outputs")
+	for _, topic := range dataConnectorConfig.Topics {
+		dcName := utils.GetDcFullName(dataConnectorConfig)
+		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
+			topicReconciler := NewTopicReconciler(dataConnectorReconciler.pipelineDeployment, dcName, &currentTopicConfig, dataConnectorReconciler.request, dataConnectorReconciler.client, dataConnectorReconciler.scheme)
+			topicReconciler.Reconcile()
+		}(topic)
+	}
 
 	kcName := strings.ToLower(fmt.Sprintf("%s-%s", pipelineDeployment.Spec.DeploymentName, dataConnectorConfig.Name))
 	dcName := strings.ToLower(fmt.Sprintf("%s-%s-%d", pipelineDeployment.Spec.DeploymentName, dataConnectorConfig.Name, dataConnectorConfig.Index))
@@ -211,7 +221,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 	return nil
 }
 
-func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelineDeployment *algov1beta1.PipelineDeployment, dataConnectorConfig *algov1beta1.DataConnectorConfig) (string, error) {
+func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelineDeployment *algov1beta1.PipelineDeployment, dataConnectorConfig *algov1beta1.DataConnectorSpec) (string, error) {
 
 	config := pipelineDeployment.Spec
 
@@ -222,14 +232,9 @@ func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelin
 		if pipe.DestName == dcName {
 
 			// Get the source topic connected to this pipe
-			for _, topic := range dataConnectorReconciler.allTopicConfigs {
-				if pipe.SourceName == topic.SourceName &&
-					pipe.SourceOutputName == topic.SourceOutputName {
-					topicName := utils.GetTopicName(topic.TopicName, &pipelineDeployment.Spec)
-
-					return topicName, nil
-				}
-			}
+			topic := dataConnectorReconciler.allTopicConfigs[fmt.Sprintf("%s|%s", pipe.SourceName, pipe.SourceOutputName)]
+			topicName := utils.GetTopicName(topic.TopicName, &pipelineDeployment.Spec)
+			return topicName, nil
 
 		}
 

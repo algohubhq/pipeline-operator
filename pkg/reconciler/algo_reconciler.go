@@ -31,8 +31,8 @@ import (
 // AlgoReconciler reconciles an AlgoConfig object
 type AlgoReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
-	algoConfig         *v1beta1.AlgoConfig
-	allTopicConfigs    []algov1beta1.TopicConfigModel
+	algoConfig         *v1beta1.AlgoSpec
+	allTopicConfigs    map[string]*v1beta1.TopicConfigModel
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
@@ -43,8 +43,8 @@ var log = logf.Log.WithName("reconciler")
 
 // NewAlgoReconciler returns a new AlgoReconciler
 func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
-	algoConfig *v1beta1.AlgoConfig,
-	allTopicConfigs []algov1beta1.TopicConfigModel,
+	algoConfig *v1beta1.AlgoSpec,
+	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme,
@@ -68,17 +68,17 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	request := algoReconciler.request
 
 	logData := map[string]interface{}{
-		"AlgoOwner":      algoConfig.AlgoOwner,
-		"AlgoName":       algoConfig.AlgoName,
-		"AlgoVersionTag": algoConfig.AlgoVersionTag,
-		"Index":          algoConfig.AlgoIndex,
+		"AlgoOwner":      algoConfig.Owner,
+		"AlgoName":       algoConfig.Name,
+		"AlgoVersionTag": algoConfig.Version,
+		"Index":          algoConfig.Index,
 	}
 	algoLogger := log.WithValues("data", logData)
 
 	algoLogger.Info("Reconciling Algo")
 
 	// Truncate the name of the deployment / pod just in case
-	name := strings.TrimRight(utils.Short(algoConfig.AlgoName, 20), "-")
+	name := strings.TrimRight(utils.Short(algoConfig.Name, 20), "-")
 
 	labels := map[string]string{
 		"app.kubernetes.io/part-of":    "algo.run",
@@ -88,10 +88,10 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 			pipelineDeployment.Spec.DeploymentName),
 		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 			pipelineDeployment.Spec.PipelineName),
-		"algo.run/algo": fmt.Sprintf("%s.%s", algoConfig.AlgoOwner,
-			algoConfig.AlgoName),
-		"algo.run/algo-version": algoConfig.AlgoVersionTag,
-		"algo.run/index":        strconv.Itoa(int(algoConfig.AlgoIndex)),
+		"algo.run/algo": fmt.Sprintf("%s.%s", algoConfig.Owner,
+			algoConfig.Name),
+		"algo.run/algo-version": algoConfig.Version,
+		"algo.run/index":        strconv.Itoa(int(algoConfig.Index)),
 	}
 
 	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
@@ -106,10 +106,10 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 				pipelineDeployment.Spec.DeploymentOwner,
 				pipelineDeployment.Spec.DeploymentName),
 			"algo.run/algo": fmt.Sprintf("%s.%s",
-				algoConfig.AlgoOwner,
-				algoConfig.AlgoName),
-			"algo.run/algo-version": algoConfig.AlgoVersionTag,
-			"algo.run/index":        fmt.Sprintf("%v", algoConfig.AlgoIndex),
+				algoConfig.Owner,
+				algoConfig.Name),
+			"algo.run/algo-version": algoConfig.Version,
+			"algo.run/index":        fmt.Sprintf("%v", algoConfig.Index),
 		},
 	}
 
@@ -172,7 +172,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	}
 
 	// Setup the horizontal pod autoscaler
-	if algoConfig.Resource.AutoScale {
+	if algoConfig.Autoscaling != nil && algoConfig.Autoscaling.Enabled {
 
 		labels := map[string]string{
 			"app.kubernetes.io/part-of":    "algo.run",
@@ -182,10 +182,10 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 				pipelineDeployment.Spec.DeploymentName),
 			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 				pipelineDeployment.Spec.PipelineName),
-			"algo.run/algo": fmt.Sprintf("%s.%s", algoReconciler.algoConfig.AlgoOwner,
-				algoReconciler.algoConfig.AlgoName),
-			"algo.run/algo-version": algoReconciler.algoConfig.AlgoVersionTag,
-			"algo.run/index":        strconv.Itoa(int(algoReconciler.algoConfig.AlgoIndex)),
+			"algo.run/algo": fmt.Sprintf("%s.%s", algoReconciler.algoConfig.Owner,
+				algoReconciler.algoConfig.Name),
+			"algo.run/algo-version": algoReconciler.algoConfig.Version,
+			"algo.run/index":        strconv.Itoa(int(algoReconciler.algoConfig.Index)),
 		}
 
 		opts := []client.ListOption{
@@ -195,7 +195,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 		existingHpa, err := kubeUtil.CheckForHorizontalPodAutoscaler(opts)
 
-		hpaSpec, err := kubeUtil.CreateHpaSpec(algoName, labels, pipelineDeployment, algoConfig.Resource)
+		hpaSpec, err := kubeUtil.CreateHpaSpec(algoName, labels, pipelineDeployment, algoConfig.Autoscaling)
 		if err != nil {
 			algoLogger.Error(err, "Failed to create Algo horizontal pod autoscaler spec")
 			return err
@@ -230,6 +230,16 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 			}
 		}
 
+	}
+
+	// Creat the Kafka Topics
+	algoLogger.Info("Reconciling Kakfa Topics for Algo outputs")
+	for _, output := range algoConfig.Outputs {
+		algoName := utils.GetAlgoFullName(algoConfig)
+		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
+			topicReconciler := NewTopicReconciler(algoReconciler.pipelineDeployment, algoName, &currentTopicConfig, algoReconciler.request, algoReconciler.client, algoReconciler.scheme)
+			topicReconciler.Reconcile()
+		}(*output.Topic)
 	}
 
 	return nil
@@ -554,7 +564,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	}
 
 	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
-	resources, resourceErr := kubeUtil.CreateResourceReqs(algoConfig.Resource)
+	resources, resourceErr := kubeUtil.CreateResourceReqs(algoConfig.Resources)
 
 	if resourceErr != nil {
 		return nil, resourceErr
@@ -648,7 +658,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Replicas: &algoConfig.Resource.Instances,
+			Replicas: &algoConfig.Replicas,
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{
@@ -688,15 +698,15 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 
 }
 
-func (algoReconciler *AlgoReconciler) createConfigMap(algoConfig *v1beta1.AlgoConfig, runnerConfig *v1beta1.AlgoRunnerConfig, labels map[string]string) (configMapName string, err error) {
+func (algoReconciler *AlgoReconciler) createConfigMap(algoConfig *v1beta1.AlgoSpec, runnerConfig *v1beta1.AlgoRunnerConfig, labels map[string]string) (configMapName string, err error) {
 
 	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
 	// Create all config mounts
 	name := fmt.Sprintf("%s-%s-%s-%s-config",
 		algoReconciler.pipelineDeployment.Spec.DeploymentOwner,
 		algoReconciler.pipelineDeployment.Spec.DeploymentName,
-		algoConfig.AlgoOwner,
-		algoConfig.AlgoName)
+		algoConfig.Owner,
+		algoConfig.Name)
 	data := make(map[string]string)
 
 	// Add the runner-config
@@ -758,7 +768,7 @@ func (algoReconciler *AlgoReconciler) createConfigMap(algoConfig *v1beta1.AlgoCo
 
 }
 
-func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, runnerConfig *v1beta1.AlgoRunnerConfig, algoConfig *v1beta1.AlgoConfig) []corev1.EnvVar {
+func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, runnerConfig *v1beta1.AlgoRunnerConfig, algoConfig *v1beta1.AlgoSpec) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
 
@@ -811,16 +821,12 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 		if *input.InputDeliveryType == v1beta1.INPUTDELIVERYTYPES_KAFKA_TOPIC {
 			for _, pipe := range algoReconciler.pipelineDeployment.Spec.Pipes {
 				if pipe.DestInputName == input.Name {
-					for _, tc := range algoReconciler.allTopicConfigs {
-						if pipe.SourceName == tc.SourceName &&
-							pipe.SourceOutputName == tc.SourceOutputName {
-							topicName := utils.GetTopicName(tc.TopicName, &algoReconciler.pipelineDeployment.Spec)
-							envVars = append(envVars, corev1.EnvVar{
-								Name:  fmt.Sprintf("KAFKA_INPUT_TOPIC_%s", strings.ToUpper(input.Name)),
-								Value: topicName,
-							})
-						}
-					}
+					tc := algoReconciler.allTopicConfigs[fmt.Sprintf("%s|%s", pipe.SourceName, pipe.SourceOutputName)]
+					topicName := utils.GetTopicName(tc.TopicName, &algoReconciler.pipelineDeployment.Spec)
+					envVars = append(envVars, corev1.EnvVar{
+						Name:  fmt.Sprintf("KAFKA_INPUT_TOPIC_%s", strings.ToUpper(input.Name)),
+						Value: topicName,
+					})
 				}
 			}
 		}
@@ -829,15 +835,11 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 	// Append all KafkaTopic Outputs
 	for _, output := range algoConfig.Outputs {
 		if *output.OutputDeliveryType == v1beta1.OUTPUTDELIVERYTYPES_KAFKA_TOPIC {
-			for _, tc := range algoConfig.Topics {
-				if output.Name == tc.SourceOutputName {
-					topicName := utils.GetTopicName(tc.TopicName, &algoReconciler.pipelineDeployment.Spec)
-					envVars = append(envVars, corev1.EnvVar{
-						Name:  fmt.Sprintf("KAFKA_INPUT_TOPIC_%s", strings.ToUpper(output.Name)),
-						Value: topicName,
-					})
-				}
-			}
+			topicName := utils.GetTopicName(output.Topic.TopicName, &algoReconciler.pipelineDeployment.Spec)
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  fmt.Sprintf("KAFKA_INPUT_TOPIC_%s", strings.ToUpper(output.Name)),
+				Value: topicName,
+			})
 		}
 	}
 
@@ -868,7 +870,13 @@ func (algoReconciler *AlgoReconciler) createSelector(constraints []string) map[s
 }
 
 // CreateRunnerConfig creates the config struct to be sent to the runner
-func (algoReconciler *AlgoReconciler) createRunnerConfig(pipelineDeploymentSpec *algov1beta1.PipelineDeploymentSpecV1beta1, algoConfig *v1beta1.AlgoConfig) *v1beta1.AlgoRunnerConfig {
+func (algoReconciler *AlgoReconciler) createRunnerConfig(pipelineDeploymentSpec *algov1beta1.PipelineDeploymentSpecV1beta1, algoConfig *v1beta1.AlgoSpec) *v1beta1.AlgoRunnerConfig {
+
+	// Convert map to slice of values.
+	topics := []algov1beta1.TopicConfigModel{}
+	for _, value := range algoReconciler.allTopicConfigs {
+		topics = append(topics, *value)
+	}
 
 	runnerConfig := &v1beta1.AlgoRunnerConfig{
 		DeploymentOwner: pipelineDeploymentSpec.DeploymentOwner,
@@ -876,11 +884,11 @@ func (algoReconciler *AlgoReconciler) createRunnerConfig(pipelineDeploymentSpec 
 		PipelineOwner:   pipelineDeploymentSpec.PipelineOwner,
 		PipelineName:    pipelineDeploymentSpec.PipelineName,
 		Pipes:           pipelineDeploymentSpec.Pipes,
-		Topics:          algoReconciler.allTopicConfigs,
-		AlgoOwner:       algoConfig.AlgoOwner,
-		AlgoName:        algoConfig.AlgoName,
-		AlgoVersionTag:  algoConfig.AlgoVersionTag,
-		AlgoIndex:       algoConfig.AlgoIndex,
+		Topics:          topics,
+		Owner:           algoConfig.Owner,
+		Name:            algoConfig.Name,
+		Version:         algoConfig.Version,
+		Index:           algoConfig.Index,
 		Entrypoint:      algoConfig.Entrypoint,
 		Executor:        algoConfig.Executor,
 		Parameters:      algoConfig.Parameters,

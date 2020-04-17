@@ -23,7 +23,7 @@ import (
 
 // NewHookReconciler returns a new HookReconciler
 func NewHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
-	allTopicConfigs []algov1beta1.TopicConfigModel,
+	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme,
@@ -41,7 +41,7 @@ func NewHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 // HookReconciler reconciles an Hook object
 type HookReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
-	allTopics          []algov1beta1.TopicConfigModel
+	allTopics          map[string]*v1beta1.TopicConfigModel
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
@@ -134,7 +134,8 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 	}
 
 	// Setup the horizontal pod autoscaler
-	if pipelineDeployment.Spec.Endpoint.Resource.AutoScale {
+	if pipelineDeployment.Spec.Endpoint.Autoscaling != nil &&
+		pipelineDeployment.Spec.Endpoint.Autoscaling.Enabled {
 
 		labels := map[string]string{
 			"app.kubernetes.io/part-of":    "algo.run",
@@ -153,7 +154,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 
 		existingHpa, err := kubeUtil.CheckForHorizontalPodAutoscaler(opts)
 
-		hpaSpec, err := kubeUtil.CreateHpaSpec(hookName, labels, pipelineDeployment, pipelineDeployment.Spec.Hook.Resource)
+		hpaSpec, err := kubeUtil.CreateHpaSpec(hookName, labels, pipelineDeployment, pipelineDeployment.Spec.Hook.Autoscaling)
 		if err != nil {
 			hookLogger.Error(err, "Failed to create Hook horizontal pod autoscaler spec")
 			return err
@@ -197,6 +198,12 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 // CreateDeploymentSpec generates the k8s spec for the algo deployment
 func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels map[string]string, existingDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 
+	// Convert map to slice of values.
+	topics := []algov1beta1.TopicConfigModel{}
+	for _, value := range hookReconciler.allTopics {
+		topics = append(topics, *value)
+	}
+
 	pipelineDeployment := hookReconciler.pipelineDeployment
 	pipelineSpec := hookReconciler.pipelineDeployment.Spec
 	hookConfig := pipelineSpec.Hook
@@ -206,7 +213,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 	hookConfig.PipelineName = pipelineSpec.PipelineName
 	hookConfig.WebHooks = pipelineSpec.Hook.WebHooks
 	hookConfig.Pipes = pipelineSpec.Pipes
-	hookConfig.Topics = hookReconciler.allTopics
+	hookConfig.Topics = topics
 
 	// Set the image name
 	imagePullPolicy := corev1.PullIfNotPresent
@@ -266,7 +273,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 	}
 
 	kubeUtil := utils.NewKubeUtil(hookReconciler.client, hookReconciler.request)
-	resources, resourceErr := kubeUtil.CreateResourceReqs(hookConfig.Resource)
+	resources, resourceErr := kubeUtil.CreateResourceReqs(hookConfig.Resources)
 
 	if resourceErr != nil {
 		return nil, resourceErr
@@ -318,7 +325,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Replicas: &hookConfig.Resource.Instances,
+			Replicas: &hookConfig.Replicas,
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{
@@ -356,7 +363,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 
 }
 
-func (hookReconciler *HookReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, hookConfig *v1beta1.HookConfig) []corev1.EnvVar {
+func (hookReconciler *HookReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, hookConfig *v1beta1.HookSpec) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
 

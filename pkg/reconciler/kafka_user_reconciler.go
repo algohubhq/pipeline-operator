@@ -20,7 +20,7 @@ import (
 
 // NewKafkaUserReconciler returns a new KafkaUserReconciler
 func NewKafkaUserReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
-	topicConfigs []v1beta1.TopicConfigModel,
+	topicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme) KafkaUserReconciler {
@@ -36,7 +36,7 @@ func NewKafkaUserReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 // KafkaUserReconciler reconciles the Kakfa user for a pipeline
 type KafkaUserReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
-	topicConfigs       []v1beta1.TopicConfigModel
+	topicConfigs       map[string]*v1beta1.TopicConfigModel
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
@@ -117,7 +117,7 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 
 }
 
-func buildKafkaUserSpec(pipelineSpec *algov1beta1.PipelineDeploymentSpecV1beta1, allTopicConfigs []algov1beta1.TopicConfigModel) kafkav1beta1.KafkaUserSpec {
+func buildKafkaUserSpec(pipelineSpec *algov1beta1.PipelineDeploymentSpecV1beta1, allTopicConfigs map[string]*v1beta1.TopicConfigModel) kafkav1beta1.KafkaUserSpec {
 
 	// Create the acl list based on all of the Topic configs for this deployment
 	resources := make([]kafkav1beta1.KakfaUserAcl, 0)

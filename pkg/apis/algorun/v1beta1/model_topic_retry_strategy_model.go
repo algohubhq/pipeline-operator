@@ -11,7 +11,7 @@
 package v1beta1
 // TopicRetryStrategyModel struct for TopicRetryStrategyModel
 type TopicRetryStrategyModel struct {
-	Strategy *RetryStrategies `json:"strategy,omitempty"`
+	Strategy *RetryStrategies `json:"strategy"`
 	DeadLetterSuffix string `json:"deadLetterSuffix,omitempty"`
 	Steps []TopicRetryStepModel `json:"steps,omitempty"`
 }

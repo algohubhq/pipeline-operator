@@ -301,22 +301,22 @@ func (d *KubeUtil) CheckForUnstructured(listOptions []client.ListOption, groupVe
 
 }
 
-func (d *KubeUtil) CreateResourceReqs(r *v1beta1.ResourceModel) (*corev1.ResourceRequirements, error) {
+func (d *KubeUtil) CreateResourceReqs(r *v1beta1.ResourceRequirementsV1) (*corev1.ResourceRequirements, error) {
 
 	resources := &corev1.ResourceRequirements{}
 
 	if r != nil {
 		// Set Memory limits
-		if r.MemoryLimitBytes > 0 {
-			qty, err := resource.ParseQuantity(string(r.MemoryLimitBytes))
+		if r.Limits["memory"] != "" {
+			qty, err := resource.ParseQuantity(r.Limits["memory"])
 			if err != nil {
 				return resources, err
 			}
 			resources.Limits.Memory().Add(qty)
 		}
 
-		if r.MemoryRequestBytes > 0 {
-			qty, err := resource.ParseQuantity(string(r.MemoryRequestBytes))
+		if r.Requests["memory"] != "" {
+			qty, err := resource.ParseQuantity(r.Requests["memory"])
 			if err != nil {
 				return resources, err
 			}
@@ -324,16 +324,16 @@ func (d *KubeUtil) CreateResourceReqs(r *v1beta1.ResourceModel) (*corev1.Resourc
 		}
 
 		// Set CPU limits
-		if r.CpuLimitMillicores > 0 {
-			qty, err := resource.ParseQuantity(fmt.Sprintf("%dm", r.CpuLimitMillicores))
+		if r.Limits["cpu"] != "" {
+			qty, err := resource.ParseQuantity(r.Limits["cpu"])
 			if err != nil {
 				return resources, err
 			}
 			resources.Limits.Cpu().Add(qty)
 		}
 
-		if r.CpuRequestMillicores > 0 {
-			qty, err := resource.ParseQuantity(fmt.Sprintf("%dm", r.CpuRequestMillicores))
+		if r.Requests["cpu"] != "" {
+			qty, err := resource.ParseQuantity(r.Requests["cpu"])
 			if err != nil {
 				return resources, err
 			}
@@ -341,8 +341,8 @@ func (d *KubeUtil) CreateResourceReqs(r *v1beta1.ResourceModel) (*corev1.Resourc
 		}
 
 		// Set GPU limits
-		if r.GpuLimitMillicores > 0 {
-			qty, err := resource.ParseQuantity(fmt.Sprintf("%dm", r.GpuLimitMillicores))
+		if r.Limits["nvidia.com/gpu"] != "" {
+			qty, err := resource.ParseQuantity(r.Limits["nvidia.com/gpu"])
 			if err != nil {
 				return resources, err
 			}
@@ -416,12 +416,12 @@ func (d *KubeUtil) UpdateHorizontalPodAutoscaler(hpa *autoscalev2beta2.Horizonta
 
 }
 
-func (d *KubeUtil) CreateHpaSpec(targetName string, labels map[string]string, pipelineDeployment *algov1beta1.PipelineDeployment, r *algov1beta1.ResourceModel) (*autoscalev2beta2.HorizontalPodAutoscaler, error) {
+func (d *KubeUtil) CreateHpaSpec(targetName string, labels map[string]string, pipelineDeployment *algov1beta1.PipelineDeployment, autoscale *algov1beta1.AutoScalingSpec) (*autoscalev2beta2.HorizontalPodAutoscaler, error) {
 
 	name := fmt.Sprintf("%s-hpa", strings.TrimRight(Short(targetName, 20), "-"))
 
 	var scaleMetrics []autoscalev2beta2.MetricSpec
-	for _, metric := range r.ScaleMetrics {
+	for _, metric := range autoscale.Metrics {
 
 		metricSpec := autoscalev2beta2.MetricSpec{}
 
@@ -506,8 +506,8 @@ func (d *KubeUtil) CreateHpaSpec(targetName string, labels map[string]string, pi
 				Kind:       "Deployment",
 				Name:       targetName,
 			},
-			MinReplicas: &r.MinInstances,
-			MaxReplicas: r.MaxInstances,
+			MinReplicas: &autoscale.MinReplicas,
+			MaxReplicas: autoscale.MaxReplicas,
 			Metrics:     scaleMetrics,
 		},
 	}
