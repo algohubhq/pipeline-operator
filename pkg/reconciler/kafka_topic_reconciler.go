@@ -69,7 +69,12 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		Kind:    "KafkaTopic",
 		Version: "v1beta1",
 	})
-	err = topicReconciler.client.Get(context.TODO(), types.NamespacedName{Name: resourceName, Namespace: topicReconciler.request.NamespacedName.Namespace}, existingTopic)
+	err = topicReconciler.client.Get(context.TODO(),
+		types.NamespacedName{
+			Name:      resourceName,
+			Namespace: topicReconciler.pipelineDeployment.Spec.DeploymentNamespace,
+		},
+		existingTopic)
 
 	if err != nil && errors.IsNotFound(err) {
 		// Create the topic
@@ -88,7 +93,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		newTopic.Spec = newTopicSpec
 		newTopic.Spec.TopicName = topicName
 		newTopic.SetName(resourceName)
-		newTopic.SetNamespace(topicReconciler.request.NamespacedName.Namespace)
+		newTopic.SetNamespace(topicReconciler.pipelineDeployment.Spec.DeploymentNamespace)
 		newTopic.SetLabels(labels)
 		newTopic.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "kafka.strimzi.io",

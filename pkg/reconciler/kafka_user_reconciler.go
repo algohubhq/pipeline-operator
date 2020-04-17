@@ -54,7 +54,12 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 
 	// check to see if topic already exists
 	existingUser := &kafkav1beta1.KafkaUser{}
-	err := kafkaUserReconciler.client.Get(context.TODO(), types.NamespacedName{Name: kafkaUsername, Namespace: kafkaUserReconciler.request.NamespacedName.Namespace}, existingUser)
+	err := kafkaUserReconciler.client.Get(context.TODO(),
+		types.NamespacedName{
+			Name:      kafkaUsername,
+			Namespace: kafkaUserReconciler.pipelineDeployment.Spec.DeploymentNamespace,
+		},
+		existingUser)
 
 	if err != nil && errors.IsNotFound(err) {
 		// Create the topic
@@ -71,7 +76,7 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 
 		newUser := &kafkav1beta1.KafkaUser{}
 		newUser.SetName(kafkaUsername)
-		newUser.SetNamespace(kafkaUserReconciler.request.NamespacedName.Namespace)
+		newUser.SetNamespace(kafkaUserReconciler.pipelineDeployment.Spec.DeploymentNamespace)
 		newUser.SetLabels(labels)
 		newUser.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "kafka.strimzi.io",

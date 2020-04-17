@@ -71,7 +71,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 
 	// Check to make sure the hook isn't already created
 	opts := []client.ListOption{
-		client.InNamespace(hookReconciler.request.NamespacedName.Namespace),
+		client.InNamespace(hookReconciler.pipelineDeployment.Spec.DeploymentNamespace),
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "hook",
@@ -148,7 +148,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 		}
 
 		opts := []client.ListOption{
-			client.InNamespace(hookReconciler.request.NamespacedName.Namespace),
+			client.InNamespace(hookReconciler.pipelineDeployment.Spec.DeploymentNamespace),
 			client.MatchingLabels(labels),
 		}
 
@@ -300,14 +300,14 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 	var nameMeta metav1.ObjectMeta
 	if existingDeployment != nil {
 		nameMeta = metav1.ObjectMeta{
-			Namespace: pipelineDeployment.Namespace,
+			Namespace: pipelineDeployment.Spec.DeploymentNamespace,
 			Name:      existingDeployment.Name,
 			Labels:    labels,
 			// Annotations: annotations,
 		}
 	} else {
 		nameMeta = metav1.ObjectMeta{
-			Namespace:    pipelineDeployment.Namespace,
+			Namespace:    pipelineDeployment.Spec.DeploymentNamespace,
 			GenerateName: name,
 			Labels:       labels,
 			// Annotations: annotations,

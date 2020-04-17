@@ -86,7 +86,7 @@ func (endpointReconciler *EndpointReconciler) reconcileService() (*serviceConfig
 
 	// Check to see if the endpoint service is already created (All algos share the same service port)
 	opts := []client.ListOption{
-		client.InNamespace(endpointReconciler.request.NamespacedName.Namespace),
+		client.InNamespace(endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace),
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "endpoint",
@@ -167,7 +167,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 
 	// Check to make sure the endpoint isn't already created
 	opts := []client.ListOption{
-		client.InNamespace(endpointReconciler.request.NamespacedName.Namespace),
+		client.InNamespace(endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace),
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "endpoint",
@@ -244,7 +244,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 		}
 
 		opts := []client.ListOption{
-			client.InNamespace(endpointReconciler.request.NamespacedName.Namespace),
+			client.InNamespace(endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace),
 			client.MatchingLabels(labels),
 		}
 
@@ -294,7 +294,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 func (endpointReconciler *EndpointReconciler) reconcileHttpMapping() error {
 
 	serviceName := fmt.Sprintf("http://%s.%s:%d", endpointReconciler.serviceConfig.serviceName,
-		endpointReconciler.request.Namespace,
+		endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace,
 		endpointReconciler.serviceConfig.httpPort)
 	endpointReconciler.reconcileMapping(serviceName, "http")
 
@@ -304,7 +304,7 @@ func (endpointReconciler *EndpointReconciler) reconcileHttpMapping() error {
 func (endpointReconciler *EndpointReconciler) reconcileGRPCMapping() error {
 
 	serviceName := fmt.Sprintf("%s.%s:%d", endpointReconciler.serviceConfig.serviceName,
-		endpointReconciler.request.Namespace,
+		endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace,
 		endpointReconciler.serviceConfig.gRPCPort)
 	endpointReconciler.reconcileMapping(serviceName, "grpc")
 
@@ -314,12 +314,11 @@ func (endpointReconciler *EndpointReconciler) reconcileGRPCMapping() error {
 func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName string, protocol string) error {
 
 	pipelineDeployment := endpointReconciler.pipelineDeployment
-	request := endpointReconciler.request
 
 	// check to see if mapping already exists
 	// Check to make sure the algo isn't already created
 	opts := []client.ListOption{
-		client.InNamespace(endpointReconciler.request.NamespacedName.Namespace),
+		client.InNamespace(endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace),
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "mapping",
@@ -365,7 +364,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 
 		newMapping := &unstructured.Unstructured{}
 		newMapping.Object = map[string]interface{}{
-			"namespace": request.NamespacedName.Namespace,
+			"namespace": pipelineDeployment.Spec.DeploymentNamespace,
 			"spec": map[string]interface{}{
 				"prefix":  prefix,
 				"rewrite": rewrite,
@@ -374,7 +373,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 			},
 		}
 		newMapping.SetGenerateName("endpoint-mapping")
-		newMapping.SetNamespace(endpointReconciler.request.NamespacedName.Namespace)
+		newMapping.SetNamespace(endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace)
 		newMapping.SetLabels(labels)
 		newMapping.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "getambassador.io",
@@ -588,14 +587,14 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	var nameMeta metav1.ObjectMeta
 	if existingSf != nil {
 		nameMeta = metav1.ObjectMeta{
-			Namespace: pipelineDeployment.Namespace,
+			Namespace: pipelineDeployment.Spec.DeploymentNamespace,
 			Name:      existingSf.Name,
 			Labels:    labels,
 			// Annotations: annotations,
 		}
 	} else {
 		nameMeta = metav1.ObjectMeta{
-			Namespace: pipelineDeployment.Namespace,
+			Namespace: pipelineDeployment.Spec.DeploymentNamespace,
 			Name:      name,
 			Labels:    labels,
 			// Annotations: annotations,
@@ -774,7 +773,7 @@ func (endpointReconciler *EndpointReconciler) createServiceSpec(pipelineDeployme
 
 	endpointServiceSpec := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:    pipelineDeployment.Namespace,
+			Namespace:    pipelineDeployment.Spec.DeploymentNamespace,
 			GenerateName: "endpoint-service",
 			Labels:       labels,
 		},

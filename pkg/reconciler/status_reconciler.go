@@ -45,8 +45,8 @@ type StatusReconciler struct {
 func (r *StatusReconciler) Reconcile() error {
 
 	logData := map[string]interface{}{
-		"Request.Namespace": r.request.Namespace,
-		"Request.Name":      r.request.Name,
+		"PipelineDeployment.Namespace": r.pipelineDeployment.Spec.DeploymentNamespace,
+		"PipelineDeployment.Name":      r.pipelineDeployment.Spec.DeploymentName,
 	}
 	reqLogger := log.WithValues("data", logData)
 
@@ -166,8 +166,8 @@ func (r *StatusReconciler) getStatus(cr *algov1beta1.PipelineDeployment, request
 	}
 
 	logData := map[string]interface{}{
-		"Request.Namespace": request.Namespace,
-		"Request.Name":      request.Name,
+		"PipelineDeployment.Namespace": r.pipelineDeployment.Spec.DeploymentNamespace,
+		"PipelineDeployment.Name":      r.pipelineDeployment.Spec.DeploymentName,
 	}
 	reqLogger := log.WithValues("data", logData)
 
@@ -211,7 +211,7 @@ func (r *StatusReconciler) getDeploymentStatuses(cr *algov1beta1.PipelineDeploym
 
 	// Watch all deployments for components of this pipeline
 	opts := []client.ListOption{
-		client.InNamespace(request.NamespacedName.Namespace),
+		client.InNamespace(r.pipelineDeployment.Spec.DeploymentNamespace),
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
@@ -292,7 +292,7 @@ func (r *StatusReconciler) getStatefulSetStatuses(cr *algov1beta1.PipelineDeploy
 
 	// Watch all deployments for components of this pipeline
 	opts := []client.ListOption{
-		client.InNamespace(request.NamespacedName.Namespace),
+		client.InNamespace(r.pipelineDeployment.Spec.DeploymentNamespace),
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
@@ -359,7 +359,7 @@ func (r *StatusReconciler) getPodStatuses(cr *algov1beta1.PipelineDeployment, re
 
 	// Get all algo pods for this pipelineDeployment
 	opts := []client.ListOption{
-		client.InNamespace(request.NamespacedName.Namespace),
+		client.InNamespace(r.pipelineDeployment.Spec.DeploymentNamespace),
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/managed-by": "pipeline-operator",

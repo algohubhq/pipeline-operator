@@ -65,7 +65,6 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 	algoConfig := algoReconciler.algoConfig
 	pipelineDeployment := algoReconciler.pipelineDeployment
-	request := algoReconciler.request
 
 	logData := map[string]interface{}{
 		"AlgoOwner":      algoConfig.Owner,
@@ -98,7 +97,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 	// Check to make sure the algo isn't already created
 	opts := []client.ListOption{
-		client.InNamespace(request.NamespacedName.Namespace),
+		client.InNamespace(pipelineDeployment.Spec.DeploymentNamespace),
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "algo",
@@ -189,7 +188,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		}
 
 		opts := []client.ListOption{
-			client.InNamespace(request.NamespacedName.Namespace),
+			client.InNamespace(pipelineDeployment.Spec.DeploymentNamespace),
 			client.MatchingLabels(labels),
 		}
 
@@ -253,7 +252,7 @@ func (algoReconciler *AlgoReconciler) ReconcileService() error {
 
 	// Check to see if the metrics / health service is already created (All algos share the same service port)
 	opts := []client.ListOption{
-		client.InNamespace(algoReconciler.request.NamespacedName.Namespace),
+		client.InNamespace(algoReconciler.pipelineDeployment.Spec.DeploymentNamespace),
 		client.MatchingLabels{
 			"app.kubernetes.io/part-of":   "algo.run",
 			"app.kubernetes.io/component": "algo",
@@ -295,7 +294,7 @@ func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment
 
 	algoServiceSpec := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pipelineDeployment.Namespace,
+			Namespace: pipelineDeployment.Spec.DeploymentNamespace,
 			Name:      "algo-metrics-service",
 			Labels:    labels,
 		},
@@ -635,13 +634,13 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	var nameMeta metav1.ObjectMeta
 	if update {
 		nameMeta = metav1.ObjectMeta{
-			Namespace: pipelineDeployment.Namespace,
+			Namespace: pipelineDeployment.Spec.DeploymentNamespace,
 			Name:      algoConfig.DeploymentName,
 			Labels:    labels,
 		}
 	} else {
 		nameMeta = metav1.ObjectMeta{
-			Namespace:    pipelineDeployment.Namespace,
+			Namespace:    pipelineDeployment.Spec.DeploymentNamespace,
 			GenerateName: name,
 			Labels:       labels,
 		}
@@ -724,7 +723,7 @@ func (algoReconciler *AlgoReconciler) createConfigMap(algoConfig *v1beta1.AlgoSp
 
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: algoReconciler.pipelineDeployment.Namespace,
+			Namespace: algoReconciler.pipelineDeployment.Spec.DeploymentNamespace,
 			Name:      name,
 			Labels:    labels,
 			// Annotations: annotations,
@@ -739,7 +738,7 @@ func (algoReconciler *AlgoReconciler) createConfigMap(algoConfig *v1beta1.AlgoSp
 
 	existingConfigMap := &corev1.ConfigMap{}
 	err = algoReconciler.client.Get(context.TODO(), types.NamespacedName{Name: name,
-		Namespace: algoReconciler.request.NamespacedName.Namespace},
+		Namespace: algoReconciler.pipelineDeployment.Spec.DeploymentNamespace},
 		existingConfigMap)
 
 	if err != nil && errors.IsNotFound(err) {

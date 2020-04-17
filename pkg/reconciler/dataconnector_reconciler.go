@@ -88,7 +88,12 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 		Kind:    "KafkaConnect",
 		Version: "v1beta1",
 	})
-	err := dataConnectorReconciler.client.Get(context.TODO(), types.NamespacedName{Name: kcName, Namespace: dataConnectorReconciler.request.NamespacedName.Namespace}, existingDc)
+	err := dataConnectorReconciler.client.Get(context.TODO(),
+		types.NamespacedName{
+			Name:      kcName,
+			Namespace: dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace,
+		},
+		existingDc)
 
 	if err != nil && errors.IsNotFound(err) {
 		// Create the connector cluster
@@ -110,7 +115,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 		newDc := &unstructured.Unstructured{}
 		newDc.Object = map[string]interface{}{
 			"name":      kcName,
-			"namespace": dataConnectorReconciler.request.NamespacedName.Namespace,
+			"namespace": dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace,
 			"spec": map[string]interface{}{
 				"version":          "2.1.0",
 				"replicas":         1,
@@ -144,7 +149,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 		}
 
 		newDc.SetName(kcName)
-		newDc.SetNamespace(dataConnectorReconciler.request.NamespacedName.Namespace)
+		newDc.SetNamespace(dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace)
 		newDc.SetLabels(labels)
 		newDc.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "kafka.strimzi.io",
@@ -171,7 +176,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 
 		// If the cluster node exists, then check if connector exists
 		// Use the dns name of the connector cluster
-		host := fmt.Sprintf("http://%s-connect-api.%s:8083", kcName, dataConnectorReconciler.request.NamespacedName.Namespace)
+		host := fmt.Sprintf("http://%s-connect-api.%s:8083", kcName, dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace)
 		// host := fmt.Sprintf("http://192.168.99.100:30383")
 		client := kc.NewClient(host)
 

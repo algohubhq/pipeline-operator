@@ -48,7 +48,7 @@ func (bucketReconciler *BucketReconciler) Reconcile() error {
 			context.TODO(),
 			types.NamespacedName{
 				Name:      storageSecretName,
-				Namespace: bucketReconciler.request.NamespacedName.Namespace,
+				Namespace: bucketReconciler.pipelineDeployment.Spec.DeploymentNamespace,
 			},
 			storageSecret)
 
