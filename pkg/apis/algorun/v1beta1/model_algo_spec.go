@@ -11,9 +11,6 @@
 package v1beta1
 // AlgoSpec struct for AlgoSpec
 type AlgoSpec struct {
-	Applied bool `json:"applied,omitempty"`
-	DeploymentOwner string `json:"deploymentOwner,omitempty"`
-	DeploymentName string `json:"deploymentName,omitempty"`
 	Owner string `json:"owner"`
 	Name string `json:"name"`
 	Version string `json:"version"`

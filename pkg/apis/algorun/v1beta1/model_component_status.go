@@ -13,7 +13,7 @@ package v1beta1
 type ComponentStatus struct {
 	ComponentType *ComponentTypes `json:"componentType,omitempty"`
 	Name string `json:"name,omitempty"`
-	VersionTag string `json:"versionTag,omitempty"`
+	Version string `json:"version,omitempty"`
 	Index int32 `json:"index,omitempty"`
 	DeploymentName string `json:"deploymentName,omitempty"`
 	Status string `json:"status,omitempty"`

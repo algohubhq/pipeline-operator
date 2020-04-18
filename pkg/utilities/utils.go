@@ -12,12 +12,12 @@ func GetAlgoFullName(algoSpec *v1beta1.AlgoSpec) string {
 }
 
 func GetDcFullName(dcSpec *v1beta1.DataConnectorSpec) string {
-	dcName := fmt.Sprintf("%s:%s[%d]", dcSpec.Name, dcSpec.VersionTag, dcSpec.Index)
+	dcName := fmt.Sprintf("%s:%s[%d]", dcSpec.Name, dcSpec.Version, dcSpec.Index)
 	return dcName
 }
 
 func GetTopicName(topic string, pipelineSpec *v1beta1.PipelineDeploymentSpecV1beta1) string {
-	topicName := strings.ToLower(strings.Replace(topic, "{deploymentownerusername}", pipelineSpec.DeploymentOwner, -1))
+	topicName := strings.ToLower(strings.Replace(topic, "{deploymentowner}", pipelineSpec.DeploymentOwner, -1))
 	topicName = strings.ToLower(strings.Replace(topicName, "{deploymentname}", pipelineSpec.DeploymentName, -1))
 	return topicName
 }
@@ -40,10 +40,6 @@ func GetAllTopicConfigs(pipelineSpec *v1beta1.PipelineDeploymentSpecV1beta1) map
 	for _, path := range pipelineSpec.Endpoint.Paths {
 		source := fmt.Sprintf("Endpoint|%s", path.Name)
 		allTopics[source] = path.Topic
-	}
-	for _, topicConfig := range pipelineSpec.Hook.Topics {
-		source := fmt.Sprintf("Hook|%s", topicConfig.OutputName)
-		allTopics[source] = &topicConfig
 	}
 
 	return allTopics

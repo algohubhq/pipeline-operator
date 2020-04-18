@@ -46,8 +46,6 @@ spec:
                       tag:
                         type: string
                     type: object
-                  applied:
-                    type: boolean
                   autoscaling:
                     description: AutoScalingSpec struct for AutoScalingSpec
                     properties:
@@ -107,10 +105,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  deploymentName:
-                    type: string
-                  deploymentOwner:
-                    type: string
                   entrypoint:
                     type: string
                   executor:
@@ -532,8 +526,6 @@ spec:
                   dataConnectorType:
                     description: DataConnectorTypes the model 'DataConnectorTypes'
                     type: string
-                  deploymentName:
-                    type: string
                   image:
                     description: ContainerImageModel struct for ContainerImageModel
                     properties:
@@ -821,7 +813,7 @@ spec:
                       - outputName
                       type: object
                     type: array
-                  versionTag:
+                  version:
                     type: string
                 required:
                 - image
@@ -879,10 +871,6 @@ spec:
                       format: int32
                       type: integer
                   type: object
-                deploymentName:
-                  type: string
-                deploymentOwner:
-                  type: string
                 image:
                   description: ContainerImageModel struct for ContainerImageModel
                   properties:
@@ -1060,10 +1048,6 @@ spec:
                         type: object
                     type: object
                   type: array
-                pipelineName:
-                  type: string
-                pipelineOwner:
-                  type: string
                 producer:
                   description: EndpointProducerConfig struct for EndpointProducerConfig
                   properties:
@@ -1275,10 +1259,6 @@ spec:
                       format: int32
                       type: integer
                   type: object
-                deploymentName:
-                  type: string
-                deploymentOwner:
-                  type: string
                 image:
                   description: ContainerImageModel struct for ContainerImageModel
                   properties:
@@ -1369,38 +1349,6 @@ spec:
                       format: int32
                       type: integer
                   type: object
-                pipelineName:
-                  type: string
-                pipelineOwner:
-                  type: string
-                pipes:
-                  items:
-                    description: PipeModel struct for PipeModel
-                    properties:
-                      destComponentType:
-                        description: ComponentTypes the model 'ComponentTypes'
-                        type: string
-                      destInputName:
-                        type: string
-                      destName:
-                        type: string
-                      sourceComponentType:
-                        description: ComponentTypes the model 'ComponentTypes'
-                        type: string
-                      sourceName:
-                        type: string
-                      sourceOutputMessageDataType:
-                        description: MessageDataTypes the model 'MessageDataTypes'
-                        type: string
-                      sourceOutputName:
-                        type: string
-                    required:
-                    - destInputName
-                    - destName
-                    - sourceName
-                    - sourceOutputName
-                    type: object
-                  type: array
                 readinessProbe:
                   description: ProbeV1 struct for ProbeV1
                   properties:
@@ -1495,73 +1443,10 @@ spec:
                         type: string
                       type: object
                   type: object
-                topics:
-                  items:
-                    description: TopicConfigModel struct for TopicConfigModel
-                    properties:
-                      autoName:
-                        type: boolean
-                      autoPartition:
-                        type: boolean
-                      outputName:
-                        type: string
-                      overrideRetryStrategy:
-                        type: boolean
-                      partitions:
-                        format: int32
-                        type: integer
-                      replicationFactor:
-                        format: int32
-                        type: integer
-                      retryStrategy:
-                        description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
-                        properties:
-                          deadLetterSuffix:
-                            type: string
-                          steps:
-                            items:
-                              description: TopicRetryStepModel struct for TopicRetryStepModel
-                              properties:
-                                backoffDuration:
-                                  type: string
-                                index:
-                                  format: int32
-                                  type: integer
-                                repeat:
-                                  format: int32
-                                  type: integer
-                              type: object
-                            type: array
-                          strategy:
-                            description: RetryStrategies the model 'RetryStrategies'
-                            type: string
-                        required:
-                        - strategy
-                        type: object
-                      topicName:
-                        type: string
-                      topicParams:
-                        items:
-                          description: TopicParamModel struct for TopicParamModel
-                          properties:
-                            name:
-                              type: string
-                            value:
-                              type: string
-                          type: object
-                        type: array
-                    required:
-                    - outputName
-                    type: object
-                  type: array
                 webHooks:
                   items:
                     description: WebHookModel struct for WebHookModel
                     properties:
-                      deploymentName:
-                        type: string
-                      deploymentOwner:
-                        type: string
                       httpHeaders:
                         type: string
                       httpVerb:
@@ -1655,7 +1540,7 @@ spec:
                   upToDate:
                     format: int32
                     type: integer
-                  versionTag:
+                  version:
                     type: string
                 type: object
               type: array

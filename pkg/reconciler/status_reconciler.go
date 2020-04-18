@@ -251,12 +251,12 @@ func (r *StatusReconciler) getDeploymentStatuses(cr *algov1beta1.PipelineDeploym
 			compType := v1beta1.COMPONENTTYPES_ALGO
 			componentStatus.ComponentType = &compType
 			componentStatus.Name = strings.Replace(deployment.Labels["algo.run/algo"], ".", "/", 1)
-			componentStatus.VersionTag = deployment.Labels["algo.run/algo-version"]
+			componentStatus.Version = deployment.Labels["algo.run/algo-version"]
 		case "dataconnector":
 			compType := v1beta1.COMPONENTTYPES_DATA_CONNECTOR
 			componentStatus.ComponentType = &compType
 			componentStatus.Name = strings.Replace(deployment.Labels["algo.run/dataconnector"], ".", "/", 1)
-			componentStatus.VersionTag = deployment.Labels["algo.run/dataconnector-version"]
+			componentStatus.Version = deployment.Labels["algo.run/dataconnector-version"]
 		case "hook":
 			compType := v1beta1.COMPONENTTYPES_HOOK
 			componentStatus.ComponentType = &compType

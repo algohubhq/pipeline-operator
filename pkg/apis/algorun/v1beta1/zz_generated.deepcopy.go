@@ -191,9 +191,9 @@ func (in *AlgoRunnerConfig) DeepCopyInto(out *AlgoRunnerConfig) {
 	}
 	if in.Topics != nil {
 		in, out := &in.Topics, &out.Topics
-		*out = make([]TopicConfigModel, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
+		*out = make(map[string]TopicConfigModel, len(*in))
+		for key, val := range *in {
+			(*out)[key] = *val.DeepCopy()
 		}
 	}
 	if in.RetryStrategy != nil {
@@ -846,20 +846,6 @@ func (in *HookSpec) DeepCopyInto(out *HookSpec) {
 		in, out := &in.WebHooks, &out.WebHooks
 		*out = make([]WebHookModel, len(*in))
 		copy(*out, *in)
-	}
-	if in.Pipes != nil {
-		in, out := &in.Pipes, &out.Pipes
-		*out = make([]PipeModel, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
-	}
-	if in.Topics != nil {
-		in, out := &in.Topics, &out.Topics
-		*out = make([]TopicConfigModel, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
 	}
 	if in.LivenessProbe != nil {
 		in, out := &in.LivenessProbe, &out.LivenessProbe

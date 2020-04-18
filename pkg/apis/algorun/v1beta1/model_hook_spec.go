@@ -11,17 +11,11 @@
 package v1beta1
 // HookSpec struct for HookSpec
 type HookSpec struct {
-	DeploymentOwner string `json:"deploymentOwner,omitempty"`
-	DeploymentName string `json:"deploymentName,omitempty"`
-	PipelineOwner string `json:"pipelineOwner,omitempty"`
-	PipelineName string `json:"pipelineName,omitempty"`
 	Image *ContainerImageModel `json:"image,omitempty"`
 	Replicas int32 `json:"replicas,omitempty"`
 	Resources *ResourceRequirementsV1 `json:"resources,omitempty"`
 	Autoscaling *AutoScalingSpec `json:"autoscaling,omitempty"`
 	WebHooks []WebHookModel `json:"webHooks,omitempty"`
-	Pipes []PipeModel `json:"pipes,omitempty"`
-	Topics []TopicConfigModel `json:"topics,omitempty"`
 	LivenessProbe *ProbeV1 `json:"livenessProbe,omitempty"`
 	ReadinessProbe *ProbeV1 `json:"readinessProbe,omitempty"`
 }

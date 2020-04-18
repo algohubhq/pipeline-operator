@@ -11,10 +11,6 @@
 package v1beta1
 // EndpointSpec struct for EndpointSpec
 type EndpointSpec struct {
-	DeploymentOwner string `json:"deploymentOwner,omitempty"`
-	DeploymentName string `json:"deploymentName,omitempty"`
-	PipelineOwner string `json:"pipelineOwner,omitempty"`
-	PipelineName string `json:"pipelineName,omitempty"`
 	Image *ContainerImageModel `json:"image,omitempty"`
 	Replicas int32 `json:"replicas,omitempty"`
 	Resources *ResourceRequirementsV1 `json:"resources,omitempty"`

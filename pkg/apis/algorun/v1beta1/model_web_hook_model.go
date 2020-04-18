@@ -11,8 +11,6 @@
 package v1beta1
 // WebHookModel struct for WebHookModel
 type WebHookModel struct {
-	DeploymentOwner string `json:"deploymentOwner,omitempty"`
-	DeploymentName string `json:"deploymentName,omitempty"`
 	PipelineHookInputName string `json:"pipelineHookInputName,omitempty"`
 	WebHookUrl string `json:"webHookUrl,omitempty"`
 	HttpVerb string `json:"httpVerb,omitempty"`

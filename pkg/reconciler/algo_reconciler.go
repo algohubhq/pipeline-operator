@@ -31,7 +31,7 @@ import (
 // AlgoReconciler reconciles an AlgoConfig object
 type AlgoReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
-	algoConfig         *v1beta1.AlgoSpec
+	algoSpec           *v1beta1.AlgoSpec
 	allTopicConfigs    map[string]*v1beta1.TopicConfigModel
 	request            *reconcile.Request
 	client             client.Client
@@ -43,7 +43,7 @@ var log = logf.Log.WithName("reconciler")
 
 // NewAlgoReconciler returns a new AlgoReconciler
 func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
-	algoConfig *v1beta1.AlgoSpec,
+	algoSpec *v1beta1.AlgoSpec,
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
 	client client.Client,
@@ -51,7 +51,7 @@ func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	kafkaTLS bool) AlgoReconciler {
 	return AlgoReconciler{
 		pipelineDeployment: pipelineDeployment,
-		algoConfig:         algoConfig,
+		algoSpec:           algoSpec,
 		allTopicConfigs:    allTopicConfigs,
 		request:            request,
 		client:             client,
@@ -63,7 +63,7 @@ func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 // Reconcile creates or updates all algos for the pipelineDeployment
 func (algoReconciler *AlgoReconciler) Reconcile() error {
 
-	algoConfig := algoReconciler.algoConfig
+	algoConfig := algoReconciler.algoSpec
 	pipelineDeployment := algoReconciler.pipelineDeployment
 
 	logData := map[string]interface{}{
@@ -121,13 +121,14 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	existingDeployment, err := kubeUtil.CheckForDeployment(opts)
 
 	var algoName string
+	var existingDeploymentName string
 	if existingDeployment != nil {
 		algoName = existingDeployment.GetName()
-		algoConfig.DeploymentName = existingDeployment.GetName()
+		existingDeploymentName = existingDeployment.GetName()
 	}
 
 	// Generate the k8s deployment for the algoconfig
-	algoDeployment, err := algoReconciler.createDeploymentSpec(name, labels, runnerConfig, configMapName, existingDeployment != nil)
+	algoDeployment, err := algoReconciler.createDeploymentSpec(name, existingDeploymentName, labels, runnerConfig, configMapName, existingDeployment != nil)
 	if err != nil {
 		algoLogger.Error(err, "Failed to create algo deployment spec")
 		return err
@@ -181,10 +182,10 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 				pipelineDeployment.Spec.DeploymentName),
 			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 				pipelineDeployment.Spec.PipelineName),
-			"algo.run/algo": fmt.Sprintf("%s.%s", algoReconciler.algoConfig.Owner,
-				algoReconciler.algoConfig.Name),
-			"algo.run/algo-version": algoReconciler.algoConfig.Version,
-			"algo.run/index":        strconv.Itoa(int(algoReconciler.algoConfig.Index)),
+			"algo.run/algo": fmt.Sprintf("%s.%s", algoReconciler.algoSpec.Owner,
+				algoReconciler.algoSpec.Name),
+			"algo.run/algo-version": algoReconciler.algoSpec.Version,
+			"algo.run/index":        strconv.Itoa(int(algoReconciler.algoSpec.Index)),
 		}
 
 		opts := []client.ListOption{
@@ -318,10 +319,10 @@ func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment
 }
 
 // CreateDeploymentSpec generates the k8s spec for the algo deployment
-func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels map[string]string, runnerConfig *v1beta1.AlgoRunnerConfig, configMapName string, update bool) (*appsv1.Deployment, error) {
+func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, existingDeploymentName string, labels map[string]string, runnerConfig *v1beta1.AlgoRunnerConfig, configMapName string, update bool) (*appsv1.Deployment, error) {
 
 	pipelineDeployment := algoReconciler.pipelineDeployment
-	algoConfig := algoReconciler.algoConfig
+	algoConfig := algoReconciler.algoSpec
 
 	// Set the image name
 	var imageName string
@@ -343,7 +344,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 		}
 	} else {
 		if algoConfig.AlgoRunnerImage.Tag == "" {
-			sidecarImageName = fmt.Sprintf("%s:latest", algoConfig.AlgoRunnerImage)
+			sidecarImageName = fmt.Sprintf("%s:latest", algoConfig.AlgoRunnerImage.Repository)
 		} else {
 			sidecarImageName = fmt.Sprintf("%s:%s", algoConfig.AlgoRunnerImage.Repository, algoConfig.AlgoRunnerImage.Tag)
 		}
@@ -368,23 +369,37 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 		},
 	}
 
-	var readinessProbe *corev1.Probe
-	var livenessProbe *corev1.Probe
-	// Set resonable probe defaults if blank
+	readinessProbe := &corev1.Probe{
+		Handler:          handler,
+		PeriodSeconds:    10,
+		TimeoutSeconds:   1,
+		SuccessThreshold: 1,
+		FailureThreshold: 3,
+	}
+	livenessProbe := &corev1.Probe{
+		Handler:          handler,
+		PeriodSeconds:    10,
+		TimeoutSeconds:   1,
+		SuccessThreshold: 1,
+		FailureThreshold: 3,
+	}
+
 	if algoConfig.ReadinessProbe != nil {
 		readinessProbe = &corev1.Probe{
-			Handler:             handler,
 			InitialDelaySeconds: algoConfig.ReadinessProbe.InitialDelaySeconds,
 			FailureThreshold:    algoConfig.ReadinessProbe.FailureThreshold,
 			PeriodSeconds:       algoConfig.ReadinessProbe.PeriodSeconds,
+			TimeoutSeconds:      algoConfig.ReadinessProbe.TimeoutSeconds,
+			SuccessThreshold:    algoConfig.ReadinessProbe.SuccessThreshold,
 		}
 	}
-	if algoConfig.LivenessProbe == nil {
+	if algoConfig.LivenessProbe != nil {
 		livenessProbe = &corev1.Probe{
-			Handler:             handler,
 			InitialDelaySeconds: algoConfig.LivenessProbe.InitialDelaySeconds,
 			FailureThreshold:    algoConfig.LivenessProbe.FailureThreshold,
 			PeriodSeconds:       algoConfig.LivenessProbe.PeriodSeconds,
+			TimeoutSeconds:      algoConfig.LivenessProbe.TimeoutSeconds,
+			SuccessThreshold:    algoConfig.LivenessProbe.SuccessThreshold,
 		}
 	}
 
@@ -635,13 +650,13 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, labels m
 	if update {
 		nameMeta = metav1.ObjectMeta{
 			Namespace: pipelineDeployment.Spec.DeploymentNamespace,
-			Name:      algoConfig.DeploymentName,
+			Name:      existingDeploymentName,
 			Labels:    labels,
 		}
 	} else {
 		nameMeta = metav1.ObjectMeta{
 			Namespace:    pipelineDeployment.Spec.DeploymentNamespace,
-			GenerateName: name,
+			GenerateName: fmt.Sprintf("%s-", name),
 			Labels:       labels,
 		}
 	}
@@ -871,10 +886,9 @@ func (algoReconciler *AlgoReconciler) createSelector(constraints []string) map[s
 // CreateRunnerConfig creates the config struct to be sent to the runner
 func (algoReconciler *AlgoReconciler) createRunnerConfig(pipelineDeploymentSpec *algov1beta1.PipelineDeploymentSpecV1beta1, algoConfig *v1beta1.AlgoSpec) *v1beta1.AlgoRunnerConfig {
 
-	// Convert map to slice of values.
-	topics := []algov1beta1.TopicConfigModel{}
-	for _, value := range algoReconciler.allTopicConfigs {
-		topics = append(topics, *value)
+	topics := make(map[string]algov1beta1.TopicConfigModel)
+	for key, value := range algoReconciler.allTopicConfigs {
+		topics[key] = *value
 	}
 
 	runnerConfig := &v1beta1.AlgoRunnerConfig{

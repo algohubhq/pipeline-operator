@@ -157,30 +157,35 @@ func (topicReconciler *TopicReconciler) buildTopicSpec(pipelineSpec algov1beta1.
 					algoName := utils.GetAlgoFullName(&algoConfig)
 					if algoName == pipe.DestName {
 						// In case MaxInstances is Zero, use the topicPartitions
-						maxPartitions := utils.Max(int64(algoConfig.Autoscaling.MaxReplicas), topicPartitions)
-						maxPartitions = utils.Max(int64(algoConfig.Replicas), maxPartitions)
+						maxPartitions := utils.Max(int64(algoConfig.Replicas), topicPartitions)
+						if algoConfig.Autoscaling != nil {
+							maxPartitions = utils.Max(int64(algoConfig.Autoscaling.MaxReplicas), maxPartitions)
+						}
+
 						topicPartitions = topicPartitions + maxPartitions
 					}
 				}
 
 				// Find all destination Sinks
 				for _, dcConfig := range pipelineSpec.DataConnectors {
-					dcName := fmt.Sprintf("%s:%s[%d]", dcConfig.Name, dcConfig.VersionTag, dcConfig.Index)
+					dcName := fmt.Sprintf("%s:%s[%d]", dcConfig.Name, dcConfig.Version, dcConfig.Index)
 					if dcName == pipe.DestName {
-						// TODO: Implement resource scaling for data connectors
-						// For now, just use one instance
-						// In case MaxInstances is Zero, use the topicPartitions
-						// maxPartitions := utils.Max(int64(dcConfig.Resource.MaxInstances), topicPartitions)
-						// maxPartitions = utils.Max(int64(dcConfig.Resource.Instances), maxPartitions)
-						topicPartitions = topicPartitions + 1
+						maxPartitions := utils.Max(int64(dcConfig.Replicas), topicPartitions)
+						if dcConfig.Autoscaling != nil {
+							maxPartitions = utils.Max(int64(dcConfig.Autoscaling.MaxReplicas), maxPartitions)
+						}
+
+						topicPartitions = topicPartitions + maxPartitions
 					}
 				}
 
 				// Find all destination Hooks
 				if strings.ToLower(pipe.DestName) == "hook" {
-					// In case MaxInstances is Zero, use the topicPartitions
-					maxPartitions := utils.Max(int64(pipelineSpec.Hook.Autoscaling.MaxReplicas), topicPartitions)
-					maxPartitions = utils.Max(int64(pipelineSpec.Hook.Replicas), maxPartitions)
+					maxPartitions := utils.Max(int64(pipelineSpec.Hook.Replicas), topicPartitions)
+					if pipelineSpec.Hook.Autoscaling != nil {
+						maxPartitions = utils.Max(int64(pipelineSpec.Hook.Autoscaling.MaxReplicas), maxPartitions)
+					}
+
 					topicPartitions = topicPartitions + maxPartitions
 				}
 

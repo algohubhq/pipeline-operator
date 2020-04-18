@@ -11,10 +11,9 @@
 package v1beta1
 // DataConnectorSpec struct for DataConnectorSpec
 type DataConnectorSpec struct {
-	DeploymentName string `json:"deploymentName,omitempty"`
 	DataConnectorType *DataConnectorTypes `json:"dataConnectorType,omitempty"`
 	Name string `json:"name,omitempty"`
-	VersionTag string `json:"versionTag,omitempty"`
+	Version string `json:"version,omitempty"`
 	Index int32 `json:"index,omitempty"`
 	Image *ContainerImageModel `json:"image"`
 	ConnectorClass string `json:"connectorClass,omitempty"`

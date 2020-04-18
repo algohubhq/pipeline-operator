@@ -1,9 +1,11 @@
 package reconciler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
@@ -13,8 +15,11 @@ import (
 	"github.com/go-test/deep"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -28,8 +33,20 @@ func NewHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	client client.Client,
 	scheme *runtime.Scheme,
 	kafkaTLS bool) HookReconciler {
+
+	hookConfig := &hookConfig{
+		DeploymentOwner: pipelineDeployment.Spec.DeploymentOwner,
+		DeploymentName:  pipelineDeployment.Spec.DeploymentName,
+		PipelineOwner:   pipelineDeployment.Spec.PipelineOwner,
+		PipelineName:    pipelineDeployment.Spec.PipelineName,
+		Pipes:           pipelineDeployment.Spec.Pipes,
+		Topics:          allTopicConfigs,
+		HookSpec:        pipelineDeployment.Spec.Hook,
+	}
+
 	return HookReconciler{
 		pipelineDeployment: pipelineDeployment,
+		hookConfig:         hookConfig,
 		allTopics:          allTopicConfigs,
 		request:            request,
 		client:             client,
@@ -41,11 +58,24 @@ func NewHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 // HookReconciler reconciles an Hook object
 type HookReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
+	hookConfig         *hookConfig
 	allTopics          map[string]*v1beta1.TopicConfigModel
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
 	kafkaTLS           bool
+}
+
+// hookConfig holds the config sent to the hook container
+type hookConfig struct {
+	DeploymentOwner string
+	DeploymentName  string
+	PipelineOwner   string
+	PipelineName    string
+	Pipes           []v1beta1.PipeModel
+	Topics          map[string]*v1beta1.TopicConfigModel
+	// embed the hook Spec
+	*v1beta1.HookSpec
 }
 
 // Reconcile creates or updates the hook deployment for the pipelineDeployment
@@ -57,7 +87,8 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 
 	hookLogger.Info("Reconciling Hook")
 
-	name := "pipe-depl-hook"
+	name := fmt.Sprintf("hook-%s-%s", pipelineDeployment.Spec.DeploymentOwner,
+		pipelineDeployment.Spec.DeploymentName)
 
 	labels := map[string]string{
 		"app.kubernetes.io/part-of":    "algo.run",
@@ -80,6 +111,9 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 		},
 	}
 
+	// Create the configmap for the endpoint
+	configMapName, err := hookReconciler.createConfigMap(labels)
+
 	kubeUtil := utils.NewKubeUtil(hookReconciler.client, hookReconciler.request)
 
 	var hookName string
@@ -89,7 +123,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 	}
 
 	// Generate the k8s deployment
-	hookDeployment, err := hookReconciler.createDeploymentSpec(name, labels, existingDeployment)
+	hookDeployment, err := hookReconciler.createDeploymentSpec(name, labels, configMapName, existingDeployment)
 	if err != nil {
 		hookLogger.Error(err, "Failed to create hook deployment spec")
 		return err
@@ -196,24 +230,10 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 }
 
 // CreateDeploymentSpec generates the k8s spec for the algo deployment
-func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels map[string]string, existingDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
-
-	// Convert map to slice of values.
-	topics := []algov1beta1.TopicConfigModel{}
-	for _, value := range hookReconciler.allTopics {
-		topics = append(topics, *value)
-	}
+func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels map[string]string, configMapName string, existingDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 
 	pipelineDeployment := hookReconciler.pipelineDeployment
-	pipelineSpec := hookReconciler.pipelineDeployment.Spec
-	hookConfig := pipelineSpec.Hook
-	hookConfig.DeploymentOwner = pipelineSpec.DeploymentOwner
-	hookConfig.DeploymentName = pipelineSpec.DeploymentName
-	hookConfig.PipelineOwner = pipelineSpec.PipelineOwner
-	hookConfig.PipelineName = pipelineSpec.PipelineName
-	hookConfig.WebHooks = pipelineSpec.Hook.WebHooks
-	hookConfig.Pipes = pipelineSpec.Pipes
-	hookConfig.Topics = topics
+	hookConfig := hookReconciler.hookConfig
 
 	// Set the image name
 	imagePullPolicy := corev1.PullIfNotPresent
@@ -249,6 +269,27 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 		},
 	}
 
+	volumes := []corev1.Volume{}
+	volumeMounts := []corev1.VolumeMount{}
+	configMapVolume := corev1.Volume{
+		Name: "hook-config-volume",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: v1.LocalObjectReference{Name: configMapName},
+				DefaultMode:          utils.Int32p(0444),
+			},
+		},
+	}
+	volumes = append(volumes, configMapVolume)
+
+	// Add config mount
+	configVolumeMount := corev1.VolumeMount{
+		Name:      "hook-config-volume",
+		SubPath:   "hook-config",
+		MountPath: "/hook-config/hook-config.json",
+	}
+	volumeMounts = append(volumeMounts, configVolumeMount)
+
 	var containers []corev1.Container
 
 	hookCommand := []string{"/hook-runner/hook-runner"}
@@ -279,11 +320,14 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 		return nil, resourceErr
 	}
 
+	configArgs := []string{"--config=/hook-config/hook-config.json"}
+
 	// Hook container
 	hookContainer := corev1.Container{
 		Name:                     name,
 		Image:                    imageName,
 		Command:                  hookCommand,
+		Args:                     configArgs,
 		Env:                      hookEnvVars,
 		Resources:                *resources,
 		ImagePullPolicy:          imagePullPolicy,
@@ -308,7 +352,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 	} else {
 		nameMeta = metav1.ObjectMeta{
 			Namespace:    pipelineDeployment.Spec.DeploymentNamespace,
-			GenerateName: name,
+			GenerateName: fmt.Sprintf("%s-", name),
 			Labels:       labels,
 			// Annotations: annotations,
 		}
@@ -363,15 +407,72 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 
 }
 
-func (hookReconciler *HookReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, hookConfig *v1beta1.HookSpec) []corev1.EnvVar {
+func (hookReconciler *HookReconciler) createConfigMap(labels map[string]string) (configMapName string, err error) {
 
-	envVars := []corev1.EnvVar{}
+	kubeUtil := utils.NewKubeUtil(hookReconciler.client, hookReconciler.request)
+	// Create all config mounts
+	name := fmt.Sprintf("%s-%s-%s-config",
+		hookReconciler.pipelineDeployment.Spec.DeploymentOwner,
+		hookReconciler.pipelineDeployment.Spec.DeploymentName,
+		"hook")
+	data := make(map[string]string)
 
-	// serialize the runner config to json string
-	hookConfigBytes, err := json.Marshal(hookConfig)
+	// serialize the hook config to json string
+	hookConfigBytes, err := json.Marshal(hookReconciler.hookConfig)
 	if err != nil {
 		log.Error(err, "Failed deserializing hook config")
 	}
+	data["hook-config"] = string(hookConfigBytes)
+
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: hookReconciler.pipelineDeployment.Spec.DeploymentNamespace,
+			Name:      name,
+			Labels:    labels,
+			// Annotations: annotations,
+		},
+		Data: data,
+	}
+
+	// Set PipelineDeployment instance as the owner and controller
+	if err := controllerutil.SetControllerReference(hookReconciler.pipelineDeployment, configMap, hookReconciler.scheme); err != nil {
+		return name, err
+	}
+
+	existingConfigMap := &corev1.ConfigMap{}
+	err = hookReconciler.client.Get(context.TODO(), types.NamespacedName{Name: name,
+		Namespace: hookReconciler.pipelineDeployment.Spec.DeploymentNamespace},
+		existingConfigMap)
+
+	if err != nil && errors.IsNotFound(err) {
+		// Create the ConfigMap
+		name, err = kubeUtil.CreateConfigMap(configMap)
+		if err != nil {
+			log.Error(err, "Failed creating hook ConfigMap")
+		}
+
+	} else if err != nil {
+		log.Error(err, "Failed to check if hook ConfigMap exists.")
+	} else {
+
+		if !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) {
+			// Update configmap
+			name, err = kubeUtil.UpdateConfigMap(configMap)
+			if err != nil {
+				log.Error(err, "Failed to update hook configmap")
+				return name, err
+			}
+		}
+
+	}
+
+	return name, err
+
+}
+
+func (hookReconciler *HookReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, hookConfig *hookConfig) []corev1.EnvVar {
+
+	envVars := []corev1.EnvVar{}
 
 	// Append the algo instance name
 	envVars = append(envVars, corev1.EnvVar{
@@ -382,12 +483,6 @@ func (hookReconciler *HookReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 				FieldPath:  "metadata.name",
 			},
 		},
-	})
-
-	// Append the required runner config
-	envVars = append(envVars, corev1.EnvVar{
-		Name:  "HOOK-RUNNER-CONFIG",
-		Value: string(hookConfigBytes),
 	})
 
 	// Append the required kafka servers

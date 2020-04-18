@@ -9,18 +9,21 @@ import (
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
+	"reflect"
 	"strconv"
 	"strings"
 
 	"github.com/go-test/deep"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -33,8 +36,16 @@ func NewEndpointReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	client client.Client,
 	scheme *runtime.Scheme,
 	kafkaTLS bool) EndpointReconciler {
+	endpointConfig := &endpointConfig{
+		DeploymentOwner: pipelineDeployment.Spec.DeploymentOwner,
+		DeploymentName:  pipelineDeployment.Spec.DeploymentName,
+		PipelineOwner:   pipelineDeployment.Spec.PipelineOwner,
+		PipelineName:    pipelineDeployment.Spec.PipelineName,
+		EndpointSpec:    pipelineDeployment.Spec.Endpoint,
+	}
 	return EndpointReconciler{
 		pipelineDeployment: pipelineDeployment,
+		endpointConfig:     endpointConfig,
 		request:            request,
 		client:             client,
 		scheme:             scheme,
@@ -45,11 +56,22 @@ func NewEndpointReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 // EndpointReconciler reconciles the endpoint container and mappings
 type EndpointReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
+	endpointConfig     *endpointConfig
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
 	serviceConfig      *serviceConfig
 	kafkaTLS           bool
+}
+
+// endpointConfig holds the config sent to the endpoint container
+type endpointConfig struct {
+	DeploymentOwner string
+	DeploymentName  string
+	PipelineOwner   string
+	PipelineName    string
+	// embed the endpoint Spec
+	*v1beta1.EndpointSpec
 }
 
 // serviceConfig holds the service name and port for ambassador
@@ -62,6 +84,16 @@ type serviceConfig struct {
 
 func (endpointReconciler *EndpointReconciler) Reconcile() error {
 
+	labels := map[string]string{
+		"app.kubernetes.io/part-of":    "algo.run",
+		"app.kubernetes.io/component":  "endpoint",
+		"app.kubernetes.io/managed-by": "pipeline-operator",
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", endpointReconciler.pipelineDeployment.Spec.DeploymentOwner,
+			endpointReconciler.pipelineDeployment.Spec.DeploymentName),
+		"algo.run/pipeline": fmt.Sprintf("%s.%s", endpointReconciler.pipelineDeployment.Spec.PipelineOwner,
+			endpointReconciler.pipelineDeployment.Spec.PipelineName),
+	}
+
 	sc, err := endpointReconciler.reconcileService()
 	if err != nil {
 		return err
@@ -71,7 +103,14 @@ func (endpointReconciler *EndpointReconciler) Reconcile() error {
 	err = endpointReconciler.reconcileHttpMapping()
 	err = endpointReconciler.reconcileGRPCMapping()
 
-	err = endpointReconciler.reconcileDeployment()
+	endpointReconciler.endpointConfig.Kafka = &algov1beta1.EndpointKafkaConfig{
+		Brokers: []string{endpointReconciler.pipelineDeployment.Spec.KafkaBrokers},
+	}
+
+	// Create the configmap for the endpoint
+	configMapName, err := endpointReconciler.createConfigMap(labels)
+
+	err = endpointReconciler.reconcileDeployment(labels, configMapName)
 	if err != nil {
 		return err
 	}
@@ -135,7 +174,7 @@ func (endpointReconciler *EndpointReconciler) reconcileService() (*serviceConfig
 
 }
 
-func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
+func (endpointReconciler *EndpointReconciler) reconcileDeployment(labels map[string]string, configMapName string) error {
 
 	pipelineDeployment := endpointReconciler.pipelineDeployment
 
@@ -154,16 +193,6 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 
 	name := fmt.Sprintf("endpoint-%s-%s", pipelineDeployment.Spec.DeploymentOwner,
 		pipelineDeployment.Spec.DeploymentName)
-
-	labels := map[string]string{
-		"app.kubernetes.io/part-of":    "algo.run",
-		"app.kubernetes.io/component":  "endpoint",
-		"app.kubernetes.io/managed-by": "pipeline-operator",
-		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
-			pipelineDeployment.Spec.DeploymentName),
-		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
-			pipelineDeployment.Spec.PipelineName),
-	}
 
 	// Check to make sure the endpoint isn't already created
 	opts := []client.ListOption{
@@ -185,7 +214,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment() error {
 	}
 
 	// Generate the k8s deployment
-	endpointSf, err := endpointReconciler.createSpec(name, labels, existingSf)
+	endpointSf, err := endpointReconciler.createSpec(name, labels, configMapName, existingSf)
 	if err != nil {
 		endpointLogger.Error(err, "Failed to create endpoint deployment spec")
 		return err
@@ -372,7 +401,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 				"service": serviceName,
 			},
 		}
-		newMapping.SetGenerateName("endpoint-mapping")
+		newMapping.SetGenerateName("endpoint-mapping-")
 		newMapping.SetNamespace(endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace)
 		newMapping.SetLabels(labels)
 		newMapping.SetGroupVersionKind(schema.GroupVersionKind{
@@ -421,19 +450,10 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 }
 
 // createSpec generates the k8s spec for the endpoint statefulset
-func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map[string]string, existingSf *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
+func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map[string]string, configMapName string, existingSf *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
 
 	pipelineDeployment := endpointReconciler.pipelineDeployment
-	pipelineSpec := endpointReconciler.pipelineDeployment.Spec
-	endpointConfig := pipelineSpec.Endpoint
-	endpointConfig.DeploymentOwner = pipelineSpec.DeploymentOwner
-	endpointConfig.DeploymentName = pipelineSpec.DeploymentName
-	endpointConfig.PipelineOwner = pipelineSpec.PipelineOwner
-	endpointConfig.PipelineName = pipelineSpec.PipelineName
-	endpointConfig.Paths = pipelineSpec.Endpoint.Paths
-	endpointConfig.Kafka = &algov1beta1.EndpointKafkaConfig{
-		Brokers: []string{endpointReconciler.pipelineDeployment.Spec.KafkaBrokers},
-	}
+	endpointConfig := endpointReconciler.endpointConfig
 
 	// Set the image name
 	imagePullPolicy := corev1.PullIfNotPresent
@@ -532,6 +552,25 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 		volumeMounts = append(volumeMounts, kafkaTLSMounts...)
 	}
 
+	configMapVolume := corev1.Volume{
+		Name: "endpoint-config-volume",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: v1.LocalObjectReference{Name: configMapName},
+				DefaultMode:          utils.Int32p(0444),
+			},
+		},
+	}
+	volumes = append(volumes, configMapVolume)
+
+	// Add config mount
+	configVolumeMount := corev1.VolumeMount{
+		Name:      "endpoint-config-volume",
+		SubPath:   "endpoint-config",
+		MountPath: "/endpoint-config/endpoint-config.json",
+	}
+	volumeMounts = append(volumeMounts, configVolumeMount)
+
 	volumeMounts = append(volumeMounts, corev1.VolumeMount{
 		Name:      fmt.Sprintf("%s-wal-data", name),
 		MountPath: "/data/wal",
@@ -565,11 +604,14 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 		return nil, resourceErr
 	}
 
+	configArgs := []string{"--config=/endpoint-config/endpoint-config.json"}
+
 	// Endpoint container
 	endpointContainer := corev1.Container{
 		Name:                     name,
 		Image:                    imageName,
 		Command:                  endpointCommand,
+		Args:                     configArgs,
 		Env:                      endpointEnvVars,
 		Resources:                *resources,
 		ImagePullPolicy:          imagePullPolicy,
@@ -666,23 +708,72 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 
 }
 
-func (endpointReconciler *EndpointReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, endpointConfig *v1beta1.EndpointSpec) []corev1.EnvVar {
+func (endpointReconciler *EndpointReconciler) createConfigMap(labels map[string]string) (configMapName string, err error) {
 
-	envVars := []corev1.EnvVar{}
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
+	// Create all config mounts
+	name := fmt.Sprintf("%s-%s-%s-config",
+		endpointReconciler.pipelineDeployment.Spec.DeploymentOwner,
+		endpointReconciler.pipelineDeployment.Spec.DeploymentName,
+		"endpoint")
+	data := make(map[string]string)
 
-	// serialize the runner config to json string
-	endpointConfigBytes, err := json.Marshal(endpointConfig)
+	// serialize the endpoint config to json string
+	endpointConfigBytes, err := json.Marshal(endpointReconciler.endpointConfig)
 	if err != nil {
 		log.Error(err, "Failed deserializing endpoint config")
 	}
+	data["endpoint-config"] = string(endpointConfigBytes)
 
-	fmt.Printf("%s", string(endpointConfigBytes))
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace,
+			Name:      name,
+			Labels:    labels,
+			// Annotations: annotations,
+		},
+		Data: data,
+	}
 
-	// Append the required runner config
-	envVars = append(envVars, corev1.EnvVar{
-		Name:  "ENDPOINT_CONFIG",
-		Value: string(endpointConfigBytes),
-	})
+	// Set PipelineDeployment instance as the owner and controller
+	if err := controllerutil.SetControllerReference(endpointReconciler.pipelineDeployment, configMap, endpointReconciler.scheme); err != nil {
+		return name, err
+	}
+
+	existingConfigMap := &corev1.ConfigMap{}
+	err = endpointReconciler.client.Get(context.TODO(), types.NamespacedName{Name: name,
+		Namespace: endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace},
+		existingConfigMap)
+
+	if err != nil && errors.IsNotFound(err) {
+		// Create the ConfigMap
+		name, err = kubeUtil.CreateConfigMap(configMap)
+		if err != nil {
+			log.Error(err, "Failed creating endpoint ConfigMap")
+		}
+
+	} else if err != nil {
+		log.Error(err, "Failed to check if endpoint ConfigMap exists.")
+	} else {
+
+		if !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) {
+			// Update configmap
+			name, err = kubeUtil.UpdateConfigMap(configMap)
+			if err != nil {
+				log.Error(err, "Failed to update endpoint configmap")
+				return name, err
+			}
+		}
+
+	}
+
+	return name, err
+
+}
+
+func (endpointReconciler *EndpointReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, endpointConfig *endpointConfig) []corev1.EnvVar {
+
+	envVars := []corev1.EnvVar{}
 
 	// Append the storage server connection
 	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
@@ -771,11 +862,15 @@ func (endpointReconciler *EndpointReconciler) createServiceSpec(pipelineDeployme
 	ms.httpPort = httpPort
 	ms.gRPCPort = gRPCPort
 
+	name := fmt.Sprintf("%s-%s-endpoint-service",
+		pipelineDeployment.Spec.DeploymentOwner,
+		pipelineDeployment.Spec.DeploymentName)
+
 	endpointServiceSpec := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:    pipelineDeployment.Spec.DeploymentNamespace,
-			GenerateName: "endpoint-service",
-			Labels:       labels,
+			Namespace: pipelineDeployment.Spec.DeploymentNamespace,
+			Name:      name,
+			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
