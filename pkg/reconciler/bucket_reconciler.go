@@ -35,6 +35,7 @@ type BucketReconciler struct {
 	client             client.Client
 }
 
+// Reconcile executes the Storage Bucket reconciliation process
 func (bucketReconciler *BucketReconciler) Reconcile() error {
 
 	kubeUtil := utils.NewKubeUtil(bucketReconciler.client, bucketReconciler.request)

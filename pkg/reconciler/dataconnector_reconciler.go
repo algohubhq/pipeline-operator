@@ -125,11 +125,11 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 					"lowercaseOutputName":       true,
 					"lowercaseOutputLabelNames": true,
 					"rules": []map[string]interface{}{
-						map[string]interface{}{
+						{
 							"pattern": "kafka.connect<type=connect-worker-metrics>([^:]+):",
 							"name":    "kafka_connect_connect_worker_metrics_$1",
 						},
-						map[string]interface{}{
+						{
 							"pattern": "kafka.connect<type=connect-metrics, client-id=([^:]+)><>([^:]+)",
 							"name":    "kafka_connect_connect_metrics_$1_$2",
 						},

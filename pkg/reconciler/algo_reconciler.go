@@ -301,7 +301,7 @@ func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
-				corev1.ServicePort{
+				{
 					Name: "metrics",
 					Port: 10080,
 				},

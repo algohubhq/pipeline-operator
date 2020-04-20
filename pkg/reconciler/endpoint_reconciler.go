@@ -82,6 +82,7 @@ type serviceConfig struct {
 	gRPCPort    int32
 }
 
+// Reconcile executes the Endpoint reconciliation process
 func (endpointReconciler *EndpointReconciler) Reconcile() error {
 
 	labels := map[string]string{
@@ -100,7 +101,7 @@ func (endpointReconciler *EndpointReconciler) Reconcile() error {
 	}
 	endpointReconciler.serviceConfig = sc
 
-	err = endpointReconciler.reconcileHttpMapping()
+	err = endpointReconciler.reconcileHTTPMapping()
 	err = endpointReconciler.reconcileGRPCMapping()
 
 	endpointReconciler.endpointConfig.Kafka = &algov1beta1.EndpointKafkaConfig{
@@ -320,7 +321,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment(labels map[str
 
 }
 
-func (endpointReconciler *EndpointReconciler) reconcileHttpMapping() error {
+func (endpointReconciler *EndpointReconciler) reconcileHTTPMapping() error {
 
 	serviceName := fmt.Sprintf("http://%s.%s:%d", endpointReconciler.serviceConfig.serviceName,
 		endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace,
@@ -874,15 +875,15 @@ func (endpointReconciler *EndpointReconciler) createServiceSpec(pipelineDeployme
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
-				corev1.ServicePort{
+				{
 					Name: "http",
 					Port: httpPort,
 				},
-				corev1.ServicePort{
+				{
 					Name: "grpc",
 					Port: gRPCPort,
 				},
-				corev1.ServicePort{
+				{
 					Name: "metrics",
 					Port: 28080,
 				},

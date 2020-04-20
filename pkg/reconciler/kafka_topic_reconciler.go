@@ -47,6 +47,7 @@ type TopicReconciler struct {
 	scheme             *runtime.Scheme
 }
 
+// Reconcile executes the Kafka Topic reconciliation process
 func (topicReconciler *TopicReconciler) Reconcile() {
 
 	pipelineDeploymentSpec := topicReconciler.pipelineDeployment.Spec
