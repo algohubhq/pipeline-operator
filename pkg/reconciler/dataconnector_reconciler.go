@@ -118,7 +118,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 			"namespace": dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace,
 			"spec": map[string]interface{}{
 				"version":          "2.1.0",
-				"replicas":         1,
+				"replicas":         dataConnectorConfig.Replicas,
 				"image":            imageName,
 				"bootstrapServers": pipelineDeployment.Spec.KafkaBrokers,
 				"metrics": map[string]interface{}{
