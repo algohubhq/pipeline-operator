@@ -522,7 +522,7 @@ func (d *KubeUtil) GetStorageSecretName(pipelineSpec *v1beta1.PipelineDeployment
 	secret := &corev1.Secret{}
 	namespacedName := types.NamespacedName{
 		Name:      secretName,
-		Namespace: d.request.Namespace,
+		Namespace: pipelineSpec.DeploymentNamespace,
 	}
 
 	err = d.client.Get(context.TODO(), namespacedName, secret)
@@ -533,7 +533,7 @@ func (d *KubeUtil) GetStorageSecretName(pipelineSpec *v1beta1.PipelineDeployment
 			// Check for the global storage secret
 			namespacedName := types.NamespacedName{
 				Name:      secretName,
-				Namespace: d.request.Namespace,
+				Namespace: pipelineSpec.DeploymentNamespace,
 			}
 
 			err = d.client.Get(context.TODO(), namespacedName, secret)
