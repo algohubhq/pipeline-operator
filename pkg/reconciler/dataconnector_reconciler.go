@@ -27,6 +27,7 @@ func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployme
 	dataConnectorSpec *v1beta1.DataConnectorSpec,
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
+	apiReader client.Reader,
 	client client.Client,
 	scheme *runtime.Scheme) DataConnectorReconciler {
 	return DataConnectorReconciler{
@@ -34,6 +35,7 @@ func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployme
 		dataConnectorSpec:  dataConnectorSpec,
 		allTopicConfigs:    allTopicConfigs,
 		request:            request,
+		apiReader:          apiReader,
 		client:             client,
 		scheme:             scheme,
 	}
@@ -45,6 +47,7 @@ type DataConnectorReconciler struct {
 	dataConnectorSpec  *v1beta1.DataConnectorSpec
 	allTopicConfigs    map[string]*v1beta1.TopicConfigModel
 	request            *reconcile.Request
+	apiReader          client.Reader
 	client             client.Client
 	scheme             *runtime.Scheme
 }
@@ -60,7 +63,13 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 	for _, topic := range dataConnectorConfig.Topics {
 		dcName := utils.GetDcFullName(dataConnectorConfig)
 		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
-			topicReconciler := NewTopicReconciler(dataConnectorReconciler.pipelineDeployment, dcName, &currentTopicConfig, dataConnectorReconciler.request, dataConnectorReconciler.client, dataConnectorReconciler.scheme)
+			topicReconciler := NewTopicReconciler(dataConnectorReconciler.pipelineDeployment,
+				dcName,
+				&currentTopicConfig,
+				dataConnectorReconciler.request,
+				dataConnectorReconciler.apiReader,
+				dataConnectorReconciler.client,
+				dataConnectorReconciler.scheme)
 			topicReconciler.Reconcile()
 		}(topic)
 	}

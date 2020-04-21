@@ -1,15 +1,30 @@
 package utilities
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"strconv"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-// CheckForKafkaTLS checks for the KAFKA_TLS envar and certs
+// GetKafkaClusterName gets the KAFKA_CLUSTER_NAME
 func GetKafkaClusterName() string {
 
 	// Try to load from environment variable
-	return os.Getenv("KAFKA-CLUSTER-NAME")
+	return os.Getenv("KAFKA_CLUSTER_NAME")
+
+}
+
+// GetKafkaNamespace gets the KAFKA_NAMESPACE
+func GetKafkaNamespace() string {
+
+	// Try to load from environment variable
+	return os.Getenv("KAFKA_NAMESPACE")
 
 }
 
@@ -28,6 +43,71 @@ func CheckForKafkaTLS() bool {
 	}
 
 	return kafkaTLS
+
+}
+
+func CopyKafkaSecrets(deploymentNamespace string,
+	deploymentOwner string,
+	deploymentName string,
+	manager manager.Manager) {
+
+	// Get the kafka namespace
+	kafkaNamespace := os.Getenv("KAFKA_NAMESPACE")
+	kafkaClusterName := os.Getenv("KAFKA_CLUSTER_NAME")
+
+	kafkaUserSecretName := fmt.Sprintf("kafka-%s-%s", deploymentOwner,
+		deploymentName)
+	kafkaCaSecretName := fmt.Sprintf("%s-cluster-ca-cert", kafkaClusterName)
+
+	// Copy the user cert secret
+	copySecret(kafkaNamespace, kafkaUserSecretName, deploymentNamespace, manager)
+	// Copy the ca cert secret
+	copySecret(kafkaNamespace, kafkaCaSecretName, deploymentNamespace, manager)
+
+}
+
+func copySecret(kafkaNamespace string, kafkaSecretName string, deploymentNamespace string, manager manager.Manager) {
+
+	apiReader := manager.GetAPIReader()
+	writeClient := manager.GetClient()
+
+	kafkaDeplSecret := &corev1.Secret{}
+	namespacedName := types.NamespacedName{
+		Name:      kafkaSecretName,
+		Namespace: deploymentNamespace,
+	}
+
+	err := apiReader.Get(context.TODO(), namespacedName, kafkaDeplSecret)
+	if err != nil {
+		if errors.IsNotFound(err) {
+
+			// Get the secret from the kafka namespace
+			kafkaExistingSecret := &corev1.Secret{}
+			namespacedName := types.NamespacedName{
+				Name:      kafkaSecretName,
+				Namespace: kafkaNamespace,
+			}
+
+			err = apiReader.Get(context.TODO(), namespacedName, kafkaExistingSecret)
+			if err != nil {
+				log.Error(err, fmt.Sprintf("Failed to get the Kafka Secret named %s in namespace %s",
+					kafkaSecretName, kafkaNamespace))
+			}
+
+			kafkaNewSecret := &corev1.Secret{}
+			kafkaNewSecret.SetName(kafkaSecretName)
+			kafkaNewSecret.SetNamespace(deploymentNamespace)
+
+			kafkaNewSecret.Data = kafkaExistingSecret.Data
+
+			err = writeClient.Create(context.TODO(), kafkaNewSecret)
+			if err != nil {
+				log.Error(err, fmt.Sprintf("Failed Creating the Deployment Kafka Secret named %s in namespace %s",
+					kafkaSecretName, deploymentNamespace))
+			}
+
+		}
+	}
 
 }
 

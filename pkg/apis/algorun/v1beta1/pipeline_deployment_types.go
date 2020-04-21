@@ -24,6 +24,7 @@ type PipelineDeploymentStatus struct {
 
 // PipelineDeployment is the Schema for the PipelineDeployments API
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=pipelinedeployments,scope=Namespaced
 // +k8s:openapi-gen=true
 type PipelineDeployment struct {
 	metav1.TypeMeta   `json:",inline"`

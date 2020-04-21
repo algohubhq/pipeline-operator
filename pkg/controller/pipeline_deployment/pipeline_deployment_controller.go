@@ -35,7 +35,10 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcilePipelineDeployment{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcilePipelineDeployment{client: mgr.GetClient(),
+		manager: mgr,
+		scheme:  mgr.GetScheme(),
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -78,8 +81,9 @@ var _ reconcile.Reconciler = &ReconcilePipelineDeployment{}
 type ReconcilePipelineDeployment struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client  client.Client
+	manager manager.Manager
+	scheme  *runtime.Scheme
 }
 
 // Reconcile reads that state of the cluster for a PipelineDeployment object and makes changes based on the state read
@@ -100,6 +104,10 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	// Fetch the PipelineDeployment instance
 	deployment := &algov1beta1.PipelineDeployment{}
 	err := r.client.Get(ctx, request.NamespacedName, deployment)
+
+	// Check if this pipeline deployment cr request is in the same namespace as this operator.
+	// We only want this operator to handle requests for it's own namespace
+
 	if err != nil {
 
 		r.updateMetrics(&request)
@@ -167,8 +175,10 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	kafkaTLS := utils.CheckForKafkaTLS()
 
 	if kafkaTLS {
-		kubeUtil := utils.NewKubeUtil(r.client, &request)
-		kubeUtil.CopyKafkaClusterCASecret()
+		utils.CopyKafkaSecrets(deployment.Spec.DeploymentNamespace,
+			deployment.Spec.DeploymentOwner,
+			deployment.Spec.DeploymentName,
+			r.manager)
 	}
 
 	var wg sync.WaitGroup
@@ -191,7 +201,12 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("Reconciling the Kafka User")
 	wg.Add(1)
 	go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
-		kafkaUserReconciler := recon.NewKafkaUserReconciler(deployment, allTopicConfigs, &request, r.client, r.scheme)
+		kafkaUserReconciler := recon.NewKafkaUserReconciler(deployment,
+			allTopicConfigs,
+			&request,
+			r.manager.GetAPIReader(),
+			r.client,
+			r.scheme)
 		kafkaUserReconciler.Reconcile()
 		wg.Done()
 	}(deployment)
@@ -206,6 +221,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 				&currentAlgoConfig,
 				allTopicConfigs,
 				&request,
+				r.manager.GetAPIReader(),
 				r.client,
 				r.scheme,
 				kafkaTLS)
@@ -220,7 +236,14 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("Reconciling Algo Metrics Service")
 	wg.Add(1)
 	go func() {
-		algoReconciler := recon.NewAlgoReconciler(deployment, nil, allTopicConfigs, &request, r.client, r.scheme, kafkaTLS)
+		algoReconciler := recon.NewAlgoReconciler(deployment,
+			nil,
+			allTopicConfigs,
+			&request,
+			r.manager.GetAPIReader(),
+			r.client,
+			r.scheme,
+			kafkaTLS)
 		algoReconciler.ReconcileService()
 		wg.Done()
 	}()
@@ -230,7 +253,13 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	for _, dcConfig := range deployment.Spec.DataConnectors {
 		wg.Add(1)
 		go func(currentDcConfig algov1beta1.DataConnectorSpec) {
-			dcReconciler := recon.NewDataConnectorReconciler(deployment, &currentDcConfig, allTopicConfigs, &request, r.client, r.scheme)
+			dcReconciler := recon.NewDataConnectorReconciler(deployment,
+				&currentDcConfig,
+				allTopicConfigs,
+				&request,
+				r.manager.GetAPIReader(),
+				r.client,
+				r.scheme)
 			err = dcReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in DataConnectorConfigs reconcile loop.")
@@ -258,7 +287,12 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		reqLogger.Info("Reconciling Endpoints")
 		wg.Add(1)
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
-			endpointReconciler := recon.NewEndpointReconciler(deployment, &request, r.client, r.scheme, kafkaTLS)
+			endpointReconciler := recon.NewEndpointReconciler(deployment,
+				&request,
+				r.manager.GetAPIReader(),
+				r.client,
+				r.scheme,
+				kafkaTLS)
 			err = endpointReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in Endpoint reconcile.")

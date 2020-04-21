@@ -35,6 +35,7 @@ type AlgoReconciler struct {
 	allTopicConfigs    map[string]*v1beta1.TopicConfigModel
 	request            *reconcile.Request
 	client             client.Client
+	apiReader          client.Reader
 	scheme             *runtime.Scheme
 	kafkaTLS           bool
 }
@@ -46,6 +47,7 @@ func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	algoSpec *v1beta1.AlgoSpec,
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
+	apiReader client.Reader,
 	client client.Client,
 	scheme *runtime.Scheme,
 	kafkaTLS bool) AlgoReconciler {
@@ -55,6 +57,7 @@ func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 		allTopicConfigs:    allTopicConfigs,
 		request:            request,
 		client:             client,
+		apiReader:          apiReader,
 		scheme:             scheme,
 		kafkaTLS:           kafkaTLS,
 	}
@@ -237,7 +240,13 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 	for _, output := range algoConfig.Outputs {
 		algoName := utils.GetAlgoFullName(algoConfig)
 		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
-			topicReconciler := NewTopicReconciler(algoReconciler.pipelineDeployment, algoName, &currentTopicConfig, algoReconciler.request, algoReconciler.client, algoReconciler.scheme)
+			topicReconciler := NewTopicReconciler(algoReconciler.pipelineDeployment,
+				algoName,
+				&currentTopicConfig,
+				algoReconciler.request,
+				algoReconciler.apiReader,
+				algoReconciler.client,
+				algoReconciler.scheme)
 			topicReconciler.Reconcile()
 		}(*output.Topic)
 	}

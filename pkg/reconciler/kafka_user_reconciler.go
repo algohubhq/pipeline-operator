@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -22,12 +21,14 @@ import (
 func NewKafkaUserReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	topicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
+	apiReader client.Reader,
 	client client.Client,
 	scheme *runtime.Scheme) KafkaUserReconciler {
 	return KafkaUserReconciler{
 		pipelineDeployment: pipelineDeployment,
 		topicConfigs:       topicConfigs,
 		request:            request,
+		apiReader:          apiReader,
 		client:             client,
 		scheme:             scheme,
 	}
@@ -38,6 +39,7 @@ type KafkaUserReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
 	topicConfigs       map[string]*v1beta1.TopicConfigModel
 	request            *reconcile.Request
+	apiReader          client.Reader
 	client             client.Client
 	scheme             *runtime.Scheme
 }
@@ -45,6 +47,7 @@ type KafkaUserReconciler struct {
 // Reconcile reconciles the Kakfa user for a pipeline
 func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 
+	kafkaNamespace := utils.GetKafkaNamespace()
 	pipelineDeploymentSpec := kafkaUserReconciler.pipelineDeployment.Spec
 
 	kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeploymentSpec.DeploymentOwner,
@@ -54,10 +57,10 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 
 	// check to see if topic already exists
 	existingUser := &kafkav1beta1.KafkaUser{}
-	err := kafkaUserReconciler.client.Get(context.TODO(),
+	err := kafkaUserReconciler.apiReader.Get(context.TODO(),
 		types.NamespacedName{
 			Name:      kafkaUsername,
-			Namespace: kafkaUserReconciler.pipelineDeployment.Spec.DeploymentNamespace,
+			Namespace: kafkaNamespace,
 		},
 		existingUser)
 
@@ -76,7 +79,7 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 
 		newUser := &kafkav1beta1.KafkaUser{}
 		newUser.SetName(kafkaUsername)
-		newUser.SetNamespace(kafkaUserReconciler.pipelineDeployment.Spec.DeploymentNamespace)
+		newUser.SetNamespace(kafkaNamespace)
 		newUser.SetLabels(labels)
 		newUser.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "kafka.strimzi.io",
@@ -87,9 +90,9 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 		newUser.Spec = kafkaUserSpec
 
 		// Set PipelineDeployment instance as the owner and controller
-		if err := controllerutil.SetControllerReference(kafkaUserReconciler.pipelineDeployment, newUser, kafkaUserReconciler.scheme); err != nil {
-			log.Error(err, "Failed setting the topic controller owner")
-		}
+		// if err := controllerutil.SetControllerReference(kafkaUserReconciler.pipelineDeployment, newUser, kafkaUserReconciler.scheme); err != nil {
+		// 	log.Error(err, "Failed setting the topic controller owner")
+		// }
 
 		err := kafkaUserReconciler.client.Create(context.TODO(), newUser)
 		if err != nil {

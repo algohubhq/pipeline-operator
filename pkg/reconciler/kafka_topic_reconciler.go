@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -25,6 +24,7 @@ func NewTopicReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	componentName string,
 	topicConfig *v1beta1.TopicConfigModel,
 	request *reconcile.Request,
+	apiReader client.Reader,
 	client client.Client,
 	scheme *runtime.Scheme) TopicReconciler {
 	return TopicReconciler{
@@ -32,6 +32,7 @@ func NewTopicReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 		componentName:      componentName,
 		topicConfig:        topicConfig,
 		request:            request,
+		apiReader:          apiReader,
 		client:             client,
 		scheme:             scheme,
 	}
@@ -43,6 +44,7 @@ type TopicReconciler struct {
 	componentName      string
 	topicConfig        *v1beta1.TopicConfigModel
 	request            *reconcile.Request
+	apiReader          client.Reader
 	client             client.Client
 	scheme             *runtime.Scheme
 }
@@ -50,6 +52,7 @@ type TopicReconciler struct {
 // Reconcile executes the Kafka Topic reconciliation process
 func (topicReconciler *TopicReconciler) Reconcile() {
 
+	kafkaNamespace := utils.GetKafkaNamespace()
 	pipelineDeploymentSpec := topicReconciler.pipelineDeployment.Spec
 
 	// Replace the pipelineDeployment username and name in the topic string
@@ -70,10 +73,10 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		Kind:    "KafkaTopic",
 		Version: "v1beta1",
 	})
-	err = topicReconciler.client.Get(context.TODO(),
+	err = topicReconciler.apiReader.Get(context.TODO(),
 		types.NamespacedName{
 			Name:      resourceName,
-			Namespace: topicReconciler.pipelineDeployment.Spec.DeploymentNamespace,
+			Namespace: kafkaNamespace,
 		},
 		existingTopic)
 
@@ -94,7 +97,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		newTopic.Spec = newTopicSpec
 		newTopic.Spec.TopicName = topicName
 		newTopic.SetName(resourceName)
-		newTopic.SetNamespace(topicReconciler.pipelineDeployment.Spec.DeploymentNamespace)
+		newTopic.SetNamespace(kafkaNamespace)
 		newTopic.SetLabels(labels)
 		newTopic.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "kafka.strimzi.io",
@@ -103,9 +106,9 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		})
 
 		// Set PipelineDeployment instance as the owner and controller
-		if err := controllerutil.SetControllerReference(topicReconciler.pipelineDeployment, newTopic, topicReconciler.scheme); err != nil {
-			log.Error(err, "Failed setting the topic controller owner")
-		}
+		// if err := controllerutil.SetControllerReference(topicReconciler.pipelineDeployment, newTopic, topicReconciler.scheme); err != nil {
+		// 	log.Error(err, "Failed setting the topic controller owner")
+		// }
 
 		err := topicReconciler.client.Create(context.TODO(), newTopic)
 		if err != nil {

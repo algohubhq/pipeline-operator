@@ -3,7 +3,6 @@ package utilities
 import (
 	"context"
 	"fmt"
-	"os"
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	"strings"
 
@@ -555,55 +554,5 @@ func (d *KubeUtil) GetStorageSecretName(pipelineSpec *v1beta1.PipelineDeployment
 	}
 
 	return "", err
-
-}
-
-func (d *KubeUtil) CopyKafkaClusterCASecret() error {
-
-	// Get the kafka namespace
-	kafkaNamespace := os.Getenv("KAFKA-NAMESPACE")
-	kafkaClusterName := os.Getenv("KAFKA-CLUSTER-NAME")
-	kafkaCaSecretName := fmt.Sprintf("%s-cluster-ca-cert", kafkaClusterName)
-
-	kafkaDeploymentSecret := &corev1.Secret{}
-	namespacedDeploymentName := types.NamespacedName{
-		Name:      kafkaCaSecretName,
-		Namespace: d.request.Namespace,
-	}
-
-	err := d.client.Get(context.TODO(), namespacedDeploymentName, kafkaDeploymentSecret)
-	if err != nil {
-		if errors.IsNotFound(err) {
-
-			// Get the secret from the kafka namespace
-			kafkaSecret := &corev1.Secret{}
-			namespacedName := types.NamespacedName{
-				Name:      kafkaCaSecretName,
-				Namespace: kafkaNamespace,
-			}
-
-			err = d.client.Get(context.TODO(), namespacedName, kafkaSecret)
-			if err != nil {
-				log.Error(err, fmt.Sprintf("Failed to get the Kafka Certificate Authority Secret named %s in namespace %s",
-					kafkaCaSecretName, kafkaNamespace))
-				return err
-			}
-
-			kafkaDeploymentSecret.SetName(kafkaCaSecretName)
-			kafkaDeploymentSecret.SetNamespace(d.request.Namespace)
-
-			kafkaDeploymentSecret.Data = kafkaSecret.Data
-
-			err = d.client.Create(context.TODO(), kafkaDeploymentSecret)
-			if err != nil {
-				log.Error(err, fmt.Sprintf("Failed Creating the Deployment Kafka Certificate Authority Secret named %s in namespace %s",
-					kafkaCaSecretName, d.request.Namespace))
-				return err
-			}
-
-		}
-	}
-
-	return err
 
 }

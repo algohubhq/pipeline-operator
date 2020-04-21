@@ -33,6 +33,7 @@ import (
 // NewEndpointReconciler returns a new EndpointReconciler
 func NewEndpointReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	request *reconcile.Request,
+	apiReader client.Reader,
 	client client.Client,
 	scheme *runtime.Scheme,
 	kafkaTLS bool) EndpointReconciler {
@@ -47,6 +48,7 @@ func NewEndpointReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 		pipelineDeployment: pipelineDeployment,
 		endpointConfig:     endpointConfig,
 		request:            request,
+		apiReader:          apiReader,
 		client:             client,
 		scheme:             scheme,
 		kafkaTLS:           kafkaTLS,
@@ -58,6 +60,7 @@ type EndpointReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
 	endpointConfig     *endpointConfig
 	request            *reconcile.Request
+	apiReader          client.Reader
 	client             client.Client
 	scheme             *runtime.Scheme
 	serviceConfig      *serviceConfig
@@ -187,7 +190,13 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment(labels map[str
 	log.Info("Reconciling Kakfa Topics for Data Connector outputs")
 	for _, path := range pipelineDeployment.Spec.Endpoint.Paths {
 		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
-			topicReconciler := NewTopicReconciler(endpointReconciler.pipelineDeployment, "Endpoint", &currentTopicConfig, endpointReconciler.request, endpointReconciler.client, endpointReconciler.scheme)
+			topicReconciler := NewTopicReconciler(endpointReconciler.pipelineDeployment,
+				"Endpoint",
+				&currentTopicConfig,
+				endpointReconciler.request,
+				endpointReconciler.apiReader,
+				endpointReconciler.client,
+				endpointReconciler.scheme)
 			topicReconciler.Reconcile()
 		}(*path.Topic)
 	}
