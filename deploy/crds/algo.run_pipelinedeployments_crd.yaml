@@ -633,6 +633,10 @@ spec:
                             name:
                               description: DataTypes the model 'DataTypes'
                               type: string
+                            options:
+                              items:
+                                type: string
+                              type: array
                             precision:
                               format: int32
                               type: integer
@@ -1213,8 +1217,8 @@ spec:
                       type: object
                   type: object
               type: object
-            hook:
-              description: HookSpec struct for HookSpec
+            eventHook:
+              description: EventHookSpec struct for EventHookSpec
               properties:
                 autoscaling:
                   description: AutoScalingSpec struct for AutoScalingSpec

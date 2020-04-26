@@ -269,11 +269,11 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	}
 
 	// // Reconcile hook container
-	if deployment.Spec.Hook.WebHooks != nil && len(deployment.Spec.Hook.WebHooks) > 0 {
-		reqLogger.Info("Reconciling Hooks")
+	if deployment.Spec.EventHook.WebHooks != nil && len(deployment.Spec.EventHook.WebHooks) > 0 {
+		reqLogger.Info("Reconciling Event Hooks")
 		wg.Add(1)
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
-			hookReconciler := recon.NewHookReconciler(deployment, allTopicConfigs, &request, r.client, r.scheme, kafkaTLS)
+			hookReconciler := recon.NewEventHookReconciler(deployment, allTopicConfigs, &request, r.client, r.scheme, kafkaTLS)
 			err = hookReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in Hook reconcile.")

@@ -17,5 +17,5 @@ type AlgoParamModel struct {
 	Value string `json:"value,omitempty"`
 	Description string `json:"description,omitempty"`
 	DataType *DataTypeModel `json:"dataType,omitempty"`
-	Options []DataTypeOptionModel `json:"options,omitempty"`
+	Options []string `json:"options,omitempty"`
 }

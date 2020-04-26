@@ -9,8 +9,8 @@
  */
 
 package v1beta1
-// HookSpec struct for HookSpec
-type HookSpec struct {
+// EventHookSpec struct for EventHookSpec
+type EventHookSpec struct {
 	Image *ContainerImageModel `json:"image,omitempty"`
 	Replicas int32 `json:"replicas,omitempty"`
 	Resources *ResourceRequirementsV1 `json:"resources,omitempty"`

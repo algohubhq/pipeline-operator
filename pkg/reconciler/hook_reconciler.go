@@ -26,25 +26,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// NewHookReconciler returns a new HookReconciler
-func NewHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
+// NewEventHookReconciler returns a new NewEventHookReconciler
+func NewEventHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme,
-	kafkaTLS bool) HookReconciler {
+	kafkaTLS bool) EventHookReconciler {
 
-	hookConfig := &hookConfig{
+	hookConfig := &eventHookConfig{
 		DeploymentOwner: pipelineDeployment.Spec.DeploymentOwner,
 		DeploymentName:  pipelineDeployment.Spec.DeploymentName,
 		PipelineOwner:   pipelineDeployment.Spec.PipelineOwner,
 		PipelineName:    pipelineDeployment.Spec.PipelineName,
 		Pipes:           pipelineDeployment.Spec.Pipes,
 		Topics:          allTopicConfigs,
-		HookSpec:        pipelineDeployment.Spec.Hook,
+		EventHookSpec:   pipelineDeployment.Spec.EventHook,
 	}
 
-	return HookReconciler{
+	return EventHookReconciler{
 		pipelineDeployment: pipelineDeployment,
 		hookConfig:         hookConfig,
 		allTopics:          allTopicConfigs,
@@ -56,9 +56,9 @@ func NewHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 }
 
 // HookReconciler reconciles an Hook object
-type HookReconciler struct {
+type EventHookReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
-	hookConfig         *hookConfig
+	hookConfig         *eventHookConfig
 	allTopics          map[string]*v1beta1.TopicConfigModel
 	request            *reconcile.Request
 	client             client.Client
@@ -67,7 +67,7 @@ type HookReconciler struct {
 }
 
 // hookConfig holds the config sent to the hook container
-type hookConfig struct {
+type eventHookConfig struct {
 	DeploymentOwner string
 	DeploymentName  string
 	PipelineOwner   string
@@ -75,11 +75,11 @@ type hookConfig struct {
 	Pipes           []v1beta1.PipeModel
 	Topics          map[string]*v1beta1.TopicConfigModel
 	// embed the hook Spec
-	*v1beta1.HookSpec
+	*v1beta1.EventHookSpec
 }
 
 // Reconcile creates or updates the hook deployment for the pipelineDeployment
-func (hookReconciler *HookReconciler) Reconcile() error {
+func (hookReconciler *EventHookReconciler) Reconcile() error {
 
 	pipelineDeployment := hookReconciler.pipelineDeployment
 
@@ -188,7 +188,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 
 		existingHpa, err := kubeUtil.CheckForHorizontalPodAutoscaler(opts)
 
-		hpaSpec, err := kubeUtil.CreateHpaSpec(hookName, labels, pipelineDeployment, pipelineDeployment.Spec.Hook.Autoscaling)
+		hpaSpec, err := kubeUtil.CreateHpaSpec(hookName, labels, pipelineDeployment, pipelineDeployment.Spec.EventHook.Autoscaling)
 		if err != nil {
 			hookLogger.Error(err, "Failed to create Hook horizontal pod autoscaler spec")
 			return err
@@ -230,7 +230,7 @@ func (hookReconciler *HookReconciler) Reconcile() error {
 }
 
 // CreateDeploymentSpec generates the k8s spec for the algo deployment
-func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels map[string]string, configMapName string, existingDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
+func (hookReconciler *EventHookReconciler) createDeploymentSpec(name string, labels map[string]string, configMapName string, existingDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 
 	pipelineDeployment := hookReconciler.pipelineDeployment
 	hookConfig := hookReconciler.hookConfig
@@ -407,7 +407,7 @@ func (hookReconciler *HookReconciler) createDeploymentSpec(name string, labels m
 
 }
 
-func (hookReconciler *HookReconciler) createConfigMap(labels map[string]string) (configMapName string, err error) {
+func (hookReconciler *EventHookReconciler) createConfigMap(labels map[string]string) (configMapName string, err error) {
 
 	kubeUtil := utils.NewKubeUtil(hookReconciler.client, hookReconciler.request)
 	// Create all config mounts
@@ -470,7 +470,7 @@ func (hookReconciler *HookReconciler) createConfigMap(labels map[string]string) 
 
 }
 
-func (hookReconciler *HookReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, hookConfig *hookConfig) []corev1.EnvVar {
+func (hookReconciler *EventHookReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment, hookConfig *eventHookConfig) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
 
@@ -501,7 +501,7 @@ func (hookReconciler *HookReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 	return envVars
 }
 
-func (hookReconciler *HookReconciler) createSelector(constraints []string) map[string]string {
+func (hookReconciler *EventHookReconciler) createSelector(constraints []string) map[string]string {
 	selector := make(map[string]string)
 
 	if len(constraints) > 0 {

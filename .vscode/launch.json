@@ -12,13 +12,13 @@
             "program": "${workspaceFolder}/cmd/manager/main.go",
             "env": { 
                 "OPERATOR_NAME":"pipeline-operator",
-                "WATCH_NAMESPACE":"test",
+                "WATCH_NAMESPACE":"algorun",
                 "KUBERNETES_CONFIG": "$HOME/.kube/config",
                 "NOTIF_URL":"", 
                 // "NOTIF_URL":"http://localhost:5050/api/v1/notify", 
-                "ALGORUNNER_IMAGE":"algohub/algo-runner:422ddf6313823c313e05182b3e5656fa830eeeeb",
-                "ENDPOINT_IMAGE":"algohub/deployment-endpoint:5451e127457ebfe1495dda528922d50a45bcb6a8",
-                "HOOK_IMAGE":"algohub/hook-runner:22318f94e1091473522925f9e0928ac4ea5d389b",
+                "ALGORUNNER_IMAGE":"algohub/algo-runner:240153868a5b21207b61270762bffc978615964a",
+                "ENDPOINT_IMAGE":"algohub/deployment-endpoint:7f2acda823d48893838d03f2b706684cf84b7d7a",
+                "HOOK_IMAGE":"algohub/event-hook-runner:5ae767f855bf45a102a5327f7685cc89d4a45d8d",
                 "KAFKA_NAMESPACE": "kafka",
                 "KAFKA_CLUSTER_NAME": "kafka",
                 "KAFKA_TLS": "true"

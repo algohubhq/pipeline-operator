@@ -22,6 +22,6 @@ type PipelineDeploymentSpecV1beta1 struct {
 	Endpoint *EndpointSpec `json:"endpoint,omitempty"`
 	Algos []AlgoSpec `json:"algos,omitempty"`
 	DataConnectors []DataConnectorSpec `json:"dataConnectors,omitempty"`
-	Hook *HookSpec `json:"hook,omitempty"`
+	EventHook *EventHookSpec `json:"eventHook,omitempty"`
 	Pipes []PipeModel `json:"pipes,omitempty"`
 }

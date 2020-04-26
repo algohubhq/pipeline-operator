@@ -258,7 +258,7 @@ func (r *StatusReconciler) getDeploymentStatuses(cr *algov1beta1.PipelineDeploym
 			componentStatus.Name = strings.Replace(deployment.Labels["algo.run/dataconnector"], ".", "/", 1)
 			componentStatus.Version = deployment.Labels["algo.run/dataconnector-version"]
 		case "hook":
-			compType := v1beta1.COMPONENTTYPES_HOOK
+			compType := v1beta1.COMPONENTTYPES_EVENT_HOOK
 			componentStatus.ComponentType = &compType
 			componentStatus.Name = deployment.Labels["app.kubernetes.io/component"]
 		}
@@ -446,7 +446,7 @@ func (r *StatusReconciler) calculateStatus(cr *algov1beta1.PipelineDeployment,
 	if &cr.Spec.Endpoint != nil {
 		componentCount = componentCount + 1
 	}
-	if &cr.Spec.Hook != nil && len(cr.Spec.Hook.WebHooks) > 0 {
+	if &cr.Spec.EventHook != nil && len(cr.Spec.EventHook.WebHooks) > 0 {
 		componentCount = componentCount + 1
 	}
 

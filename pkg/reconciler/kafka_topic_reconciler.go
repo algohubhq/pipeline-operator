@@ -185,9 +185,9 @@ func (topicReconciler *TopicReconciler) buildTopicSpec(pipelineSpec algov1beta1.
 
 				// Find all destination Hooks
 				if strings.ToLower(pipe.DestName) == "hook" {
-					maxPartitions := utils.Max(int64(pipelineSpec.Hook.Replicas), topicPartitions)
-					if pipelineSpec.Hook.Autoscaling != nil {
-						maxPartitions = utils.Max(int64(pipelineSpec.Hook.Autoscaling.MaxReplicas), maxPartitions)
+					maxPartitions := utils.Max(int64(pipelineSpec.EventHook.Replicas), topicPartitions)
+					if pipelineSpec.EventHook.Autoscaling != nil {
+						maxPartitions = utils.Max(int64(pipelineSpec.EventHook.Autoscaling.MaxReplicas), maxPartitions)
 					}
 
 					topicPartitions = topicPartitions + maxPartitions
