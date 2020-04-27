@@ -26,9 +26,9 @@ func GetAllTopicConfigs(pipelineSpec *v1beta1.PipelineDeploymentSpecV1beta1) map
 
 	allTopics := make(map[string]*v1beta1.TopicConfigModel, 0)
 	for _, algo := range pipelineSpec.Algos {
-		for _, output := range algo.Spec.Outputs {
-			source := fmt.Sprintf("%s|%s", GetAlgoFullName(&algo), output.Name)
-			allTopics[source] = output.Topic
+		for _, topicConfig := range algo.Topics {
+			source := fmt.Sprintf("%s|%s", GetAlgoFullName(&algo), topicConfig.OutputName)
+			allTopics[source] = &topicConfig
 		}
 	}
 	for _, dc := range pipelineSpec.DataConnectors {

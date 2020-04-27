@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientpkg "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
@@ -35,8 +36,7 @@ type AlgoReconciler struct {
 	activeAlgoVersion  *v1beta1.AlgoVersionModel
 	allTopicConfigs    map[string]*v1beta1.TopicConfigModel
 	request            *reconcile.Request
-	client             clientpkg.Client
-	apiReader          clientpkg.Reader
+	manager            manager.Manager
 	scheme             *runtime.Scheme
 	kafkaTLS           bool
 }
@@ -48,50 +48,9 @@ func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	algoDeployment *v1beta1.AlgoDeploymentV1beta1,
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
-	apiReader clientpkg.Reader,
-	client clientpkg.Client,
+	manager manager.Manager,
 	scheme *runtime.Scheme,
 	kafkaTLS bool) (*AlgoReconciler, error) {
-
-	// If the algoRef is set, try to pull from the kubernetes cluster
-	if algoDeployment.AlgoRef != nil {
-		kubeUtil := utils.NewKubeUtil(client, request)
-
-		opts := []clientpkg.ListOption{}
-		if len(algoDeployment.AlgoRef.MatchLabels) != 0 {
-			matchLabels := clientpkg.MatchingLabels{}
-			for key, value := range algoDeployment.AlgoRef.MatchLabels {
-				matchLabels[key] = value
-			}
-			nsOpt := []clientpkg.ListOption{
-				matchLabels,
-			}
-			opts = append(opts, nsOpt...)
-		}
-
-		if algoDeployment.AlgoRef.Namespace != "" {
-			nsOpt := []clientpkg.ListOption{
-				clientpkg.InNamespace(algoDeployment.AlgoRef.Namespace),
-			}
-			opts = append(opts, nsOpt...)
-		}
-
-		if algoDeployment.AlgoRef.Name != "" {
-			nameOpt := []clientpkg.ListOption{
-				clientpkg.MatchingFields{"metadata.name": algoDeployment.AlgoRef.Name},
-			}
-			opts = append(opts, nameOpt...)
-		}
-
-		algo, err := kubeUtil.CheckForAlgo(opts)
-		if err != nil {
-			err := e.New(fmt.Sprintf("algoRef set but not Algo matching Algo found [%v]", algoDeployment.AlgoRef))
-			return nil, err
-		}
-
-		algoDeployment.Spec = &algo.Spec
-
-	}
 
 	// Ensure the algo has a matching version defined
 	var activeAlgoVersion *v1beta1.AlgoVersionModel
@@ -112,8 +71,7 @@ func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 		activeAlgoVersion:  activeAlgoVersion,
 		allTopicConfigs:    allTopicConfigs,
 		request:            request,
-		client:             client,
-		apiReader:          apiReader,
+		manager:            manager,
 		scheme:             scheme,
 		kafkaTLS:           kafkaTLS,
 	}, nil
@@ -123,8 +81,7 @@ func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 func NewAlgoServiceReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
-	apiReader clientpkg.Reader,
-	client clientpkg.Client,
+	manager manager.Manager,
 	scheme *runtime.Scheme,
 	kafkaTLS bool) (*AlgoReconciler, error) {
 
@@ -132,8 +89,7 @@ func NewAlgoServiceReconciler(pipelineDeployment *algov1beta1.PipelineDeployment
 		pipelineDeployment: pipelineDeployment,
 		allTopicConfigs:    allTopicConfigs,
 		request:            request,
-		client:             client,
-		apiReader:          apiReader,
+		manager:            manager,
 		scheme:             scheme,
 		kafkaTLS:           kafkaTLS,
 	}, nil
@@ -172,7 +128,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 		"algo.run/index":        strconv.Itoa(int(algoDepl.Index)),
 	}
 
-	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.manager, algoReconciler.request)
 
 	// Check to make sure the algo isn't already created
 	opts := []clientpkg.ListOption{
@@ -313,18 +269,17 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 	// Creat the Kafka Topics
 	algoLogger.Info("Reconciling Kakfa Topics for Algo outputs")
-	for _, output := range algoDepl.Spec.Outputs {
+	for _, topic := range algoDepl.Topics {
 		algoName := utils.GetAlgoFullName(algoDepl)
 		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
 			topicReconciler := NewTopicReconciler(algoReconciler.pipelineDeployment,
 				algoName,
 				&currentTopicConfig,
 				algoReconciler.request,
-				algoReconciler.apiReader,
-				algoReconciler.client,
+				algoReconciler.manager,
 				algoReconciler.scheme)
 			topicReconciler.Reconcile()
-		}(*output.Topic)
+		}(topic)
 	}
 
 	return nil
@@ -334,7 +289,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 // ReconcileService creates or updates all services for the algos
 func (algoReconciler *AlgoReconciler) ReconcileService() error {
 
-	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.manager, algoReconciler.request)
 
 	// Check to see if the metrics / health service is already created (All algos share the same service port)
 	opts := []clientpkg.ListOption{
@@ -662,7 +617,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, existing
 
 	}
 
-	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.manager, algoReconciler.request)
 	resources, resourceErr := kubeUtil.CreateResourceReqs(algoDepl.Resources)
 
 	if resourceErr != nil {
@@ -800,7 +755,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, existing
 func (algoReconciler *AlgoReconciler) createConfigMap(algoDepl *v1beta1.AlgoDeploymentV1beta1,
 	runnerConfig *v1beta1.AlgoRunnerConfig, labels map[string]string) (configMapName string, err error) {
 
-	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.manager, algoReconciler.request)
 	// Create all config mounts
 	name := fmt.Sprintf("%s-%s-%s-%s-config",
 		algoReconciler.pipelineDeployment.Spec.DeploymentOwner,
@@ -838,7 +793,7 @@ func (algoReconciler *AlgoReconciler) createConfigMap(algoDepl *v1beta1.AlgoDepl
 	}
 
 	existingConfigMap := &corev1.ConfigMap{}
-	err = algoReconciler.client.Get(context.TODO(), types.NamespacedName{Name: name,
+	err = algoReconciler.manager.GetClient().Get(context.TODO(), types.NamespacedName{Name: name,
 		Namespace: algoReconciler.pipelineDeployment.Spec.DeploymentNamespace},
 		existingConfigMap)
 
@@ -898,7 +853,7 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 	})
 
 	// Append the storage server connection
-	kubeUtil := utils.NewKubeUtil(algoReconciler.client, algoReconciler.request)
+	kubeUtil := utils.NewKubeUtil(algoReconciler.manager, algoReconciler.request)
 	storageSecretName, err := kubeUtil.GetStorageSecretName(&algoReconciler.pipelineDeployment.Spec)
 	if storageSecretName != "" && err == nil {
 		envVars = append(envVars, corev1.EnvVar{
@@ -937,11 +892,15 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 	// Append all KafkaTopic Outputs
 	for _, output := range algoDepl.Spec.Outputs {
 		if *output.OutputDeliveryType == v1beta1.OUTPUTDELIVERYTYPES_KAFKA_TOPIC {
-			topicName := utils.GetTopicName(output.Topic.TopicName, &algoReconciler.pipelineDeployment.Spec)
-			envVars = append(envVars, corev1.EnvVar{
-				Name:  fmt.Sprintf("KAFKA_INPUT_TOPIC_%s", strings.ToUpper(output.Name)),
-				Value: topicName,
-			})
+			for _, tc := range algoDepl.Topics {
+				if output.Name == tc.OutputName {
+					topicName := utils.GetTopicName(tc.TopicName, &algoReconciler.pipelineDeployment.Spec)
+					envVars = append(envVars, corev1.EnvVar{
+						Name:  fmt.Sprintf("KAFKA_OUTPUT_TOPIC_%s", strings.ToUpper(output.Name)),
+						Value: topicName,
+					})
+				}
+			}
 		}
 	}
 

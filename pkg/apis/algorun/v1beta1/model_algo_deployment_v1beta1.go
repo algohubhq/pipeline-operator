@@ -20,6 +20,7 @@ type AlgoDeploymentV1beta1 struct {
 	RetryStrategy *TopicRetryStrategyModel `json:"retryStrategy,omitempty"`
 	WriteAllOutputs bool `json:"writeAllOutputs,omitempty"`
 	TimeoutSeconds int32 `json:"timeoutSeconds,omitempty"`
+	Topics []TopicConfigModel `json:"topics,omitempty"`
 	AlgoRunnerImage *ContainerImageModel `json:"algoRunnerImage,omitempty"`
 	Replicas int32 `json:"replicas,omitempty"`
 	Resources *ResourceRequirementsV1 `json:"resources,omitempty"`

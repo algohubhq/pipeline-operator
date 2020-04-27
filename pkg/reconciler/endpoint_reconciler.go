@@ -27,14 +27,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // NewEndpointReconciler returns a new EndpointReconciler
 func NewEndpointReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	request *reconcile.Request,
-	apiReader client.Reader,
-	client client.Client,
+	manager manager.Manager,
 	scheme *runtime.Scheme,
 	kafkaTLS bool) EndpointReconciler {
 	endpointConfig := &endpointConfig{
@@ -48,8 +48,7 @@ func NewEndpointReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 		pipelineDeployment: pipelineDeployment,
 		endpointConfig:     endpointConfig,
 		request:            request,
-		apiReader:          apiReader,
-		client:             client,
+		manager:            manager,
 		scheme:             scheme,
 		kafkaTLS:           kafkaTLS,
 	}
@@ -60,8 +59,7 @@ type EndpointReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
 	endpointConfig     *endpointConfig
 	request            *reconcile.Request
-	apiReader          client.Reader
-	client             client.Client
+	manager            manager.Manager
 	scheme             *runtime.Scheme
 	serviceConfig      *serviceConfig
 	kafkaTLS           bool
@@ -125,7 +123,7 @@ func (endpointReconciler *EndpointReconciler) Reconcile() error {
 
 func (endpointReconciler *EndpointReconciler) reconcileService() (*serviceConfig, error) {
 
-	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.manager, endpointReconciler.request)
 
 	// Check to see if the endpoint service is already created (All algos share the same service port)
 	opts := []client.ListOption{
@@ -194,8 +192,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment(labels map[str
 				"Endpoint",
 				&currentTopicConfig,
 				endpointReconciler.request,
-				endpointReconciler.apiReader,
-				endpointReconciler.client,
+				endpointReconciler.manager,
 				endpointReconciler.scheme)
 			topicReconciler.Reconcile()
 		}(*path.Topic)
@@ -215,7 +212,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment(labels map[str
 		},
 	}
 
-	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.manager, endpointReconciler.request)
 
 	var endpointName string
 	existingSf, err := kubeUtil.CheckForStatefulSet(opts)
@@ -367,7 +364,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 		},
 	}
 
-	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.manager, endpointReconciler.request)
 	existingMapping, err := kubeUtil.CheckForUnstructured(opts, schema.GroupVersionKind{
 		Group:   "getambassador.io",
 		Kind:    "Mapping",
@@ -425,7 +422,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 			log.Error(err, "Failed setting the pipeline deployment endpoint mapping controller owner")
 		}
 
-		err := endpointReconciler.client.Create(context.TODO(), newMapping)
+		err := endpointReconciler.manager.GetClient().Create(context.TODO(), newMapping)
 		if err != nil {
 			log.Error(err, "Failed creating pipeline deployment endpoint mapping")
 		}
@@ -448,7 +445,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 
 			existingMapping.Object["spec"] = spec
 
-			err := endpointReconciler.client.Update(context.TODO(), existingMapping)
+			err := endpointReconciler.manager.GetClient().Update(context.TODO(), existingMapping)
 			if err != nil {
 				log.Error(err, "Failed updating pipeline deployment endpoint mapping")
 			}
@@ -607,7 +604,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 		FailureThreshold:    3,
 	}
 
-	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.manager, endpointReconciler.request)
 	resources, resourceErr := kubeUtil.CreateResourceReqs(endpointConfig.Resources)
 
 	if resourceErr != nil {
@@ -720,7 +717,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 
 func (endpointReconciler *EndpointReconciler) createConfigMap(labels map[string]string) (configMapName string, err error) {
 
-	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.manager, endpointReconciler.request)
 	// Create all config mounts
 	name := fmt.Sprintf("%s-%s-%s-config",
 		endpointReconciler.pipelineDeployment.Spec.DeploymentOwner,
@@ -751,7 +748,7 @@ func (endpointReconciler *EndpointReconciler) createConfigMap(labels map[string]
 	}
 
 	existingConfigMap := &corev1.ConfigMap{}
-	err = endpointReconciler.client.Get(context.TODO(), types.NamespacedName{Name: name,
+	err = endpointReconciler.manager.GetClient().Get(context.TODO(), types.NamespacedName{Name: name,
 		Namespace: endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace},
 		existingConfigMap)
 
@@ -786,7 +783,7 @@ func (endpointReconciler *EndpointReconciler) createEnvVars(cr *algov1beta1.Pipe
 	envVars := []corev1.EnvVar{}
 
 	// Append the storage server connection
-	kubeUtil := utils.NewKubeUtil(endpointReconciler.client, endpointReconciler.request)
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.manager, endpointReconciler.request)
 	storageSecretName, err := kubeUtil.GetStorageSecretName(&endpointReconciler.pipelineDeployment.Spec)
 	if storageSecretName != "" && err == nil {
 		envVars = append(envVars, corev1.EnvVar{

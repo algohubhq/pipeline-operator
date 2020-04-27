@@ -1,0 +1,58 @@
+apiVersion: algo.run/v1beta1
+kind: PipelineDeployment
+metadata:
+  namespace: algorun
+  name: local-test-deployment
+spec:
+  deploymentNamespace: algorun
+  deploymentOwner: local
+  deploymentName: test-deployment
+  pipelineOwner: local
+  pipelineName: test-pipeline
+  pipelineVersionTag: "1.0"
+  kafkaBrokers: kafka-kafka-bootstrap.kafka:9093
+  endpoint:
+    replicas: 1
+    paths:
+    - name: test_http
+      contentType: text/any
+      topic:
+        outputName: test_http
+        autoName: true
+        topicName: algorun.{deploymentowner}.{deploymentname}.endpoint.0.test_http
+        autoPartition: true
+        partitions: 1
+        replicationFactor: 1
+  algos:
+  - version: "latest"
+    index: 1
+    configMounts: []
+    parameters:
+    - sortOrder: 1
+      name: transform
+      value: toUpper
+    timeoutSeconds: 60
+    topics:
+    - outputName: Text
+      autoName: true
+      topicName: algorun.{deploymentowner}.{deploymentname}.test-text-transform-http.1.text
+      autoPartition: true
+      partitions: 1
+      replicationFactor: 1
+    replicas: 1
+    algoRef:
+      name: my-test-text-transform-http
+  dataConnectors: []
+  eventHook:
+    replicas: 1
+  pipes:
+  - sourceComponentType: Endpoint
+    sourceName: Endpoint
+    sourceOutputName: test_http
+    destName: tests/test-text-transform-http:latest[1]
+    destInputName: Text
+  - sourceName: tests/test-text-transform-http:latest[1]
+    sourceOutputName: Text
+    destComponentType: EventHook
+    destName: EventHook
+    destInputName: test_event_hook

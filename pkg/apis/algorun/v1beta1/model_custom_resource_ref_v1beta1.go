@@ -11,7 +11,6 @@
 package v1beta1
 // CustomResourceRefV1beta1 struct for CustomResourceRefV1beta1
 type CustomResourceRefV1beta1 struct {
-	Namespace string `json:"namespace,omitempty"`
 	Name string `json:"name,omitempty"`
 	MatchLabels map[string]string `json:"matchLabels,omitempty"`
 }

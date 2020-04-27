@@ -51,8 +51,7 @@ type PipelineDeploymentList struct {
 type Algo struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec AlgoSpecV1beta1 `json:"spec,omitempty"`
+	Spec              AlgoSpecV1beta1 `json:"spec,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -64,14 +63,15 @@ type AlgoList struct {
 	Items           []Algo `json:"items"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 // DataConnector is the Schema for the DataConnector API
 // +kubebuilder:resource:path=dataconnectors,scope=Cluster
 // +k8s:openapi-gen=true
 type DataConnector struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec DataConnectorSpecV1beta1 `json:"spec,omitempty"`
+	Spec              DataConnectorSpecV1beta1 `json:"spec,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -84,5 +84,10 @@ type DataConnectorList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&PipelineDeployment{}, &PipelineDeploymentList{})
+	SchemeBuilder.Register(&PipelineDeployment{},
+		&PipelineDeploymentList{},
+		&Algo{},
+		&AlgoList{},
+		&DataConnector{},
+		&DataConnectorList{})
 }

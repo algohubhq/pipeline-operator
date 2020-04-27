@@ -15,5 +15,4 @@ type AlgoOutputSpec struct {
 	OutputDeliveryType *OutputDeliveryTypes `json:"outputDeliveryType"`
 	Parameter string `json:"parameter,omitempty"`
 	ContentType string `json:"contentType"`
-	Topic *TopicConfigModel `json:"topic,omitempty"`
 }

@@ -15,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -24,16 +24,15 @@ func NewTopicReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	componentName string,
 	topicConfig *v1beta1.TopicConfigModel,
 	request *reconcile.Request,
-	apiReader client.Reader,
-	client client.Client,
+	manager manager.Manager,
 	scheme *runtime.Scheme) TopicReconciler {
+
 	return TopicReconciler{
 		pipelineDeployment: pipelineDeployment,
 		componentName:      componentName,
 		topicConfig:        topicConfig,
 		request:            request,
-		apiReader:          apiReader,
-		client:             client,
+		manager:            manager,
 		scheme:             scheme,
 	}
 }
@@ -44,8 +43,7 @@ type TopicReconciler struct {
 	componentName      string
 	topicConfig        *v1beta1.TopicConfigModel
 	request            *reconcile.Request
-	apiReader          client.Reader
-	client             client.Client
+	manager            manager.Manager
 	scheme             *runtime.Scheme
 }
 
@@ -73,7 +71,8 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		Kind:    "KafkaTopic",
 		Version: "v1beta1",
 	})
-	err = topicReconciler.apiReader.Get(context.TODO(),
+	// Use the APIReader to query across namespaces
+	err = topicReconciler.manager.GetAPIReader().Get(context.TODO(),
 		types.NamespacedName{
 			Name:      resourceName,
 			Namespace: kafkaNamespace,
@@ -110,7 +109,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		// 	log.Error(err, "Failed setting the topic controller owner")
 		// }
 
-		err := topicReconciler.client.Create(context.TODO(), newTopic)
+		err := topicReconciler.manager.GetClient().Create(context.TODO(), newTopic)
 		if err != nil {
 			log.Error(err, "Failed creating topic")
 		}
@@ -134,7 +133,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 			// Update the existing spec
 			existingTopic.Spec = newTopicSpec
 
-			err := topicReconciler.client.Update(context.TODO(), existingTopic)
+			err := topicReconciler.manager.GetClient().Update(context.TODO(), existingTopic)
 			if err != nil {
 				log.Error(err, "Failed updating topic")
 			}

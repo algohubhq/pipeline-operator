@@ -1,0 +1,32 @@
+apiVersion: algo.run/v1beta1
+kind: Algo
+metadata:
+  name: my-test-text-transform-http
+spec:
+  owner: tests
+  name: test-text-transform-http
+  versions:
+  - latest: true
+    versionTag: latest
+    image:
+      repository: algohub/algo-test-go
+      tag: latest
+    entrypoint: /opt/algo-test-go/algo-test-go --input-type http
+  executor: http
+  parameters:
+  - sortOrder: 1
+    name: transform
+    value: toUpper
+  inputs:
+  - name: Text
+    isRequired: true
+    inputDeliveryType: Http
+    httpVerb: POST
+    httpPort: 8080
+    httpPath: /text
+    contentTypes:
+    - text/any
+  outputs:
+  - name: Text
+    outputDeliveryType: HttpResponse
+    contentType: Text

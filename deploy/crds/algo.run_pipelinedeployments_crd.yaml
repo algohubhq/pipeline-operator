@@ -44,8 +44,6 @@ spec:
                         type: object
                       name:
                         type: string
-                      namespace:
-                        type: string
                     type: object
                   algoRunnerImage:
                     description: ContainerImageModel struct for ContainerImageModel
@@ -396,65 +394,6 @@ spec:
                               type: string
                             parameter:
                               type: string
-                            topic:
-                              description: TopicConfigModel struct for TopicConfigModel
-                              properties:
-                                autoName:
-                                  type: boolean
-                                autoPartition:
-                                  type: boolean
-                                outputName:
-                                  type: string
-                                overrideRetryStrategy:
-                                  type: boolean
-                                partitions:
-                                  format: int32
-                                  type: integer
-                                replicationFactor:
-                                  format: int32
-                                  type: integer
-                                retryStrategy:
-                                  description: TopicRetryStrategyModel struct for
-                                    TopicRetryStrategyModel
-                                  properties:
-                                    deadLetterSuffix:
-                                      type: string
-                                    steps:
-                                      items:
-                                        description: TopicRetryStepModel struct for
-                                          TopicRetryStepModel
-                                        properties:
-                                          backoffDuration:
-                                            type: string
-                                          index:
-                                            format: int32
-                                            type: integer
-                                          repeat:
-                                            format: int32
-                                            type: integer
-                                        type: object
-                                      type: array
-                                    strategy:
-                                      description: RetryStrategies the model 'RetryStrategies'
-                                      type: string
-                                  required:
-                                  - strategy
-                                  type: object
-                                topicName:
-                                  type: string
-                                topicParams:
-                                  items:
-                                    description: TopicParamModel struct for TopicParamModel
-                                    properties:
-                                      name:
-                                        type: string
-                                      value:
-                                        type: string
-                                    type: object
-                                  type: array
-                              required:
-                              - outputName
-                              type: object
                           required:
                           - contentType
                           - name
@@ -514,6 +453,65 @@ spec:
                   timeoutSeconds:
                     format: int32
                     type: integer
+                  topics:
+                    items:
+                      description: TopicConfigModel struct for TopicConfigModel
+                      properties:
+                        autoName:
+                          type: boolean
+                        autoPartition:
+                          type: boolean
+                        outputName:
+                          type: string
+                        overrideRetryStrategy:
+                          type: boolean
+                        partitions:
+                          format: int32
+                          type: integer
+                        replicationFactor:
+                          format: int32
+                          type: integer
+                        retryStrategy:
+                          description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
+                          properties:
+                            deadLetterSuffix:
+                              type: string
+                            steps:
+                              items:
+                                description: TopicRetryStepModel struct for TopicRetryStepModel
+                                properties:
+                                  backoffDuration:
+                                    type: string
+                                  index:
+                                    format: int32
+                                    type: integer
+                                  repeat:
+                                    format: int32
+                                    type: integer
+                                type: object
+                              type: array
+                            strategy:
+                              description: RetryStrategies the model 'RetryStrategies'
+                              type: string
+                          required:
+                          - strategy
+                          type: object
+                        topicName:
+                          type: string
+                        topicParams:
+                          items:
+                            description: TopicParamModel struct for TopicParamModel
+                            properties:
+                              name:
+                                type: string
+                              value:
+                                type: string
+                            type: object
+                          type: array
+                      required:
+                      - outputName
+                      type: object
+                    type: array
                   version:
                     type: string
                   writeAllOutputs:
@@ -578,8 +576,6 @@ spec:
                           type: string
                         type: object
                       name:
-                        type: string
-                      namespace:
                         type: string
                     type: object
                   index:

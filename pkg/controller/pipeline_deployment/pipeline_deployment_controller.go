@@ -2,6 +2,8 @@ package pipelinedeploymentcontroller
 
 import (
 	"context"
+	e "errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -183,6 +185,38 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 
 	var wg sync.WaitGroup
 
+	// Populate all algoRefs
+	// If the algoRef is set, try to pull from the kubernetes cluster
+	reqLogger.Info("Populating all AlgoRefs")
+	for i, algoDepl := range deployment.Spec.Algos {
+		if algoDepl.AlgoRef != nil {
+			kubeUtil := utils.NewKubeUtil(r.manager, &request)
+			listOpt := kubeUtil.GetListOptionsFromRef(algoDepl.AlgoRef)
+			algo, err := kubeUtil.CheckForAlgoCR(listOpt)
+			if err != nil || algo == nil {
+				err := e.New(fmt.Sprintf("algoRef set but not Algo matching Algo found [%v]", algoDepl.AlgoRef))
+				reqLogger.Error(err, "Failed to populate AlgoRef")
+			}
+			deployment.Spec.Algos[i].Spec = &algo.Spec
+		}
+	}
+
+	// Populate all dataConnectorRefs
+	// If the dataConnectorRef is set, try to pull from the kubernetes cluster
+	reqLogger.Info("Populating all DataConnectorRefs")
+	for i, dcDepl := range deployment.Spec.DataConnectors {
+		if dcDepl.DataConnectorRef != nil {
+			kubeUtil := utils.NewKubeUtil(r.manager, &request)
+			listOpt := kubeUtil.GetListOptionsFromRef(dcDepl.DataConnectorRef)
+			dc, err := kubeUtil.CheckForDataConnectorCR(listOpt)
+			if err != nil || dc == nil {
+				err := e.New(fmt.Sprintf("DataConnectorRef set but no Data Connector matching Data Connector found [%v]", dcDepl.DataConnectorRef))
+				reqLogger.Error(err, "Failed to populate DataConnectorRef")
+			}
+			deployment.Spec.DataConnectors[i].Spec = &dc.Spec
+		}
+	}
+
 	// Get all kafka topic configs
 	allTopicConfigs := utils.GetAllTopicConfigs(&deployment.Spec)
 
@@ -190,7 +224,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	// NOTE: We aren't adding this reconciliation to the waitgroup.
 	reqLogger.Info("Reconciling the Storage Bucket")
 	go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
-		bucketReconciler := recon.NewBucketReconciler(deployment, &request, r.client)
+		bucketReconciler := recon.NewBucketReconciler(deployment, &request, r.manager)
 		err = bucketReconciler.Reconcile()
 		if err != nil {
 			reqLogger.Error(err, "Error in Bucket reconcile.")
@@ -221,8 +255,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 				&currentAlgoDepl,
 				allTopicConfigs,
 				&request,
-				r.manager.GetAPIReader(),
-				r.client,
+				r.manager,
 				r.scheme,
 				kafkaTLS)
 
@@ -247,8 +280,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		algoReconciler, err := recon.NewAlgoServiceReconciler(deployment,
 			allTopicConfigs,
 			&request,
-			r.manager.GetAPIReader(),
-			r.client,
+			r.manager,
 			r.scheme,
 			kafkaTLS)
 		if err != nil {
@@ -270,8 +302,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 				&currentDcDepl,
 				allTopicConfigs,
 				&request,
-				r.manager.GetAPIReader(),
-				r.client,
+				r.manager,
 				r.scheme)
 			if err != nil {
 				msg := "Failed to create data connector reconciler"
@@ -293,7 +324,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		reqLogger.Info("Reconciling Event Hooks")
 		wg.Add(1)
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
-			hookReconciler := recon.NewEventHookReconciler(deployment, allTopicConfigs, &request, r.client, r.scheme, kafkaTLS)
+			hookReconciler := recon.NewEventHookReconciler(deployment, allTopicConfigs, &request, r.manager, r.scheme, kafkaTLS)
 			err = hookReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in Hook reconcile.")
@@ -309,8 +340,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
 			endpointReconciler := recon.NewEndpointReconciler(deployment,
 				&request,
-				r.manager.GetAPIReader(),
-				r.client,
+				r.manager,
 				r.scheme,
 				kafkaTLS)
 			err = endpointReconciler.Reconcile()

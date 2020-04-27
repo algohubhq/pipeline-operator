@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -30,7 +31,7 @@ import (
 func NewEventHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
-	client client.Client,
+	manager manager.Manager,
 	scheme *runtime.Scheme,
 	kafkaTLS bool) EventHookReconciler {
 
@@ -49,7 +50,7 @@ func NewEventHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 		hookConfig:         hookConfig,
 		allTopics:          allTopicConfigs,
 		request:            request,
-		client:             client,
+		manager:            manager,
 		scheme:             scheme,
 		kafkaTLS:           kafkaTLS,
 	}
@@ -61,7 +62,7 @@ type EventHookReconciler struct {
 	hookConfig         *eventHookConfig
 	allTopics          map[string]*v1beta1.TopicConfigModel
 	request            *reconcile.Request
-	client             client.Client
+	manager            manager.Manager
 	scheme             *runtime.Scheme
 	kafkaTLS           bool
 }
@@ -114,7 +115,7 @@ func (hookReconciler *EventHookReconciler) Reconcile() error {
 	// Create the configmap for the endpoint
 	configMapName, err := hookReconciler.createConfigMap(labels)
 
-	kubeUtil := utils.NewKubeUtil(hookReconciler.client, hookReconciler.request)
+	kubeUtil := utils.NewKubeUtil(hookReconciler.manager, hookReconciler.request)
 
 	var hookName string
 	existingDeployment, err := kubeUtil.CheckForDeployment(opts)
@@ -313,7 +314,7 @@ func (hookReconciler *EventHookReconciler) createDeploymentSpec(name string, lab
 		FailureThreshold:    3,
 	}
 
-	kubeUtil := utils.NewKubeUtil(hookReconciler.client, hookReconciler.request)
+	kubeUtil := utils.NewKubeUtil(hookReconciler.manager, hookReconciler.request)
 	resources, resourceErr := kubeUtil.CreateResourceReqs(hookConfig.Resources)
 
 	if resourceErr != nil {
@@ -409,7 +410,7 @@ func (hookReconciler *EventHookReconciler) createDeploymentSpec(name string, lab
 
 func (hookReconciler *EventHookReconciler) createConfigMap(labels map[string]string) (configMapName string, err error) {
 
-	kubeUtil := utils.NewKubeUtil(hookReconciler.client, hookReconciler.request)
+	kubeUtil := utils.NewKubeUtil(hookReconciler.manager, hookReconciler.request)
 	// Create all config mounts
 	name := fmt.Sprintf("%s-%s-%s-config",
 		hookReconciler.pipelineDeployment.Spec.DeploymentOwner,
@@ -440,7 +441,7 @@ func (hookReconciler *EventHookReconciler) createConfigMap(labels map[string]str
 	}
 
 	existingConfigMap := &corev1.ConfigMap{}
-	err = hookReconciler.client.Get(context.TODO(), types.NamespacedName{Name: name,
+	err = hookReconciler.manager.GetClient().Get(context.TODO(), types.NamespacedName{Name: name,
 		Namespace: hookReconciler.pipelineDeployment.Spec.DeploymentNamespace},
 		existingConfigMap)
 

@@ -17,8 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -27,8 +27,7 @@ func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployme
 	dataConnectorSpec *v1beta1.DataConnectorDeploymentV1beta1,
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
-	apiReader client.Reader,
-	client client.Client,
+	manager manager.Manager,
 	scheme *runtime.Scheme) (*DataConnectorReconciler, error) {
 
 	// Ensure the algo has a matching version defined
@@ -49,8 +48,7 @@ func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployme
 		dataConnectorSpec:  dataConnectorSpec,
 		allTopicConfigs:    allTopicConfigs,
 		request:            request,
-		apiReader:          apiReader,
-		client:             client,
+		manager:            manager,
 		scheme:             scheme,
 	}, nil
 }
@@ -62,8 +60,7 @@ type DataConnectorReconciler struct {
 	activeDataConnectorVersion *v1beta1.DataConnectorVersionModel
 	allTopicConfigs            map[string]*v1beta1.TopicConfigModel
 	request                    *reconcile.Request
-	apiReader                  client.Reader
-	client                     client.Client
+	manager                    manager.Manager
 	scheme                     *runtime.Scheme
 }
 
@@ -82,8 +79,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 				dcName,
 				&currentTopicConfig,
 				dataConnectorReconciler.request,
-				dataConnectorReconciler.apiReader,
-				dataConnectorReconciler.client,
+				dataConnectorReconciler.manager,
 				dataConnectorReconciler.scheme)
 			topicReconciler.Reconcile()
 		}(topic)
@@ -112,7 +108,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 		Kind:    "KafkaConnect",
 		Version: "v1beta1",
 	})
-	err := dataConnectorReconciler.client.Get(context.TODO(),
+	err := dataConnectorReconciler.manager.GetClient().Get(context.TODO(),
 		types.NamespacedName{
 			Name:      kcName,
 			Namespace: dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace,
@@ -186,7 +182,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 			log.Error(err, "Failed setting the kafka connect cluster controller owner")
 		}
 
-		err := dataConnectorReconciler.client.Create(context.TODO(), newDc)
+		err := dataConnectorReconciler.manager.GetClient().Create(context.TODO(), newDc)
 		if err != nil {
 			log.Error(err, "Failed creating kafka connect cluster")
 		}

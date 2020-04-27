@@ -13,18 +13,18 @@ import (
 
 	"github.com/minio/minio-go/v6"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // NewBucketReconciler returns a new BucketReconciler
 func NewBucketReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	request *reconcile.Request,
-	client client.Client) BucketReconciler {
+	manager manager.Manager) BucketReconciler {
 	return BucketReconciler{
 		pipelineDeployment: pipelineDeployment,
 		request:            request,
-		client:             client,
+		manager:            manager,
 	}
 }
 
@@ -32,20 +32,20 @@ func NewBucketReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 type BucketReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
 	request            *reconcile.Request
-	client             client.Client
+	manager            manager.Manager
 }
 
 // Reconcile executes the Storage Bucket reconciliation process
 func (bucketReconciler *BucketReconciler) Reconcile() error {
 
-	kubeUtil := utils.NewKubeUtil(bucketReconciler.client, bucketReconciler.request)
+	kubeUtil := utils.NewKubeUtil(bucketReconciler.manager, bucketReconciler.request)
 	storageSecretName, err := kubeUtil.GetStorageSecretName(&bucketReconciler.pipelineDeployment.Spec)
 
 	if storageSecretName != "" && err == nil {
 
 		// Get the MC config secret
 		storageSecret := &corev1.Secret{}
-		err := bucketReconciler.client.Get(
+		err := bucketReconciler.manager.GetClient().Get(
 			context.TODO(),
 			types.NamespacedName{
 				Name:      storageSecretName,

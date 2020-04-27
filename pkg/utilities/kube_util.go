@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
@@ -25,17 +26,17 @@ import (
 var log = logf.Log.WithName("utilities")
 
 // NewKubeUtil returns a new DeploymentUtil
-func NewKubeUtil(client client.Client,
+func NewKubeUtil(manager manager.Manager,
 	request *reconcile.Request) KubeUtil {
 	return KubeUtil{
-		client:  client,
 		request: request,
+		manager: manager,
 	}
 }
 
 // KubeUtil some helper methods for managing kubernetes deployments
 type KubeUtil struct {
-	client  client.Client
+	manager manager.Manager
 	request *reconcile.Request
 }
 
@@ -43,7 +44,7 @@ func (d *KubeUtil) CheckForDeployment(listOptions []client.ListOption) (*appsv1.
 
 	deploymentList := &appsv1.DeploymentList{}
 	ctx := context.TODO()
-	err := d.client.List(ctx, deploymentList, listOptions...)
+	err := d.manager.GetClient().List(ctx, deploymentList, listOptions...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
@@ -65,7 +66,7 @@ func (d *KubeUtil) CreateDeployment(deployment *appsv1.Deployment) (deploymentNa
 		"labels": deployment.Labels,
 	}
 
-	if err := d.client.Create(context.TODO(), deployment); err != nil {
+	if err := d.manager.GetClient().Create(context.TODO(), deployment); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed creating the deployment")
 		return "", err
@@ -85,7 +86,7 @@ func (d *KubeUtil) UpdateDeployment(deployment *appsv1.Deployment) (deploymentNa
 		"labels": deployment.Labels,
 	}
 
-	if err := d.client.Update(context.TODO(), deployment); err != nil {
+	if err := d.manager.GetClient().Update(context.TODO(), deployment); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed updating the deployment")
 		return "", err
@@ -103,7 +104,7 @@ func (d *KubeUtil) CheckForSecret(listOptions []client.ListOption) (*corev1.Secr
 
 	secretList := &corev1.SecretList{}
 	ctx := context.TODO()
-	err := d.client.List(ctx, secretList, listOptions...)
+	err := d.manager.GetClient().List(ctx, secretList, listOptions...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
@@ -123,7 +124,7 @@ func (d *KubeUtil) CheckForService(listOptions []client.ListOption) (*corev1.Ser
 
 	serviceList := &corev1.ServiceList{}
 	ctx := context.TODO()
-	err := d.client.List(ctx, serviceList, listOptions...)
+	err := d.manager.GetClient().List(ctx, serviceList, listOptions...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
@@ -145,7 +146,7 @@ func (d *KubeUtil) CreateService(service *corev1.Service) (serviceName string, e
 		"labels": service.Labels,
 	}
 
-	if err := d.client.Create(context.TODO(), service); err != nil {
+	if err := d.manager.GetClient().Create(context.TODO(), service); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed creating the service")
 		return "", err
@@ -163,7 +164,7 @@ func (d *KubeUtil) CheckForConfigMap(listOptions []client.ListOption) (*corev1.C
 
 	configMapList := &corev1.ConfigMapList{}
 	ctx := context.TODO()
-	err := d.client.List(ctx, configMapList, listOptions...)
+	err := d.manager.GetClient().List(ctx, configMapList, listOptions...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
@@ -185,7 +186,7 @@ func (d *KubeUtil) CreateConfigMap(configMap *corev1.ConfigMap) (configMapName s
 		"labels": configMap.Labels,
 	}
 
-	if err := d.client.Create(context.TODO(), configMap); err != nil {
+	if err := d.manager.GetClient().Create(context.TODO(), configMap); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed creating the ConfigMap")
 		return "", err
@@ -205,7 +206,7 @@ func (d *KubeUtil) UpdateConfigMap(configMap *corev1.ConfigMap) (configMapName s
 		"labels": configMap.Labels,
 	}
 
-	if err := d.client.Update(context.TODO(), configMap); err != nil {
+	if err := d.manager.GetClient().Update(context.TODO(), configMap); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed updating the ConfigMap")
 		return "", err
@@ -223,7 +224,7 @@ func (d *KubeUtil) CheckForStatefulSet(listOptions []client.ListOption) (*appsv1
 
 	statefulSetList := &appsv1.StatefulSetList{}
 	ctx := context.TODO()
-	err := d.client.List(ctx, statefulSetList, listOptions...)
+	err := d.manager.GetClient().List(ctx, statefulSetList, listOptions...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
@@ -245,7 +246,7 @@ func (d *KubeUtil) CreateStatefulSet(statefulSet *appsv1.StatefulSet) (sfName st
 		"labels": statefulSet.Labels,
 	}
 
-	if err := d.client.Create(context.TODO(), statefulSet); err != nil {
+	if err := d.manager.GetClient().Create(context.TODO(), statefulSet); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed creating the StatefulSet")
 		return "", err
@@ -265,7 +266,7 @@ func (d *KubeUtil) UpdateStatefulSet(statefulSet *appsv1.StatefulSet) (sfName st
 		"labels": statefulSet.Labels,
 	}
 
-	if err := d.client.Update(context.TODO(), statefulSet); err != nil {
+	if err := d.manager.GetClient().Update(context.TODO(), statefulSet); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed updating the StatefulSet")
 		return "", err
@@ -279,11 +280,18 @@ func (d *KubeUtil) UpdateStatefulSet(statefulSet *appsv1.StatefulSet) (sfName st
 
 }
 
-func (d *KubeUtil) CheckForAlgo(listOptions []client.ListOption) (*v1beta1.Algo, error) {
+func (d *KubeUtil) CheckForAlgoCR(listOptions []client.ListOption) (*v1beta1.Algo, error) {
 
 	algoList := &v1beta1.AlgoList{}
+	algoList.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "algo.run",
+		Kind:    "Algo",
+		Version: "v1beta1",
+	})
+
 	ctx := context.TODO()
-	err := d.client.List(ctx, algoList, listOptions...)
+	// Use the APIReader to query across namespaces
+	err := d.manager.GetAPIReader().List(ctx, algoList, listOptions...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
@@ -299,12 +307,39 @@ func (d *KubeUtil) CheckForAlgo(listOptions []client.ListOption) (*v1beta1.Algo,
 
 }
 
+func (d *KubeUtil) CheckForDataConnectorCR(listOptions []client.ListOption) (*v1beta1.DataConnector, error) {
+
+	dcList := &v1beta1.DataConnectorList{}
+	dcList.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "algo.run",
+		Kind:    "DataConnector",
+		Version: "v1beta1",
+	})
+
+	ctx := context.TODO()
+	// Use the APIReader to query across namespaces
+	err := d.manager.GetAPIReader().List(ctx, dcList, listOptions...)
+
+	if err != nil && errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	if len(dcList.Items) > 0 {
+		return &dcList.Items[0], nil
+	}
+
+	return nil, nil
+
+}
+
 func (d *KubeUtil) CheckForUnstructured(listOptions []client.ListOption, groupVersionKind schema.GroupVersionKind) (*unstructured.Unstructured, error) {
 
 	unstructuredList := &unstructured.UnstructuredList{}
 	unstructuredList.SetGroupVersionKind(groupVersionKind)
 	ctx := context.TODO()
-	err := d.client.List(ctx, unstructuredList, listOptions...)
+	err := d.manager.GetClient().List(ctx, unstructuredList, listOptions...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
@@ -379,7 +414,7 @@ func (d *KubeUtil) CheckForHorizontalPodAutoscaler(listOptions []client.ListOpti
 
 	hpaList := &autoscalev2beta2.HorizontalPodAutoscalerList{}
 	ctx := context.TODO()
-	err := d.client.List(ctx, hpaList, listOptions...)
+	err := d.manager.GetClient().List(ctx, hpaList, listOptions...)
 
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
@@ -401,7 +436,7 @@ func (d *KubeUtil) CreateHorizontalPodAutoscaler(hpa *autoscalev2beta2.Horizonta
 		"labels": hpa.Labels,
 	}
 
-	if err := d.client.Create(context.TODO(), hpa); err != nil {
+	if err := d.manager.GetClient().Create(context.TODO(), hpa); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed creating the HorizontalPodAutoscaler")
 		return "", err
@@ -421,7 +456,7 @@ func (d *KubeUtil) UpdateHorizontalPodAutoscaler(hpa *autoscalev2beta2.Horizonta
 		"labels": hpa.Labels,
 	}
 
-	if err := d.client.Update(context.TODO(), hpa); err != nil {
+	if err := d.manager.GetClient().Update(context.TODO(), hpa); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed updating the Horizontal Pod Autoscaler")
 		return "", err
@@ -545,7 +580,7 @@ func (d *KubeUtil) GetStorageSecretName(pipelineSpec *v1beta1.PipelineDeployment
 		Namespace: pipelineSpec.DeploymentNamespace,
 	}
 
-	err = d.client.Get(context.TODO(), namespacedName, secret)
+	err = d.manager.GetClient().Get(context.TODO(), namespacedName, secret)
 	if err != nil {
 		if errors.IsNotFound(err) {
 
@@ -556,7 +591,7 @@ func (d *KubeUtil) GetStorageSecretName(pipelineSpec *v1beta1.PipelineDeployment
 				Namespace: pipelineSpec.DeploymentNamespace,
 			}
 
-			err = d.client.Get(context.TODO(), namespacedName, secret)
+			err = d.manager.GetClient().Get(context.TODO(), namespacedName, secret)
 
 			if err != nil {
 				return "", err
@@ -574,5 +609,33 @@ func (d *KubeUtil) GetStorageSecretName(pipelineSpec *v1beta1.PipelineDeployment
 	}
 
 	return "", err
+
+}
+
+func (d *KubeUtil) GetListOptionsFromRef(crRef *algov1beta1.CustomResourceRefV1beta1) []client.ListOption {
+
+	opts := []client.ListOption{}
+
+	if len(crRef.MatchLabels) != 0 {
+		matchLabels := client.MatchingLabels{}
+		for key, value := range crRef.MatchLabels {
+			matchLabels[key] = value
+		}
+		nsOpt := []client.ListOption{
+			matchLabels,
+		}
+		opts = append(opts, nsOpt...)
+	}
+
+	if crRef.Name != "" {
+		nameOpt := []client.ListOption{
+			client.MatchingFields{
+				"metadata.name": crRef.Name,
+			},
+		}
+		opts = append(opts, nameOpt...)
+	}
+
+	return opts
 
 }
