@@ -145,7 +145,8 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 
 }
 
-func (topicReconciler *TopicReconciler) buildTopicSpec(pipelineSpec algov1beta1.PipelineDeploymentSpecV1beta1, topicConfig *algov1beta1.TopicConfigModel) (kafkav1beta1.KafkaTopicSpec, error) {
+func (topicReconciler *TopicReconciler) buildTopicSpec(pipelineSpec algov1beta1.PipelineDeploymentSpecV1beta1,
+	topicConfig *algov1beta1.TopicConfigModel) (kafkav1beta1.KafkaTopicSpec, error) {
 
 	var topicPartitions int64 = 1
 	if topicConfig.AutoPartition {
@@ -172,7 +173,7 @@ func (topicReconciler *TopicReconciler) buildTopicSpec(pipelineSpec algov1beta1.
 
 				// Find all destination Sinks
 				for _, dcConfig := range pipelineSpec.DataConnectors {
-					dcName := fmt.Sprintf("%s:%s[%d]", dcConfig.Name, dcConfig.Version, dcConfig.Index)
+					dcName := fmt.Sprintf("%s:%s[%d]", dcConfig.Spec.Name, dcConfig.Version, dcConfig.Index)
 					if dcName == pipe.DestName {
 						maxPartitions := utils.Max(int64(dcConfig.Replicas), topicPartitions)
 						if dcConfig.Autoscaling != nil {

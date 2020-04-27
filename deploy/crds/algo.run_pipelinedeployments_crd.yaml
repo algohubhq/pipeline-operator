@@ -33,8 +33,20 @@ spec:
           properties:
             algos:
               items:
-                description: AlgoSpec struct for AlgoSpec
+                description: AlgoDeploymentV1beta1 struct for AlgoDeploymentV1beta1
                 properties:
+                  algoRef:
+                    description: CustomResourceRefV1beta1 struct for CustomResourceRefV1beta1
+                    properties:
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    type: object
                   algoRunnerImage:
                     description: ContainerImageModel struct for ContainerImageModel
                     properties:
@@ -105,63 +117,9 @@ spec:
                       - name
                       type: object
                     type: array
-                  entrypoint:
-                    type: string
-                  executor:
-                    description: Executors the model 'Executors'
-                    type: string
-                  gpuEnabled:
-                    type: boolean
-                  image:
-                    description: ContainerImageModel struct for ContainerImageModel
-                    properties:
-                      imagePullPolicy:
-                        description: ImagePullPolicies the model 'ImagePullPolicies'
-                        type: string
-                      repository:
-                        type: string
-                      tag:
-                        type: string
-                    type: object
                   index:
                     format: int32
                     type: integer
-                  inputs:
-                    items:
-                      description: AlgoInputSpec struct for AlgoInputSpec
-                      properties:
-                        contentTypes:
-                          items:
-                            type: string
-                          type: array
-                        environmentVariable:
-                          type: string
-                        httpHeaders:
-                          type: string
-                        httpPath:
-                          type: string
-                        httpPort:
-                          format: int32
-                          type: integer
-                        httpVerb:
-                          type: string
-                        inputDeliveryType:
-                          description: InputDeliveryTypes the model 'InputDeliveryTypes'
-                          type: string
-                        isRequired:
-                          type: boolean
-                        name:
-                          type: string
-                        parameter:
-                          type: string
-                        parameterDelimiter:
-                          type: string
-                      required:
-                      - contentTypes
-                      - inputDeliveryType
-                      - name
-                      type: object
-                    type: array
                   livenessProbe:
                     description: ProbeV1 struct for ProbeV1
                     properties:
@@ -241,86 +199,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  name:
-                    type: string
-                  outputs:
-                    items:
-                      description: AlgoOutputSpec struct for AlgoOutputSpec
-                      properties:
-                        contentType:
-                          type: string
-                        name:
-                          type: string
-                        outputDeliveryType:
-                          description: OutputDeliveryTypes the model 'OutputDeliveryTypes'
-                          type: string
-                        parameter:
-                          type: string
-                        topic:
-                          description: TopicConfigModel struct for TopicConfigModel
-                          properties:
-                            autoName:
-                              type: boolean
-                            autoPartition:
-                              type: boolean
-                            outputName:
-                              type: string
-                            overrideRetryStrategy:
-                              type: boolean
-                            partitions:
-                              format: int32
-                              type: integer
-                            replicationFactor:
-                              format: int32
-                              type: integer
-                            retryStrategy:
-                              description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
-                              properties:
-                                deadLetterSuffix:
-                                  type: string
-                                steps:
-                                  items:
-                                    description: TopicRetryStepModel struct for TopicRetryStepModel
-                                    properties:
-                                      backoffDuration:
-                                        type: string
-                                      index:
-                                        format: int32
-                                        type: integer
-                                      repeat:
-                                        format: int32
-                                        type: integer
-                                    type: object
-                                  type: array
-                                strategy:
-                                  description: RetryStrategies the model 'RetryStrategies'
-                                  type: string
-                              required:
-                              - strategy
-                              type: object
-                            topicName:
-                              type: string
-                            topicParams:
-                              items:
-                                description: TopicParamModel struct for TopicParamModel
-                                properties:
-                                  name:
-                                    type: string
-                                  value:
-                                    type: string
-                                type: object
-                              type: array
-                          required:
-                          - outputName
-                          type: object
-                      required:
-                      - contentType
-                      - name
-                      - outputDeliveryType
-                      type: object
-                    type: array
-                  owner:
-                    type: string
                   parameters:
                     items:
                       description: AlgoParamSpec struct for AlgoParamSpec
@@ -459,6 +337,180 @@ spec:
                     required:
                     - strategy
                     type: object
+                  spec:
+                    description: AlgoSpecV1beta1 struct for AlgoSpecV1beta1
+                    properties:
+                      executor:
+                        description: Executors the model 'Executors'
+                        type: string
+                      gpuEnabled:
+                        type: boolean
+                      inputs:
+                        items:
+                          description: AlgoInputSpec struct for AlgoInputSpec
+                          properties:
+                            contentTypes:
+                              items:
+                                type: string
+                              type: array
+                            environmentVariable:
+                              type: string
+                            httpHeaders:
+                              type: string
+                            httpPath:
+                              type: string
+                            httpPort:
+                              format: int32
+                              type: integer
+                            httpVerb:
+                              type: string
+                            inputDeliveryType:
+                              description: InputDeliveryTypes the model 'InputDeliveryTypes'
+                              type: string
+                            isRequired:
+                              type: boolean
+                            name:
+                              type: string
+                            parameter:
+                              type: string
+                            parameterDelimiter:
+                              type: string
+                          required:
+                          - contentTypes
+                          - inputDeliveryType
+                          - name
+                          type: object
+                        type: array
+                      name:
+                        type: string
+                      outputs:
+                        items:
+                          description: AlgoOutputSpec struct for AlgoOutputSpec
+                          properties:
+                            contentType:
+                              type: string
+                            name:
+                              type: string
+                            outputDeliveryType:
+                              description: OutputDeliveryTypes the model 'OutputDeliveryTypes'
+                              type: string
+                            parameter:
+                              type: string
+                            topic:
+                              description: TopicConfigModel struct for TopicConfigModel
+                              properties:
+                                autoName:
+                                  type: boolean
+                                autoPartition:
+                                  type: boolean
+                                outputName:
+                                  type: string
+                                overrideRetryStrategy:
+                                  type: boolean
+                                partitions:
+                                  format: int32
+                                  type: integer
+                                replicationFactor:
+                                  format: int32
+                                  type: integer
+                                retryStrategy:
+                                  description: TopicRetryStrategyModel struct for
+                                    TopicRetryStrategyModel
+                                  properties:
+                                    deadLetterSuffix:
+                                      type: string
+                                    steps:
+                                      items:
+                                        description: TopicRetryStepModel struct for
+                                          TopicRetryStepModel
+                                        properties:
+                                          backoffDuration:
+                                            type: string
+                                          index:
+                                            format: int32
+                                            type: integer
+                                          repeat:
+                                            format: int32
+                                            type: integer
+                                        type: object
+                                      type: array
+                                    strategy:
+                                      description: RetryStrategies the model 'RetryStrategies'
+                                      type: string
+                                  required:
+                                  - strategy
+                                  type: object
+                                topicName:
+                                  type: string
+                                topicParams:
+                                  items:
+                                    description: TopicParamModel struct for TopicParamModel
+                                    properties:
+                                      name:
+                                        type: string
+                                      value:
+                                        type: string
+                                    type: object
+                                  type: array
+                              required:
+                              - outputName
+                              type: object
+                          required:
+                          - contentType
+                          - name
+                          - outputDeliveryType
+                          type: object
+                        type: array
+                      owner:
+                        type: string
+                      parameters:
+                        items:
+                          description: AlgoParamSpec struct for AlgoParamSpec
+                          properties:
+                            name:
+                              type: string
+                            required:
+                              type: boolean
+                            sortOrder:
+                              format: int32
+                              type: integer
+                            value:
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                      versions:
+                        items:
+                          description: AlgoVersionModel struct for AlgoVersionModel
+                          properties:
+                            entrypoint:
+                              type: string
+                            image:
+                              description: ContainerImageModel struct for ContainerImageModel
+                              properties:
+                                imagePullPolicy:
+                                  description: ImagePullPolicies the model 'ImagePullPolicies'
+                                  type: string
+                                repository:
+                                  type: string
+                                tag:
+                                  type: string
+                              type: object
+                            latest:
+                              type: boolean
+                            versionTag:
+                              type: string
+                          required:
+                          - image
+                          - versionTag
+                          type: object
+                        type: array
+                    required:
+                    - name
+                    - owner
+                    - versions
+                    type: object
                   timeoutSeconds:
                     format: int32
                     type: integer
@@ -467,16 +519,13 @@ spec:
                   writeAllOutputs:
                     type: boolean
                 required:
-                - image
                 - index
-                - name
-                - owner
                 - version
                 type: object
               type: array
             dataConnectors:
               items:
-                description: DataConnectorSpec struct for DataConnectorSpec
+                description: DataConnectorDeploymentV1beta1 struct for DataConnectorDeploymentV1beta1
                 properties:
                   autoscaling:
                     description: AutoScalingSpec struct for AutoScalingSpec
@@ -521,20 +570,16 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  connectorClass:
-                    type: string
-                  dataConnectorType:
-                    description: DataConnectorTypes the model 'DataConnectorTypes'
-                    type: string
-                  image:
-                    description: ContainerImageModel struct for ContainerImageModel
+                  dataConnectorRef:
+                    description: CustomResourceRefV1beta1 struct for CustomResourceRefV1beta1
                     properties:
-                      imagePullPolicy:
-                        description: ImagePullPolicies the model 'ImagePullPolicies'
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      name:
                         type: string
-                      repository:
-                        type: string
-                      tag:
+                      namespace:
                         type: string
                     type: object
                   index:
@@ -619,8 +664,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  name:
-                    type: string
                   options:
                     items:
                       description: DataConnectorOptionModel struct for DataConnectorOptionModel
@@ -755,6 +798,80 @@ spec:
                           type: string
                         type: object
                     type: object
+                  spec:
+                    description: DataConnectorSpecV1beta1 struct for DataConnectorSpecV1beta1
+                    properties:
+                      connectorClass:
+                        type: string
+                      dataConnectorType:
+                        description: DataConnectorTypes the model 'DataConnectorTypes'
+                        type: string
+                      name:
+                        type: string
+                      options:
+                        items:
+                          description: DataConnectorOptionModel struct for DataConnectorOptionModel
+                          properties:
+                            dataType:
+                              description: DataTypeModel struct for DataTypeModel
+                              properties:
+                                mask:
+                                  type: string
+                                name:
+                                  description: DataTypes the model 'DataTypes'
+                                  type: string
+                                options:
+                                  items:
+                                    type: string
+                                  type: array
+                                precision:
+                                  format: int32
+                                  type: integer
+                                regex:
+                                  type: string
+                                scale:
+                                  format: int32
+                                  type: integer
+                              required:
+                              - name
+                              type: object
+                            description:
+                              type: string
+                            name:
+                              type: string
+                            required:
+                              type: boolean
+                            sortOrder:
+                              format: int32
+                              type: integer
+                            value:
+                              type: string
+                          type: object
+                        type: array
+                      versions:
+                        items:
+                          description: DataConnectorVersionModel struct for DataConnectorVersionModel
+                          properties:
+                            image:
+                              description: ContainerImageModel struct for ContainerImageModel
+                              properties:
+                                imagePullPolicy:
+                                  description: ImagePullPolicies the model 'ImagePullPolicies'
+                                  type: string
+                                repository:
+                                  type: string
+                                tag:
+                                  type: string
+                              type: object
+                            versionTag:
+                              type: string
+                          required:
+                          - image
+                          type: object
+                        type: array
+                    required:
+                    - versions
+                    type: object
                   tasksMax:
                     format: int32
                     type: integer
@@ -820,7 +937,7 @@ spec:
                   version:
                     type: string
                 required:
-                - image
+                - version
                 type: object
               type: array
             deploymentName:

@@ -43,6 +43,46 @@ type PipelineDeploymentList struct {
 	Items           []PipelineDeployment `json:"items"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// Algo is the Schema for the Algo API
+// +kubebuilder:resource:path=algos,scope=Cluster
+// +k8s:openapi-gen=true
+type Algo struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec AlgoSpecV1beta1 `json:"spec,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// AlgoList contains a list of Algos
+type AlgoList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Algo `json:"items"`
+}
+
+// DataConnector is the Schema for the DataConnector API
+// +kubebuilder:resource:path=dataconnectors,scope=Cluster
+// +k8s:openapi-gen=true
+type DataConnector struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec DataConnectorSpecV1beta1 `json:"spec,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// DataConnectorList contains a list of DataConnectors
+type DataConnectorList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []DataConnector `json:"items"`
+}
+
 func init() {
 	SchemeBuilder.Register(&PipelineDeployment{}, &PipelineDeploymentList{})
 }

@@ -6,13 +6,13 @@ import (
 	"strings"
 )
 
-func GetAlgoFullName(algoSpec *v1beta1.AlgoSpec) string {
-	algoName := fmt.Sprintf("%s/%s:%s[%d]", algoSpec.Owner, algoSpec.Name, algoSpec.Version, algoSpec.Index)
+func GetAlgoFullName(algoSpec *v1beta1.AlgoDeploymentV1beta1) string {
+	algoName := fmt.Sprintf("%s/%s:%s[%d]", algoSpec.Spec.Owner, algoSpec.Spec.Name, algoSpec.Version, algoSpec.Index)
 	return algoName
 }
 
-func GetDcFullName(dcSpec *v1beta1.DataConnectorSpec) string {
-	dcName := fmt.Sprintf("%s:%s[%d]", dcSpec.Name, dcSpec.Version, dcSpec.Index)
+func GetDcFullName(dcSpec *v1beta1.DataConnectorDeploymentV1beta1) string {
+	dcName := fmt.Sprintf("%s:%s[%d]", dcSpec.Spec.Name, dcSpec.Version, dcSpec.Index)
 	return dcName
 }
 
@@ -26,7 +26,7 @@ func GetAllTopicConfigs(pipelineSpec *v1beta1.PipelineDeploymentSpecV1beta1) map
 
 	allTopics := make(map[string]*v1beta1.TopicConfigModel, 0)
 	for _, algo := range pipelineSpec.Algos {
-		for _, output := range algo.Outputs {
+		for _, output := range algo.Spec.Outputs {
 			source := fmt.Sprintf("%s|%s", GetAlgoFullName(&algo), output.Name)
 			allTopics[source] = output.Topic
 		}

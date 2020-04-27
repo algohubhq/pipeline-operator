@@ -9,11 +9,18 @@ java -jar ./openapi-generator-cli-4.2.3.jar generate -i http://localhost:5000/sw
 -o algorun-go-client
 
 cp ./algorun-go-client/model_pipeline_deployment_spec_v1beta1.go ./pkg/apis/algorun/v1beta1/
-cp ./algorun-go-client/model_algo_spec.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_algo_deployment_v1beta1.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_data_connector_deployment_v1beta1.go ./pkg/apis/algorun/v1beta1/
+
+cp ./algorun-go-client/model_algo_spec_v1beta1.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_data_connector_spec_v1beta1.go ./pkg/apis/algorun/v1beta1/
+
+cp ./algorun-go-client/model_custom_resource_ref_v1beta1.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_data_connector_version_model.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_algo_version_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_algo_param_spec.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_algo_input_spec.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_algo_output_spec.go ./pkg/apis/algorun/v1beta1/
-cp ./algorun-go-client/model_data_connector_spec.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_algo_runner_config.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_event_hook_spec.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_component_status.go ./pkg/apis/algorun/v1beta1/

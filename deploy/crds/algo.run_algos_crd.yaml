@@ -1,0 +1,206 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: algos.algo.run
+spec:
+  group: algo.run
+  names:
+    kind: Algo
+    listKind: AlgoList
+    plural: algos
+    singular: algo
+  scope: Cluster
+  validation:
+    openAPIV3Schema:
+      description: Algo is the Schema for the Algo API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: AlgoSpecV1beta1 struct for AlgoSpecV1beta1
+          properties:
+            executor:
+              description: Executors the model 'Executors'
+              type: string
+            gpuEnabled:
+              type: boolean
+            inputs:
+              items:
+                description: AlgoInputSpec struct for AlgoInputSpec
+                properties:
+                  contentTypes:
+                    items:
+                      type: string
+                    type: array
+                  environmentVariable:
+                    type: string
+                  httpHeaders:
+                    type: string
+                  httpPath:
+                    type: string
+                  httpPort:
+                    format: int32
+                    type: integer
+                  httpVerb:
+                    type: string
+                  inputDeliveryType:
+                    description: InputDeliveryTypes the model 'InputDeliveryTypes'
+                    type: string
+                  isRequired:
+                    type: boolean
+                  name:
+                    type: string
+                  parameter:
+                    type: string
+                  parameterDelimiter:
+                    type: string
+                required:
+                - contentTypes
+                - inputDeliveryType
+                - name
+                type: object
+              type: array
+            name:
+              type: string
+            outputs:
+              items:
+                description: AlgoOutputSpec struct for AlgoOutputSpec
+                properties:
+                  contentType:
+                    type: string
+                  name:
+                    type: string
+                  outputDeliveryType:
+                    description: OutputDeliveryTypes the model 'OutputDeliveryTypes'
+                    type: string
+                  parameter:
+                    type: string
+                  topic:
+                    description: TopicConfigModel struct for TopicConfigModel
+                    properties:
+                      autoName:
+                        type: boolean
+                      autoPartition:
+                        type: boolean
+                      outputName:
+                        type: string
+                      overrideRetryStrategy:
+                        type: boolean
+                      partitions:
+                        format: int32
+                        type: integer
+                      replicationFactor:
+                        format: int32
+                        type: integer
+                      retryStrategy:
+                        description: TopicRetryStrategyModel struct for TopicRetryStrategyModel
+                        properties:
+                          deadLetterSuffix:
+                            type: string
+                          steps:
+                            items:
+                              description: TopicRetryStepModel struct for TopicRetryStepModel
+                              properties:
+                                backoffDuration:
+                                  type: string
+                                index:
+                                  format: int32
+                                  type: integer
+                                repeat:
+                                  format: int32
+                                  type: integer
+                              type: object
+                            type: array
+                          strategy:
+                            description: RetryStrategies the model 'RetryStrategies'
+                            type: string
+                        required:
+                        - strategy
+                        type: object
+                      topicName:
+                        type: string
+                      topicParams:
+                        items:
+                          description: TopicParamModel struct for TopicParamModel
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          type: object
+                        type: array
+                    required:
+                    - outputName
+                    type: object
+                required:
+                - contentType
+                - name
+                - outputDeliveryType
+                type: object
+              type: array
+            owner:
+              type: string
+            parameters:
+              items:
+                description: AlgoParamSpec struct for AlgoParamSpec
+                properties:
+                  name:
+                    type: string
+                  required:
+                    type: boolean
+                  sortOrder:
+                    format: int32
+                    type: integer
+                  value:
+                    type: string
+                required:
+                - name
+                type: object
+              type: array
+            versions:
+              items:
+                description: AlgoVersionModel struct for AlgoVersionModel
+                properties:
+                  entrypoint:
+                    type: string
+                  image:
+                    description: ContainerImageModel struct for ContainerImageModel
+                    properties:
+                      imagePullPolicy:
+                        description: ImagePullPolicies the model 'ImagePullPolicies'
+                        type: string
+                      repository:
+                        type: string
+                      tag:
+                        type: string
+                    type: object
+                  latest:
+                    type: boolean
+                  versionTag:
+                    type: string
+                required:
+                - image
+                - versionTag
+                type: object
+              type: array
+          required:
+          - name
+          - owner
+          - versions
+          type: object
+      type: object
+  version: v1beta1
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true

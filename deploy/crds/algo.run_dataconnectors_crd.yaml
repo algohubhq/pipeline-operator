@@ -1,0 +1,108 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: dataconnectors.algo.run
+spec:
+  group: algo.run
+  names:
+    kind: DataConnector
+    listKind: DataConnectorList
+    plural: dataconnectors
+    singular: dataconnector
+  scope: Cluster
+  validation:
+    openAPIV3Schema:
+      description: DataConnector is the Schema for the DataConnector API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: DataConnectorSpecV1beta1 struct for DataConnectorSpecV1beta1
+          properties:
+            connectorClass:
+              type: string
+            dataConnectorType:
+              description: DataConnectorTypes the model 'DataConnectorTypes'
+              type: string
+            name:
+              type: string
+            options:
+              items:
+                description: DataConnectorOptionModel struct for DataConnectorOptionModel
+                properties:
+                  dataType:
+                    description: DataTypeModel struct for DataTypeModel
+                    properties:
+                      mask:
+                        type: string
+                      name:
+                        description: DataTypes the model 'DataTypes'
+                        type: string
+                      options:
+                        items:
+                          type: string
+                        type: array
+                      precision:
+                        format: int32
+                        type: integer
+                      regex:
+                        type: string
+                      scale:
+                        format: int32
+                        type: integer
+                    required:
+                    - name
+                    type: object
+                  description:
+                    type: string
+                  name:
+                    type: string
+                  required:
+                    type: boolean
+                  sortOrder:
+                    format: int32
+                    type: integer
+                  value:
+                    type: string
+                type: object
+              type: array
+            versions:
+              items:
+                description: DataConnectorVersionModel struct for DataConnectorVersionModel
+                properties:
+                  image:
+                    description: ContainerImageModel struct for ContainerImageModel
+                    properties:
+                      imagePullPolicy:
+                        description: ImagePullPolicies the model 'ImagePullPolicies'
+                        type: string
+                      repository:
+                        type: string
+                      tag:
+                        type: string
+                    type: object
+                  versionTag:
+                    type: string
+                required:
+                - image
+                type: object
+              type: array
+          required:
+          - versions
+          type: object
+      type: object
+  version: v1beta1
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true

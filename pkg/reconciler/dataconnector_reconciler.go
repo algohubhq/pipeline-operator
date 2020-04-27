@@ -24,13 +24,27 @@ import (
 
 // NewDataConnectorReconciler returns a new DataConnectorReconciler
 func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
-	dataConnectorSpec *v1beta1.DataConnectorSpec,
+	dataConnectorSpec *v1beta1.DataConnectorDeploymentV1beta1,
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
 	apiReader client.Reader,
 	client client.Client,
-	scheme *runtime.Scheme) DataConnectorReconciler {
-	return DataConnectorReconciler{
+	scheme *runtime.Scheme) (*DataConnectorReconciler, error) {
+
+	// Ensure the algo has a matching version defined
+	var activeDcVersion *v1beta1.DataConnectorVersionModel
+	for _, version := range dataConnectorSpec.Spec.Versions {
+		if dataConnectorSpec.Version == version.VersionTag {
+			activeDcVersion = &version
+		}
+	}
+
+	if activeDcVersion == nil {
+		err := errorsbase.New(fmt.Sprintf("There is no matching Data Connector Version with requested version tag [%s]", dataConnectorSpec.Version))
+		return nil, err
+	}
+
+	return &DataConnectorReconciler{
 		pipelineDeployment: pipelineDeployment,
 		dataConnectorSpec:  dataConnectorSpec,
 		allTopicConfigs:    allTopicConfigs,
@@ -38,18 +52,19 @@ func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployme
 		apiReader:          apiReader,
 		client:             client,
 		scheme:             scheme,
-	}
+	}, nil
 }
 
 // DataConnectorReconciler reconciles an dataConnectorConfig object
 type DataConnectorReconciler struct {
-	pipelineDeployment *algov1beta1.PipelineDeployment
-	dataConnectorSpec  *v1beta1.DataConnectorSpec
-	allTopicConfigs    map[string]*v1beta1.TopicConfigModel
-	request            *reconcile.Request
-	apiReader          client.Reader
-	client             client.Client
-	scheme             *runtime.Scheme
+	pipelineDeployment         *algov1beta1.PipelineDeployment
+	dataConnectorSpec          *v1beta1.DataConnectorDeploymentV1beta1
+	activeDataConnectorVersion *v1beta1.DataConnectorVersionModel
+	allTopicConfigs            map[string]*v1beta1.TopicConfigModel
+	request                    *reconcile.Request
+	apiReader                  client.Reader
+	client                     client.Client
+	scheme                     *runtime.Scheme
 }
 
 // Reconcile creates or updates the data connector for the pipelineDeployment
@@ -74,20 +89,20 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 		}(topic)
 	}
 
-	kcName := strings.ToLower(fmt.Sprintf("%s-%s", pipelineDeployment.Spec.DeploymentName, dataConnectorConfig.Name))
-	dcName := strings.ToLower(fmt.Sprintf("%s-%s-%d", pipelineDeployment.Spec.DeploymentName, dataConnectorConfig.Name, dataConnectorConfig.Index))
+	kcName := strings.ToLower(fmt.Sprintf("%s-%s", pipelineDeployment.Spec.DeploymentName, dataConnectorConfig.Spec.Name))
+	dcName := strings.ToLower(fmt.Sprintf("%s-%s-%d", pipelineDeployment.Spec.DeploymentName, dataConnectorConfig.Spec.Name, dataConnectorConfig.Index))
 	// Set the image name
 	var imageName string
-	if dataConnectorConfig.Image == nil {
+	if dataConnectorReconciler.activeDataConnectorVersion.Image == nil {
 		err := errorsbase.New("Data Connector Image is empty")
 		log.Error(err,
-			fmt.Sprintf("Data Connector image cannot be empty for [%s]", dataConnectorConfig.Name))
+			fmt.Sprintf("Data Connector image cannot be empty for [%s]", dataConnectorConfig.Spec.Name))
 		return err
 	}
-	if dataConnectorConfig.Image.Tag == "" || dataConnectorConfig.Image.Tag == "latest" {
-		imageName = fmt.Sprintf("%s:latest", dataConnectorConfig.Image.Repository)
+	if dataConnectorReconciler.activeDataConnectorVersion.Image.Tag == "" || dataConnectorReconciler.activeDataConnectorVersion.Image.Tag == "latest" {
+		imageName = fmt.Sprintf("%s:latest", dataConnectorReconciler.activeDataConnectorVersion.Image.Repository)
 	} else {
-		imageName = fmt.Sprintf("%s:%s", dataConnectorConfig.Image.Repository, dataConnectorConfig.Image.Tag)
+		imageName = fmt.Sprintf("%s:%s", dataConnectorReconciler.activeDataConnectorVersion.Image.Repository, dataConnectorReconciler.activeDataConnectorVersion.Image.Tag)
 	}
 	// dcName := strings.TrimRight(utils.Short(dcName, 20), "-")
 	// check to see if data connector already exists
@@ -116,7 +131,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 				pipelineDeployment.Spec.DeploymentName),
 			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 				pipelineDeployment.Spec.PipelineName),
-			"algo.run/dataconnector":         dataConnectorConfig.Name,
+			"algo.run/dataconnector":         dataConnectorConfig.Spec.Name,
 			"algo.run/dataconnector-version": dataConnectorConfig.Version,
 			"algo.run/index":                 strconv.Itoa(int(dataConnectorConfig.Index)),
 		}
@@ -203,11 +218,11 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 				dcConfig[dcOption.Name] = dcOption.Value
 			}
 
-			dcConfig["connector.class"] = dataConnectorConfig.ConnectorClass
+			dcConfig["connector.class"] = dataConnectorConfig.Spec.ConnectorClass
 			dcConfig["tasks.max"] = strconv.Itoa(int(dataConnectorConfig.TasksMax))
 
 			// If Sink. need to add the source topics
-			if *dataConnectorConfig.DataConnectorType == v1beta1.DATACONNECTORTYPES_SINK {
+			if *dataConnectorConfig.Spec.DataConnectorType == v1beta1.DATACONNECTORTYPES_SINK {
 				topicName, err := dataConnectorReconciler.getDcSourceTopic(pipelineDeployment, dataConnectorConfig)
 				dcConfig["topics"] = topicName
 
@@ -235,13 +250,14 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 	return nil
 }
 
-func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelineDeployment *algov1beta1.PipelineDeployment, dataConnectorConfig *algov1beta1.DataConnectorSpec) (string, error) {
+func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelineDeployment *algov1beta1.PipelineDeployment,
+	dataConnectorConfig *algov1beta1.DataConnectorDeploymentV1beta1) (string, error) {
 
 	config := pipelineDeployment.Spec
 
 	for _, pipe := range config.Pipes {
 
-		dcName := fmt.Sprintf("%s:%s[%d]", dataConnectorConfig.Name, dataConnectorConfig.Version, dataConnectorConfig.Index)
+		dcName := fmt.Sprintf("%s:%s[%d]", dataConnectorConfig.Spec.Name, dataConnectorConfig.Version, dataConnectorConfig.Index)
 
 		if pipe.DestName == dcName {
 
@@ -255,7 +271,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelin
 	}
 
 	return "", errorsbase.New(fmt.Sprintf("No topic config found for data connector source. [%s-%d]",
-		dataConnectorConfig.Name,
+		dataConnectorConfig.Spec.Name,
 		dataConnectorConfig.Index))
 
 }

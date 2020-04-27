@@ -213,59 +213,79 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 
 	// // Reconcile all algo deployments
 	reqLogger.Info("Reconciling Algos")
-	for _, algoConfig := range deployment.Spec.Algos {
+	for _, algoDepl := range deployment.Spec.Algos {
 		wg.Add(1)
-		go func(currentAlgoConfig algov1beta1.AlgoSpec) {
+		go func(currentAlgoDepl algov1beta1.AlgoDeploymentV1beta1) {
 			defer wg.Done()
-			algoReconciler := recon.NewAlgoReconciler(deployment,
-				&currentAlgoConfig,
+			algoReconciler, err := recon.NewAlgoReconciler(deployment,
+				&currentAlgoDepl,
 				allTopicConfigs,
 				&request,
 				r.manager.GetAPIReader(),
 				r.client,
 				r.scheme,
 				kafkaTLS)
+
+			if err != nil {
+				msg := "Failed to create algo reconciler"
+				reqLogger.Error(err, msg)
+				wg.Done()
+				return
+			}
+
 			err = algoReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in AlgoConfig reconcile loop.")
 			}
-		}(algoConfig)
+		}(algoDepl)
 	}
 
 	// // Reconcile the algo metrics service
 	reqLogger.Info("Reconciling Algo Metrics Service")
 	wg.Add(1)
 	go func() {
-		algoReconciler := recon.NewAlgoReconciler(deployment,
-			nil,
+		algoReconciler, err := recon.NewAlgoServiceReconciler(deployment,
 			allTopicConfigs,
 			&request,
 			r.manager.GetAPIReader(),
 			r.client,
 			r.scheme,
 			kafkaTLS)
+		if err != nil {
+			msg := "Failed to create algo metric service reconciler"
+			reqLogger.Error(err, msg)
+			wg.Done()
+			return
+		}
 		algoReconciler.ReconcileService()
 		wg.Done()
 	}()
 
 	// // Reconcile all data connectors
 	reqLogger.Info("Reconciling Data Connectors")
-	for _, dcConfig := range deployment.Spec.DataConnectors {
+	for _, dcDepl := range deployment.Spec.DataConnectors {
 		wg.Add(1)
-		go func(currentDcConfig algov1beta1.DataConnectorSpec) {
-			dcReconciler := recon.NewDataConnectorReconciler(deployment,
-				&currentDcConfig,
+		go func(currentDcDepl algov1beta1.DataConnectorDeploymentV1beta1) {
+			dcReconciler, err := recon.NewDataConnectorReconciler(deployment,
+				&currentDcDepl,
 				allTopicConfigs,
 				&request,
 				r.manager.GetAPIReader(),
 				r.client,
 				r.scheme)
+			if err != nil {
+				msg := "Failed to create data connector reconciler"
+				reqLogger.Error(err, msg)
+				wg.Done()
+				return
+			}
+
 			err = dcReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in DataConnectorConfigs reconcile loop.")
 			}
 			wg.Done()
-		}(dcConfig)
+		}(dcDepl)
 	}
 
 	// // Reconcile hook container

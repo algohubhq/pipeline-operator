@@ -279,6 +279,26 @@ func (d *KubeUtil) UpdateStatefulSet(statefulSet *appsv1.StatefulSet) (sfName st
 
 }
 
+func (d *KubeUtil) CheckForAlgo(listOptions []client.ListOption) (*v1beta1.Algo, error) {
+
+	algoList := &v1beta1.AlgoList{}
+	ctx := context.TODO()
+	err := d.client.List(ctx, algoList, listOptions...)
+
+	if err != nil && errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	if len(algoList.Items) > 0 {
+		return &algoList.Items[0], nil
+	}
+
+	return nil, nil
+
+}
+
 func (d *KubeUtil) CheckForUnstructured(listOptions []client.ListOption, groupVersionKind schema.GroupVersionKind) (*unstructured.Unstructured, error) {
 
 	unstructuredList := &unstructured.UnstructuredList{}

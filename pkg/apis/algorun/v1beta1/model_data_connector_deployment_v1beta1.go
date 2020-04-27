@@ -9,14 +9,11 @@
  */
 
 package v1beta1
-// DataConnectorSpec struct for DataConnectorSpec
-type DataConnectorSpec struct {
-	DataConnectorType *DataConnectorTypes `json:"dataConnectorType,omitempty"`
-	Name string `json:"name,omitempty"`
-	Version string `json:"version,omitempty"`
+// DataConnectorDeploymentV1beta1 struct for DataConnectorDeploymentV1beta1
+type DataConnectorDeploymentV1beta1 struct {
+	DataConnectorRef *CustomResourceRefV1beta1 `json:"dataConnectorRef,omitempty"`
+	Version string `json:"version"`
 	Index int32 `json:"index,omitempty"`
-	Image *ContainerImageModel `json:"image"`
-	ConnectorClass string `json:"connectorClass,omitempty"`
 	TasksMax int32 `json:"tasksMax,omitempty"`
 	Topics []TopicConfigModel `json:"topics,omitempty"`
 	Options []DataConnectorOptionModel `json:"options,omitempty"`
@@ -25,4 +22,5 @@ type DataConnectorSpec struct {
 	Autoscaling *AutoScalingSpec `json:"autoscaling,omitempty"`
 	LivenessProbe *ProbeV1 `json:"livenessProbe,omitempty"`
 	ReadinessProbe *ProbeV1 `json:"readinessProbe,omitempty"`
+	Spec *DataConnectorSpecV1beta1 `json:"spec,omitempty"`
 }
