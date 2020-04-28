@@ -36,9 +36,10 @@ type KakfaUserAclResource struct {
 
 // KafkaUserStatus defines the observed state of KafkaUser
 type KafkaUserStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	Conditions         []Condition `json:"conditions,omitempty"`
+	ObservedGeneration int         `json:"observedGeneration,omitempty"`
+	Username           string      `json:"username,omitempty"`
+	Secret             string      `json:"secret,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

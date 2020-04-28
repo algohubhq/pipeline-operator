@@ -68,6 +68,29 @@ spec:
           type: object
         status:
           description: KafkaUserStatus defines the observed state of KafkaUser
+          properties:
+            conditions:
+              items:
+                description: Condition defines the desired state of Condition
+                properties:
+                  lastTransitionTime:
+                    type: string
+                  message:
+                    type: string
+                  reason:
+                    type: string
+                  status:
+                    type: string
+                  type:
+                    type: string
+                type: object
+              type: array
+            observedGeneration:
+              type: integer
+            secret:
+              type: string
+            username:
+              type: string
           type: object
       type: object
   version: v1beta1

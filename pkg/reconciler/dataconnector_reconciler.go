@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
+	kafkav1beta1 "pipeline-operator/pkg/apis/kafka/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
 	"strconv"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	kc "github.com/go-kafka/connect"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -102,7 +102,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 	}
 	// dcName := strings.TrimRight(utils.Short(dcName, 20), "-")
 	// check to see if data connector already exists
-	existingDc := &unstructured.Unstructured{}
+	existingDc := &kafkav1beta1.KafkaConnect{}
 	existingDc.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "kafka.strimzi.io",
 		Kind:    "KafkaConnect",
@@ -132,39 +132,34 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 			"algo.run/index":                 strconv.Itoa(int(dataConnectorConfig.Index)),
 		}
 
-		newDc := &unstructured.Unstructured{}
-		newDc.Object = map[string]interface{}{
-			"name":      kcName,
-			"namespace": dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace,
-			"spec": map[string]interface{}{
-				"version":          "2.1.0",
-				"replicas":         dataConnectorConfig.Replicas,
-				"image":            imageName,
-				"bootstrapServers": pipelineDeployment.Spec.KafkaBrokers,
-				"metrics": map[string]interface{}{
-					"lowercaseOutputName":       true,
-					"lowercaseOutputLabelNames": true,
-					"rules": []map[string]interface{}{
-						{
-							"pattern": "kafka.connect<type=connect-worker-metrics>([^:]+):",
-							"name":    "kafka_connect_connect_worker_metrics_$1",
-						},
-						{
-							"pattern": "kafka.connect<type=connect-metrics, client-id=([^:]+)><>([^:]+)",
-							"name":    "kafka_connect_connect_metrics_$1_$2",
-						},
+		newDc := &kafkav1beta1.KafkaConnect{}
+		newDc.Spec = kafkav1beta1.KafkaConnectSpec{
+			Version:          "2.4.0",
+			Replicas:         int(dataConnectorConfig.Replicas),
+			Image:            imageName,
+			BootstrapServers: pipelineDeployment.Spec.KafkaBrokers,
+			Metrics: kafkav1beta1.JMXExporter{
+				LowercaseOutputName:       true,
+				LowercaseOutputLabelNames: true,
+				Rules: []kafkav1beta1.JMXExporterRule{
+					{
+						Pattern: "kafka.connect<type=connect-worker-metrics>([^:]+):",
+						Name:    "kafka_connect_connect_worker_metrics_$1",
+					},
+					{
+						Pattern: "kafka.connect<type=connect-metrics, client-id=([^:]+)><>([^:]+)",
+						Name:    "kafka_connect_connect_metrics_$1_$2",
 					},
 				},
-				// "bootstrapServers": "algorun-kafka-kafka-bootstrap.algorun:9092",
-				"config": map[string]interface{}{
-					"group.id":                          "connect-cluster",
-					"offset.storage.topic":              "connect-cluster-offsets",
-					"config.storage.topic":              "connect-cluster-configs",
-					"status.storage.topic":              "connect-cluster-status",
-					"config.storage.replication.factor": 1,
-					"offset.storage.replication.factor": 1,
-					"status.storage.replication.factor": 1,
-				},
+			},
+			Config: map[string]string{
+				"group.id":                          "connect-cluster",
+				"offset.storage.topic":              "connect-cluster-offsets",
+				"config.storage.topic":              "connect-cluster-configs",
+				"status.storage.topic":              "connect-cluster-status",
+				"config.storage.replication.factor": "1",
+				"offset.storage.replication.factor": "1",
+				"status.storage.replication.factor": "1",
 			},
 		}
 

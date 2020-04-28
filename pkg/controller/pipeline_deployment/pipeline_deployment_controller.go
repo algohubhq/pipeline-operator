@@ -217,7 +217,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		}
 	}
 
-	// Get all kafka topic configs
+	// Compile all kafka topic configs
 	allTopicConfigs := utils.GetAllTopicConfigs(&deployment.Spec)
 
 	// Create the storage bucket
