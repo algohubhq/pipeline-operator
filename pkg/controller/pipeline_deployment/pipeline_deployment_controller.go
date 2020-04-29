@@ -56,7 +56,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner PipelineDeployment
 	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
@@ -66,6 +65,34 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &algov1beta1.PipelineDeployment{},
+	})
+	if err != nil {
+		return err
+	}
+	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &algov1beta1.PipelineDeployment{},
+	})
+	if err != nil {
+		return err
+	}
+	err = c.Watch(&source.Kind{Type: &appsv1.StatefulSet{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &algov1beta1.PipelineDeployment{},
+	})
+	if err != nil {
+		return err
+	}
+	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &algov1beta1.PipelineDeployment{},
+	})
+	if err != nil {
+		return err
+	}
+	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &algov1beta1.PipelineDeployment{},
 	})
@@ -172,14 +199,14 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		deployment.Spec.DeploymentNamespace = request.Namespace
 	}
 
+	kubeUtil := utils.NewKubeUtil(r.manager, &request)
+	kafkaUtil := utils.NewKafkaUtil(deployment, r.manager, r.scheme)
+
 	// Check for the KAFKA_TLS env variable and certs
 	kafkaTLS := utils.CheckForKafkaTLS()
 
 	if kafkaTLS {
-		utils.CopyKafkaSecrets(deployment.Spec.DeploymentNamespace,
-			deployment.Spec.DeploymentOwner,
-			deployment.Spec.DeploymentName,
-			r.manager)
+		kafkaUtil.CopyKafkaSecrets()
 	}
 
 	var wg sync.WaitGroup
@@ -189,7 +216,6 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("Populating all AlgoRefs")
 	for i, algoDepl := range deployment.Spec.Algos {
 		if algoDepl.AlgoRef != nil {
-			kubeUtil := utils.NewKubeUtil(r.manager, &request)
 			listOpt := kubeUtil.GetListOptionsFromRef(algoDepl.AlgoRef)
 			algo, err := kubeUtil.CheckForAlgoCR(listOpt)
 			if err != nil || algo == nil {
@@ -205,7 +231,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("Populating all DataConnectorRefs")
 	for i, dcDepl := range deployment.Spec.DataConnectors {
 		if dcDepl.DataConnectorRef != nil {
-			kubeUtil := utils.NewKubeUtil(r.manager, &request)
+
 			listOpt := kubeUtil.GetListOptionsFromRef(dcDepl.DataConnectorRef)
 			dc, err := kubeUtil.CheckForDataConnectorCR(listOpt)
 			if err != nil || dc == nil {
