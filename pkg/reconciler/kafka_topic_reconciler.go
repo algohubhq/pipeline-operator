@@ -128,7 +128,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 			newTopicSpec.Partitions = existingTopic.Spec.Partitions
 		}
 
-		if !reflect.DeepEqual(existingTopic, newTopicSpec) {
+		if !reflect.DeepEqual(existingTopic.Spec, newTopicSpec) {
 
 			// Update the existing spec
 			existingTopic.Spec = newTopicSpec

@@ -20,7 +20,5 @@ const (
 	INPUTDELIVERYTYPES_GRPC InputDeliveryTypes = "Grpc"
 	INPUTDELIVERYTYPES_FILE_PARAMETER InputDeliveryTypes = "FileParameter"
 	INPUTDELIVERYTYPES_FILE_ARRAY_PARAMETER InputDeliveryTypes = "FileArrayParameter"
-	INPUTDELIVERYTYPES_MAPPED_PATH InputDeliveryTypes = "MappedPath"
-	INPUTDELIVERYTYPES_ENVIRONMENT_VARIABLE InputDeliveryTypes = "EnvironmentVariable"
 	INPUTDELIVERYTYPES_KAFKA_TOPIC InputDeliveryTypes = "KafkaTopic"
 )

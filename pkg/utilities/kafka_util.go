@@ -28,6 +28,21 @@ func GetKafkaNamespace() string {
 
 }
 
+// GetKafkaCaSecretName gets the name of the ca cert secret
+func GetKafkaCaSecretName() string {
+
+	return fmt.Sprintf("%s-cluster-ca-cert", GetKafkaClusterName())
+
+}
+
+// GetKafkaUserSecretName gets the name of the user cert secret
+func GetKafkaUserSecretName(deploymentOwner string, deploymentName string) string {
+
+	return fmt.Sprintf("kafka-%s-%s", deploymentOwner,
+		deploymentName)
+
+}
+
 // CheckForKafkaTLS checks for the KAFKA_TLS envar and certs
 func CheckForKafkaTLS() bool {
 
@@ -51,18 +66,13 @@ func CopyKafkaSecrets(deploymentNamespace string,
 	deploymentName string,
 	manager manager.Manager) {
 
-	// Get the kafka namespace
-	kafkaNamespace := os.Getenv("KAFKA_NAMESPACE")
-	kafkaClusterName := os.Getenv("KAFKA_CLUSTER_NAME")
-
-	kafkaUserSecretName := fmt.Sprintf("kafka-%s-%s", deploymentOwner,
-		deploymentName)
-	kafkaCaSecretName := fmt.Sprintf("%s-cluster-ca-cert", kafkaClusterName)
+	kafkaUserSecretName := GetKafkaUserSecretName(deploymentOwner, deploymentName)
+	kafkaCaSecretName := GetKafkaCaSecretName()
 
 	// Copy the user cert secret
-	copySecret(kafkaNamespace, kafkaUserSecretName, deploymentNamespace, manager)
+	copySecret(GetKafkaNamespace(), kafkaUserSecretName, deploymentNamespace, manager)
 	// Copy the ca cert secret
-	copySecret(kafkaNamespace, kafkaCaSecretName, deploymentNamespace, manager)
+	copySecret(GetKafkaNamespace(), kafkaCaSecretName, deploymentNamespace, manager)
 
 }
 

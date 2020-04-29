@@ -37,45 +37,9 @@ spec:
             name:
               type: string
             options:
-              items:
-                description: DataConnectorOptionModel struct for DataConnectorOptionModel
-                properties:
-                  dataType:
-                    description: DataTypeModel struct for DataTypeModel
-                    properties:
-                      mask:
-                        type: string
-                      name:
-                        description: DataTypes the model 'DataTypes'
-                        type: string
-                      options:
-                        items:
-                          type: string
-                        type: array
-                      precision:
-                        format: int32
-                        type: integer
-                      regex:
-                        type: string
-                      scale:
-                        format: int32
-                        type: integer
-                    required:
-                    - name
-                    type: object
-                  description:
-                    type: string
-                  name:
-                    type: string
-                  required:
-                    type: boolean
-                  sortOrder:
-                    format: int32
-                    type: integer
-                  value:
-                    type: string
-                type: object
-              type: array
+              additionalProperties:
+                type: string
+              type: object
             versions:
               items:
                 description: DataConnectorVersionModel struct for DataConnectorVersionModel

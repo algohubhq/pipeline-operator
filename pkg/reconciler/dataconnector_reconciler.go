@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
+	kafkav1alpha1 "pipeline-operator/pkg/apis/kafka/v1alpha1"
 	kafkav1beta1 "pipeline-operator/pkg/apis/kafka/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
 	"strconv"
 	"strings"
 
-	kc "github.com/go-kafka/connect"
+	"github.com/go-test/deep"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,7 +29,8 @@ func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployme
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
 	manager manager.Manager,
-	scheme *runtime.Scheme) (*DataConnectorReconciler, error) {
+	scheme *runtime.Scheme,
+	kafkaTLS bool) (*DataConnectorReconciler, error) {
 
 	// Ensure the algo has a matching version defined
 	var activeDcVersion *v1beta1.DataConnectorVersionModel
@@ -44,12 +46,14 @@ func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployme
 	}
 
 	return &DataConnectorReconciler{
-		pipelineDeployment: pipelineDeployment,
-		dataConnectorSpec:  dataConnectorSpec,
-		allTopicConfigs:    allTopicConfigs,
-		request:            request,
-		manager:            manager,
-		scheme:             scheme,
+		pipelineDeployment:         pipelineDeployment,
+		dataConnectorSpec:          dataConnectorSpec,
+		activeDataConnectorVersion: activeDcVersion,
+		allTopicConfigs:            allTopicConfigs,
+		request:                    request,
+		manager:                    manager,
+		scheme:                     scheme,
+		kafkaTLS:                   kafkaTLS,
 	}, nil
 }
 
@@ -62,45 +66,56 @@ type DataConnectorReconciler struct {
 	request                    *reconcile.Request
 	manager                    manager.Manager
 	scheme                     *runtime.Scheme
+	kafkaTLS                   bool
 }
 
 // Reconcile creates or updates the data connector for the pipelineDeployment
 func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 
-	pipelineDeployment := dataConnectorReconciler.pipelineDeployment
-	dataConnectorConfig := dataConnectorReconciler.dataConnectorSpec
+	dcSpec := dataConnectorReconciler.dataConnectorSpec
 
-	// Creat the Kafka Topics
-	log.Info("Reconciling Kakfa Topics for Data Connector outputs")
-	for _, topic := range dataConnectorConfig.Topics {
-		dcName := utils.GetDcFullName(dataConnectorConfig)
-		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
-			topicReconciler := NewTopicReconciler(dataConnectorReconciler.pipelineDeployment,
-				dcName,
-				&currentTopicConfig,
-				dataConnectorReconciler.request,
-				dataConnectorReconciler.manager,
-				dataConnectorReconciler.scheme)
-			topicReconciler.Reconcile()
-		}(topic)
+	if dcSpec.Topics != nil && len(dcSpec.Topics) > 0 {
+		// Create the Kafka Topics
+		log.Info("Reconciling Kakfa Topics for Data Connector outputs")
+		for _, topic := range dcSpec.Topics {
+			dcName := utils.GetDcFullName(dcSpec)
+			go func(currentTopicConfig algov1beta1.TopicConfigModel) {
+				topicReconciler := NewTopicReconciler(dataConnectorReconciler.pipelineDeployment,
+					dcName,
+					&currentTopicConfig,
+					dataConnectorReconciler.request,
+					dataConnectorReconciler.manager,
+					dataConnectorReconciler.scheme)
+				topicReconciler.Reconcile()
+			}(topic)
+		}
 	}
 
-	kcName := strings.ToLower(fmt.Sprintf("%s-%s", pipelineDeployment.Spec.DeploymentName, dataConnectorConfig.Spec.Name))
-	dcName := strings.ToLower(fmt.Sprintf("%s-%s-%d", pipelineDeployment.Spec.DeploymentName, dataConnectorConfig.Spec.Name, dataConnectorConfig.Index))
-	// Set the image name
-	var imageName string
-	if dataConnectorReconciler.activeDataConnectorVersion.Image == nil {
-		err := errorsbase.New("Data Connector Image is empty")
-		log.Error(err,
-			fmt.Sprintf("Data Connector image cannot be empty for [%s]", dataConnectorConfig.Spec.Name))
+	kcName, err := dataConnectorReconciler.reconcileConnectCluster()
+	if err != nil {
 		return err
 	}
-	if dataConnectorReconciler.activeDataConnectorVersion.Image.Tag == "" || dataConnectorReconciler.activeDataConnectorVersion.Image.Tag == "latest" {
-		imageName = fmt.Sprintf("%s:latest", dataConnectorReconciler.activeDataConnectorVersion.Image.Repository)
-	} else {
-		imageName = fmt.Sprintf("%s:%s", dataConnectorReconciler.activeDataConnectorVersion.Image.Repository, dataConnectorReconciler.activeDataConnectorVersion.Image.Tag)
+
+	err = dataConnectorReconciler.reconcileConnector(kcName)
+	if err != nil {
+		return err
 	}
-	// dcName := strings.TrimRight(utils.Short(dcName, 20), "-")
+
+	return nil
+}
+
+func (dataConnectorReconciler *DataConnectorReconciler) reconcileConnectCluster() (string, error) {
+
+	dcSpec := dataConnectorReconciler.dataConnectorSpec
+	pipelineDeployment := dataConnectorReconciler.pipelineDeployment
+	kcName := strings.ToLower(fmt.Sprintf("%s-%s", dataConnectorReconciler.pipelineDeployment.Spec.DeploymentName, dcSpec.Spec.Name))
+
+	newDcSpec, err := dataConnectorReconciler.buildKafkaConnectSpec()
+	if err != nil {
+		log.Error(err, "Error creating new Kafka Connect Cluster Spec")
+		return kcName, err
+	}
+
 	// check to see if data connector already exists
 	existingDc := &kafkav1beta1.KafkaConnect{}
 	existingDc.SetGroupVersionKind(schema.GroupVersionKind{
@@ -108,7 +123,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 		Kind:    "KafkaConnect",
 		Version: "v1beta1",
 	})
-	err := dataConnectorReconciler.manager.GetClient().Get(context.TODO(),
+	err = dataConnectorReconciler.manager.GetClient().Get(context.TODO(),
 		types.NamespacedName{
 			Name:      kcName,
 			Namespace: dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace,
@@ -117,8 +132,6 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 
 	if err != nil && errors.IsNotFound(err) {
 		// Create the connector cluster
-		// Using a unstructured object to submit a data connector.
-
 		labels := map[string]string{
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "dataconnector",
@@ -127,45 +140,22 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 				pipelineDeployment.Spec.DeploymentName),
 			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
 				pipelineDeployment.Spec.PipelineName),
-			"algo.run/dataconnector":         dataConnectorConfig.Spec.Name,
-			"algo.run/dataconnector-version": dataConnectorConfig.Version,
-			"algo.run/index":                 strconv.Itoa(int(dataConnectorConfig.Index)),
+			"algo.run/dataconnector":         dcSpec.Spec.Name,
+			"algo.run/dataconnector-version": dcSpec.Version,
+			"algo.run/index":                 strconv.Itoa(int(dcSpec.Index)),
+		}
+
+		annotations := map[string]string{
+			"strimzi.io/use-connector-resources": "true",
 		}
 
 		newDc := &kafkav1beta1.KafkaConnect{}
-		newDc.Spec = kafkav1beta1.KafkaConnectSpec{
-			Version:          "2.4.0",
-			Replicas:         int(dataConnectorConfig.Replicas),
-			Image:            imageName,
-			BootstrapServers: pipelineDeployment.Spec.KafkaBrokers,
-			Metrics: kafkav1beta1.JMXExporter{
-				LowercaseOutputName:       true,
-				LowercaseOutputLabelNames: true,
-				Rules: []kafkav1beta1.JMXExporterRule{
-					{
-						Pattern: "kafka.connect<type=connect-worker-metrics>([^:]+):",
-						Name:    "kafka_connect_connect_worker_metrics_$1",
-					},
-					{
-						Pattern: "kafka.connect<type=connect-metrics, client-id=([^:]+)><>([^:]+)",
-						Name:    "kafka_connect_connect_metrics_$1_$2",
-					},
-				},
-			},
-			Config: map[string]string{
-				"group.id":                          "connect-cluster",
-				"offset.storage.topic":              "connect-cluster-offsets",
-				"config.storage.topic":              "connect-cluster-configs",
-				"status.storage.topic":              "connect-cluster-status",
-				"config.storage.replication.factor": "1",
-				"offset.storage.replication.factor": "1",
-				"status.storage.replication.factor": "1",
-			},
-		}
+		newDc.Spec = *newDcSpec
 
 		newDc.SetName(kcName)
 		newDc.SetNamespace(dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace)
 		newDc.SetLabels(labels)
+		newDc.SetAnnotations(annotations)
 		newDc.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "kafka.strimzi.io",
 			Kind:    "KafkaConnect",
@@ -180,58 +170,192 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 		err := dataConnectorReconciler.manager.GetClient().Create(context.TODO(), newDc)
 		if err != nil {
 			log.Error(err, "Failed creating kafka connect cluster")
+			return kcName, err
 		}
 
 	} else if err != nil {
 		log.Error(err, "Failed to check if kafka connect cluster exists.")
+		return kcName, err
 	} else {
 
-		log.Info("The existing connector", "connector", existingDc)
-		// TODO: Get the deployment and ensure the status is running
+		var dcChanged bool
 
-		// If the cluster node exists, then check if connector exists
-		// Use the dns name of the connector cluster
-		host := fmt.Sprintf("http://%s-connect-api.%s:8083", kcName, dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace)
-		// host := fmt.Sprintf("http://192.168.99.100:30383")
-		client := kc.NewClient(host)
+		if existingDc.Spec.Replicas != newDcSpec.Replicas {
+			log.Info("Data Connector Replica Count Changed. Updating...",
+				"Old Replicas", existingDc.Spec.Replicas,
+				"New Replicas", newDcSpec.Replicas)
+			dcChanged = true
+		} else if diff := deep.Equal(&existingDc.Spec, newDcSpec); diff != nil {
+			log.Info("Data Connector Kafka Connect Spec Changed. Updating...", "Differences", diff)
+			dcChanged = true
+		}
+		if dcChanged {
+			// Update the existing spec
+			existingDc.Spec = *newDcSpec
 
-		_, http, err := client.GetConnector(dcName)
-		if err != nil && http != nil && http.StatusCode != 404 {
-			log.Error(err, "Failed to check if data connector exists.")
+			err := dataConnectorReconciler.manager.GetClient().Update(context.TODO(), existingDc)
+			if err != nil {
+				log.Error(err, "Failed updating Data Connector Kafka Connect Cluster")
+				return kcName, err
+			}
+		}
+
+	}
+
+	return kcName, nil
+
+}
+
+func (dataConnectorReconciler *DataConnectorReconciler) buildKafkaConnectSpec() (*kafkav1beta1.KafkaConnectSpec, error) {
+
+	dcDepl := dataConnectorReconciler.dataConnectorSpec
+	// Set the image name
+	var imageName string
+	if dataConnectorReconciler.activeDataConnectorVersion.Image == nil {
+		err := errorsbase.New("Data Connector Image is empty")
+		log.Error(err,
+			fmt.Sprintf("Data Connector image cannot be empty for [%s]", dcDepl.Spec.Name))
+		return nil, err
+	}
+	if dataConnectorReconciler.activeDataConnectorVersion.Image.Tag == "" || dataConnectorReconciler.activeDataConnectorVersion.Image.Tag == "latest" {
+		imageName = fmt.Sprintf("%s:latest", dataConnectorReconciler.activeDataConnectorVersion.Image.Repository)
+	} else {
+		imageName = fmt.Sprintf("%s:%s", dataConnectorReconciler.activeDataConnectorVersion.Image.Repository, dataConnectorReconciler.activeDataConnectorVersion.Image.Tag)
+	}
+
+	spec := kafkav1beta1.KafkaConnectSpec{
+		Version:          "2.4.0",
+		Replicas:         int(dcDepl.Replicas),
+		Image:            imageName,
+		BootstrapServers: dataConnectorReconciler.pipelineDeployment.Spec.KafkaBrokers,
+		Metrics: &kafkav1beta1.JMXExporter{
+			LowercaseOutputName:       true,
+			LowercaseOutputLabelNames: true,
+			Rules: []kafkav1beta1.JMXExporterRule{
+				{
+					Pattern: "kafka.connect<type=connect-worker-metrics>([^:]+):",
+					Name:    "kafka_connect_connect_worker_metrics_$1",
+				},
+				{
+					Pattern: "kafka.connect<type=connect-metrics, client-id=([^:]+)><>([^:]+)",
+					Name:    "kafka_connect_connect_metrics_$1_$2",
+				},
+			},
+		},
+		Config: map[string]string{
+			"group.id":                          "connect-cluster",
+			"offset.storage.topic":              "connect-cluster-offsets",
+			"config.storage.topic":              "connect-cluster-configs",
+			"status.storage.topic":              "connect-cluster-status",
+			"config.storage.replication.factor": "1",
+			"offset.storage.replication.factor": "1",
+			"status.storage.replication.factor": "1",
+		},
+	}
+
+	if dataConnectorReconciler.kafkaTLS {
+		spec.TLS = &kafkav1beta1.KafkaConnectTLS{
+			TrustedCertificates: []kafkav1beta1.CertSecretSource{
+				{
+					SecretName:  utils.GetKafkaCaSecretName(),
+					Certificate: "ca.crt",
+				},
+			},
+		}
+		spec.Authentication = &kafkav1beta1.KafkaClientAuthentication{
+			Type: kafkav1beta1.KAFKA_AUTH_TYPE_TLS,
+			CertificateAndKey: &kafkav1beta1.CertAndKeySecretSource{
+				SecretName: utils.GetKafkaUserSecretName(dataConnectorReconciler.pipelineDeployment.Spec.DeploymentOwner,
+					dataConnectorReconciler.pipelineDeployment.Spec.DeploymentName),
+				Certificate: "user.crt",
+				Key:         "user.key",
+			},
+		}
+	}
+
+	return &spec, nil
+
+}
+
+func (dataConnectorReconciler *DataConnectorReconciler) reconcileConnector(connectClusterName string) error {
+
+	dcSpec := dataConnectorReconciler.dataConnectorSpec
+	pipelineDeployment := dataConnectorReconciler.pipelineDeployment
+	dcName := strings.ToLower(fmt.Sprintf("%s-%s-%d", dataConnectorReconciler.pipelineDeployment.Spec.DeploymentName,
+		dcSpec.Spec.Name,
+		dcSpec.Index))
+
+	newConnectorSpec, err := dataConnectorReconciler.buildKafkaConnectorSpec()
+	if err != nil {
+		log.Error(err, "Error creating new Strimzi Kafka Connector Spec")
+		return err
+	}
+
+	// check to see if data connector already exists
+	existingConnector := &kafkav1alpha1.KafkaConnector{}
+	existingConnector.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "kafka.strimzi.io",
+		Kind:    "KafkaConnector",
+		Version: "v1alpha1",
+	})
+	err = dataConnectorReconciler.manager.GetClient().Get(context.TODO(),
+		types.NamespacedName{
+			Name:      dcName,
+			Namespace: dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace,
+		},
+		existingConnector)
+
+	if err != nil && errors.IsNotFound(err) {
+		// Create the connector cluster
+		labels := map[string]string{
+			"app.kubernetes.io/part-of":    "algo.run",
+			"app.kubernetes.io/component":  "dataconnector",
+			"app.kubernetes.io/managed-by": "pipeline-operator",
+			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
+				pipelineDeployment.Spec.DeploymentName),
+			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
+				pipelineDeployment.Spec.PipelineName),
+			"algo.run/dataconnector":         dcSpec.Spec.Name,
+			"algo.run/dataconnector-version": dcSpec.Version,
+			"algo.run/index":                 strconv.Itoa(int(dcSpec.Index)),
+			"strimzi.io/cluster":             connectClusterName,
+		}
+
+		newConnector := &kafkav1alpha1.KafkaConnector{}
+		newConnector.Spec = *newConnectorSpec
+
+		newConnector.SetName(dcName)
+		newConnector.SetNamespace(dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace)
+		newConnector.SetLabels(labels)
+		newConnector.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "kafka.strimzi.io",
+			Kind:    "KafkaConnector",
+			Version: "v1alpha1",
+		})
+
+		// Set PipelineDeployment instance as the owner and controller
+		if err := controllerutil.SetControllerReference(pipelineDeployment, newConnector, dataConnectorReconciler.scheme); err != nil {
+			log.Error(err, "Failed setting the kafka connector cluster controller owner")
+		}
+
+		err := dataConnectorReconciler.manager.GetClient().Create(context.TODO(), newConnector)
+		if err != nil {
+			log.Error(err, "Failed creating kafka connector")
 			return err
 		}
 
-		// If connector doesn't exist, then create it
-		if http != nil && http.StatusCode == 404 {
-			dcConfig := make(map[string]string)
-			// iterate the options to create the map
-			for _, dcOption := range dataConnectorConfig.Options {
-				dcConfig[dcOption.Name] = dcOption.Value
-			}
+	} else if err != nil {
+		log.Error(err, "Failed to check if kafka connector exists.")
+		return err
+	} else {
 
-			dcConfig["connector.class"] = dataConnectorConfig.Spec.ConnectorClass
-			dcConfig["tasks.max"] = strconv.Itoa(int(dataConnectorConfig.TasksMax))
+		if diff := deep.Equal(&existingConnector.Spec, newConnectorSpec); diff != nil {
+			log.Info("Data Connector Kafka Connector Spec Changed. Updating...", "Differences", diff)
+			existingConnector.Spec = *newConnectorSpec
 
-			// If Sink. need to add the source topics
-			if *dataConnectorConfig.Spec.DataConnectorType == v1beta1.DATACONNECTORTYPES_SINK {
-				topicName, err := dataConnectorReconciler.getDcSourceTopic(pipelineDeployment, dataConnectorConfig)
-				dcConfig["topics"] = topicName
-
-				if err != nil {
-					// connector wasn't created.
-					log.Error(err, "Could not get sink data connector source topic.")
-					return err
-				}
-			}
-
-			newConnector := kc.Connector{
-				Name:   dcName,
-				Config: dcConfig,
-			}
-			_, err = client.CreateConnector(&newConnector)
+			err := dataConnectorReconciler.manager.GetClient().Update(context.TODO(), existingConnector)
 			if err != nil {
-				// connector wasn't created.
-				log.Error(err, "Fatal error creating data connector. Kafka connect instance exists but REST API create failed.")
+				log.Error(err, "Failed updating Data Connector Kafka Connector")
 				return err
 			}
 		}
@@ -239,6 +363,33 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 	}
 
 	return nil
+
+}
+
+func (dataConnectorReconciler *DataConnectorReconciler) buildKafkaConnectorSpec() (*kafkav1alpha1.KafkaConnectorSpec, error) {
+
+	dcSpec := dataConnectorReconciler.dataConnectorSpec
+
+	// If Sink. need to add the source topics
+	if *dcSpec.Spec.DataConnectorType == v1beta1.DATACONNECTORTYPES_SINK {
+		topicName, err := dataConnectorReconciler.getDcSourceTopic(dataConnectorReconciler.pipelineDeployment, dcSpec)
+		if err != nil {
+			// connector wasn't created.
+			log.Error(err, "Could not get sink data connector source topic.")
+			return nil, err
+		}
+		dcSpec.Options["topics"] = topicName
+	}
+
+	spec := kafkav1alpha1.KafkaConnectorSpec{
+		Class:    dcSpec.Spec.ConnectorClass,
+		TasksMax: int(dcSpec.TasksMax),
+		Pause:    false,
+		Config:   dcSpec.Options,
+	}
+
+	return &spec, nil
+
 }
 
 func (dataConnectorReconciler *DataConnectorReconciler) getDcSourceTopic(pipelineDeployment *algov1beta1.PipelineDeployment,

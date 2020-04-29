@@ -16,7 +16,7 @@ type DataConnectorDeploymentV1beta1 struct {
 	Index int32 `json:"index,omitempty"`
 	TasksMax int32 `json:"tasksMax,omitempty"`
 	Topics []TopicConfigModel `json:"topics,omitempty"`
-	Options []DataConnectorOptionModel `json:"options,omitempty"`
+	Options map[string]string `json:"options,omitempty"`
 	Replicas int32 `json:"replicas,omitempty"`
 	Resources *ResourceRequirementsV1 `json:"resources,omitempty"`
 	Autoscaling *AutoScalingSpec `json:"autoscaling,omitempty"`

@@ -351,27 +351,44 @@ spec:
                               items:
                                 type: string
                               type: array
-                            environmentVariable:
-                              type: string
-                            httpHeaders:
-                              type: string
-                            httpPath:
-                              type: string
-                            httpPort:
-                              format: int32
-                              type: integer
-                            httpVerb:
-                              type: string
+                            fileParameter:
+                              description: AlgoInputFileModel struct for AlgoInputFileModel
+                              properties:
+                                delimiter:
+                                  type: string
+                                parameter:
+                                  type: string
+                              type: object
+                            grpc:
+                              description: AlgoInputGrpcModel struct for AlgoInputGrpcModel
+                              properties:
+                                port:
+                                  format: int32
+                                  type: integer
+                                protofile:
+                                  type: string
+                              type: object
+                            http:
+                              description: AlgoInputHttpModel struct for AlgoInputHttpModel
+                              properties:
+                                headers:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                                path:
+                                  type: string
+                                port:
+                                  format: int32
+                                  type: integer
+                                verb:
+                                  type: string
+                              type: object
                             inputDeliveryType:
                               description: InputDeliveryTypes the model 'InputDeliveryTypes'
                               type: string
                             isRequired:
                               type: boolean
                             name:
-                              type: string
-                            parameter:
-                              type: string
-                            parameterDelimiter:
                               type: string
                           required:
                           - contentTypes
@@ -661,45 +678,9 @@ spec:
                         type: integer
                     type: object
                   options:
-                    items:
-                      description: DataConnectorOptionModel struct for DataConnectorOptionModel
-                      properties:
-                        dataType:
-                          description: DataTypeModel struct for DataTypeModel
-                          properties:
-                            mask:
-                              type: string
-                            name:
-                              description: DataTypes the model 'DataTypes'
-                              type: string
-                            options:
-                              items:
-                                type: string
-                              type: array
-                            precision:
-                              format: int32
-                              type: integer
-                            regex:
-                              type: string
-                            scale:
-                              format: int32
-                              type: integer
-                          required:
-                          - name
-                          type: object
-                        description:
-                          type: string
-                        name:
-                          type: string
-                        required:
-                          type: boolean
-                        sortOrder:
-                          format: int32
-                          type: integer
-                        value:
-                          type: string
-                      type: object
-                    type: array
+                    additionalProperties:
+                      type: string
+                    type: object
                   readinessProbe:
                     description: ProbeV1 struct for ProbeV1
                     properties:
@@ -805,45 +786,9 @@ spec:
                       name:
                         type: string
                       options:
-                        items:
-                          description: DataConnectorOptionModel struct for DataConnectorOptionModel
-                          properties:
-                            dataType:
-                              description: DataTypeModel struct for DataTypeModel
-                              properties:
-                                mask:
-                                  type: string
-                                name:
-                                  description: DataTypes the model 'DataTypes'
-                                  type: string
-                                options:
-                                  items:
-                                    type: string
-                                  type: array
-                                precision:
-                                  format: int32
-                                  type: integer
-                                regex:
-                                  type: string
-                                scale:
-                                  format: int32
-                                  type: integer
-                              required:
-                              - name
-                              type: object
-                            description:
-                              type: string
-                            name:
-                              type: string
-                            required:
-                              type: boolean
-                            sortOrder:
-                              format: int32
-                              type: integer
-                            value:
-                              type: string
-                          type: object
-                        type: array
+                        additionalProperties:
+                          type: string
+                        type: object
                       versions:
                         items:
                           description: DataConnectorVersionModel struct for DataConnectorVersionModel

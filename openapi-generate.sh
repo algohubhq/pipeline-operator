@@ -20,6 +20,9 @@ cp ./algorun-go-client/model_data_connector_version_model.go ./pkg/apis/algorun/
 cp ./algorun-go-client/model_algo_version_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_algo_param_spec.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_algo_input_spec.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_algo_input_http_model.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_algo_input_grpc_model.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_algo_input_file_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_algo_output_spec.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_algo_runner_config.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_event_hook_spec.go ./pkg/apis/algorun/v1beta1/
@@ -63,7 +66,6 @@ cp ./algorun-go-client/model_algo_input_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_algo_output_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_pipe_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_web_hook_model.go ./pkg/apis/algorun/v1beta1/
-cp ./algorun-go-client/model_data_connector_option_model.go ./pkg/apis/algorun/v1beta1/
 
 cp ./algorun-go-client/model_image_pull_policies.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_retry_strategies.go ./pkg/apis/algorun/v1beta1/

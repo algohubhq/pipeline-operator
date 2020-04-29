@@ -15,5 +15,5 @@ type DataConnectorSpecV1beta1 struct {
 	Name string `json:"name,omitempty"`
 	Versions []DataConnectorVersionModel `json:"versions"`
 	ConnectorClass string `json:"connectorClass,omitempty"`
-	Options []DataConnectorOptionModel `json:"options,omitempty"`
+	Options map[string]string `json:"options,omitempty"`
 }

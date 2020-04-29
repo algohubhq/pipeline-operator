@@ -7,27 +7,27 @@ import (
 
 // KafkaConnectSpec defines the desired state of KafkaConnect
 type KafkaConnectSpec struct {
-	Replicas         int                         `json:"replicas,omitempty"`
-	Version          string                      `json:"version,omitempty"`
-	Image            string                      `json:"image,omitempty"`
-	BootstrapServers string                      `json:"bootstrapServers,omitempty"`
-	TLS              KafkaConnectTLS             `json:"tls,omitempty"`
-	Authentication   KafkaClientAuthentication   `json:"authentication,omitempty"`
-	Config           map[string]string           `json:"config,omitempty"`
-	Resources        corev1.ResourceRequirements `json:"resources,omitempty"`
-	LivenessProbe    corev1.Probe                `json:"livenessProbe,omitempty"`
-	ReadinessProbe   corev1.Probe                `json:"readinessProbe,omitempty"`
-	JvmOptions       JvmOptions                  `json:"jvmOptions,omitempty"`
-	Metrics          JMXExporter                 `json:"metrics,omitempty"`
+	Replicas         int                          `json:"replicas,omitempty"`
+	Version          string                       `json:"version,omitempty"`
+	Image            string                       `json:"image,omitempty"`
+	BootstrapServers string                       `json:"bootstrapServers,omitempty"`
+	TLS              *KafkaConnectTLS             `json:"tls,omitempty"`
+	Authentication   *KafkaClientAuthentication   `json:"authentication,omitempty"`
+	Config           map[string]string            `json:"config,omitempty"`
+	Resources        *corev1.ResourceRequirements `json:"resources,omitempty"`
+	LivenessProbe    *corev1.Probe                `json:"livenessProbe,omitempty"`
+	ReadinessProbe   *corev1.Probe                `json:"readinessProbe,omitempty"`
+	JvmOptions       *JvmOptions                  `json:"jvmOptions,omitempty"`
+	Metrics          *JMXExporter                 `json:"metrics,omitempty"`
 }
 
 // KafkaConnectTemplate defines the desired state of KafkaConnectTemplate
 type KafkaConnectTemplate struct {
-	Deployment          ResourceTemplate            `json:"deployment,omitempty"`
-	Pod                 PodTemplate                 `json:"pod,omitempty"`
-	APIService          ResourceTemplate            `json:"apiService,omitempty"`
-	ConnectContainer    ContainerTemplate           `json:"connectContainer,omitempty"`
-	PodDisruptionBudget PodDisruptionBudgetTemplate `json:"podDisruptionBudget,omitempty"`
+	Deployment          *ResourceTemplate            `json:"deployment,omitempty"`
+	Pod                 *PodTemplate                 `json:"pod,omitempty"`
+	APIService          *ResourceTemplate            `json:"apiService,omitempty"`
+	ConnectContainer    *ContainerTemplate           `json:"connectContainer,omitempty"`
+	PodDisruptionBudget *PodDisruptionBudgetTemplate `json:"podDisruptionBudget,omitempty"`
 }
 
 // ResourceTemplate defines the desired state of ResourceTemplate
@@ -43,14 +43,14 @@ type MetadataTemplate struct {
 
 // PodTemplate defines the desired state of PodTemplate
 type PodTemplate struct {
-	Metadata                      MetadataTemplate            `json:"metadata,omitempty"`
-	ImagePullSecrets              corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	SecurityContext               corev1.PodSecurityContext   `json:"securityContext,omitempty"`
-	TerminationGracePeriodSeconds int                         `json:"terminationGracePeriodSeconds,omitempty"`
-	Affinity                      corev1.Affinity             `json:"affinity,omitempty"`
-	PriorityClassName             string                      `json:"priorityClassName,omitempty"`
-	SchedulerName                 string                      `json:"schedulerName,omitempty"`
-	Tolerations                   []corev1.Toleration         `json:"tolerations,omitempty"`
+	Metadata                      MetadataTemplate             `json:"metadata,omitempty"`
+	ImagePullSecrets              *corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	SecurityContext               *corev1.PodSecurityContext   `json:"securityContext,omitempty"`
+	TerminationGracePeriodSeconds int                          `json:"terminationGracePeriodSeconds,omitempty"`
+	Affinity                      *corev1.Affinity             `json:"affinity,omitempty"`
+	PriorityClassName             string                       `json:"priorityClassName,omitempty"`
+	SchedulerName                 string                       `json:"schedulerName,omitempty"`
+	Tolerations                   []corev1.Toleration          `json:"tolerations,omitempty"`
 }
 
 // ContainerTemplate defines the desired state of ContainerTemplate
@@ -69,30 +69,24 @@ type KafkaConnectTLS struct {
 	TrustedCertificates []CertSecretSource `json:"trustedCertificates,omitempty"`
 }
 
-// CertSecretSource defines the desired state of CertSecretSource
-type CertSecretSource struct {
-	SecretName  string `json:"secretName,omitempty"`
-	Certificate string `json:"certificate,omitempty"`
-}
-
 // KafkaClientAuthentication defines the desired state of KafkaClientAuthentication
 type KafkaClientAuthentication struct {
 	Type KafkaClientAuthenticationTypes `json:"type,omitempty"`
 
-	CertificateAndKey CertAndKeySecretSource `json:"certificateAndKey,omitempty"`
+	CertificateAndKey *CertAndKeySecretSource `json:"certificateAndKey,omitempty"`
 
-	Username       string               `json:"username,omitempty"`
-	PasswordSecret PasswordSecretSource `json:"passwordSecret,omitempty"`
+	Username       string                `json:"username,omitempty"`
+	PasswordSecret *PasswordSecretSource `json:"passwordSecret,omitempty"`
 
-	ClientID                       string              `json:"clientId,omitempty"`
-	TokenEndpointURI               string              `json:"tokenEndpointUri,omitempty"`
-	ClientSecret                   GenericSecretSource `json:"clientSecret,omitempty"`
-	AccessToken                    GenericSecretSource `json:"accessToken,omitempty"`
-	RefreshToken                   GenericSecretSource `json:"refreshToken,omitempty"`
-	TLSTrustedCertificates         []CertSecretSource  `json:"tlsTrustedCertificates,omitempty"`
-	DisableTLSHostnameVerification bool                `json:"disableTlsHostnameVerification,omitempty"`
-	MaxTokenExpirySeconds          int                 `json:"maxTokenExpirySeconds,omitempty"`
-	AccessTokenIsJwt               bool                `json:"accessTokenIsJwt,omitempty"`
+	ClientID                       string               `json:"clientId,omitempty"`
+	TokenEndpointURI               string               `json:"tokenEndpointUri,omitempty"`
+	ClientSecret                   *GenericSecretSource `json:"clientSecret,omitempty"`
+	AccessToken                    *GenericSecretSource `json:"accessToken,omitempty"`
+	RefreshToken                   *GenericSecretSource `json:"refreshToken,omitempty"`
+	TLSTrustedCertificates         []CertSecretSource   `json:"tlsTrustedCertificates,omitempty"`
+	DisableTLSHostnameVerification bool                 `json:"disableTlsHostnameVerification,omitempty"`
+	MaxTokenExpirySeconds          int                  `json:"maxTokenExpirySeconds,omitempty"`
+	AccessTokenIsJwt               bool                 `json:"accessTokenIsJwt,omitempty"`
 }
 
 // KafkaClientAuthenticationTypes
@@ -106,9 +100,17 @@ const (
 	KAFKA_AUTH_TYPE_OAUTH       KafkaClientAuthenticationTypes = "oauth"
 )
 
+// CertSecretSource defines the desired state of CertSecretSource
+type CertSecretSource struct {
+	SecretName  string `json:"secretName,omitempty"`
+	Certificate string `json:"certificate,omitempty"`
+}
+
 // CertAndKeySecretSource defines the desired state of CertAndKeySecretSource
 type CertAndKeySecretSource struct {
-	Key string `json:"key,omitempty"`
+	SecretName  string `json:"secretName,omitempty"`
+	Certificate string `json:"certificate,omitempty"`
+	Key         string `json:"key,omitempty"`
 }
 
 // PasswordSecretSource defines the desired state of PasswordSecretSource
@@ -191,8 +193,6 @@ type KafkaConnectStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // KafkaConnect is the Schema for the KafkaConnect API
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=kafkaconnects,scope=Namespaced
 type KafkaConnect struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -210,46 +210,7 @@ type KafkaConnectList struct {
 	Items           []KafkaConnect `json:"items"`
 }
 
-// KafkaConnectorSpec defines the desired state of KafkaConnectorSpec
-type KafkaConnectorSpec struct {
-	Class    string            `json:"class,omitempty"`
-	TasksMax int               `json:"tasksMax,omitempty"`
-	Config   map[string]string `json:"config,omitempty"`
-	Pause    bool              `json:"pause,omitempty"`
-}
-
-// KafkaConnectorStatus defines the observed state of KafkaConnector
-type KafkaConnectorStatus struct {
-	Conditions         []Condition       `json:"conditions,omitempty"`
-	ObservedGeneration int               `json:"observedGeneration,omitempty"`
-	ConnectorStatus    map[string]string `json:"connectorStatus,omitempty"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// KafkaConnector is the Schema for the KafkaConnector API
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=kafkaconnectors,scope=Namespaced
-type KafkaConnector struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   KafkaConnectorSpec   `json:"spec,omitempty"`
-	Status KafkaConnectorStatus `json:"status,omitempty"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// KafkaConnectorList contains a list of KafkaConnector instances
-type KafkaConnectorList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []KafkaConnector `json:"items"`
-}
-
 func init() {
 	SchemeBuilder.Register(&KafkaConnect{},
-		&KafkaConnectList{},
-		&KafkaConnectorList{},
-		&KafkaConnectorList{})
+		&KafkaConnectList{})
 }

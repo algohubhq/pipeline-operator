@@ -14,12 +14,8 @@ type AlgoInputSpec struct {
 	Name string `json:"name"`
 	IsRequired bool `json:"isRequired,omitempty"`
 	InputDeliveryType *InputDeliveryTypes `json:"inputDeliveryType"`
-	Parameter string `json:"parameter,omitempty"`
-	ParameterDelimiter string `json:"parameterDelimiter,omitempty"`
-	EnvironmentVariable string `json:"environmentVariable,omitempty"`
-	HttpVerb string `json:"httpVerb,omitempty"`
-	HttpPort int32 `json:"httpPort,omitempty"`
-	HttpPath string `json:"httpPath,omitempty"`
-	HttpHeaders string `json:"httpHeaders,omitempty"`
+	Http *AlgoInputHttpModel `json:"http,omitempty"`
+	Grpc *AlgoInputGrpcModel `json:"grpc,omitempty"`
+	FileParameter *AlgoInputFileModel `json:"fileParameter,omitempty"`
 	ContentTypes []string `json:"contentTypes"`
 }

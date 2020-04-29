@@ -21,8 +21,6 @@ type KafkaTopicStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // KafkaTopic is the Schema for the kafkatopics API
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=kafkatopics,scope=Namespaced
 type KafkaTopic struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

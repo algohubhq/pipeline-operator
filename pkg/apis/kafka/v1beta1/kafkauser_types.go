@@ -45,8 +45,6 @@ type KafkaUserStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // KafkaUser is the Schema for the kafkausers API
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=kafkausers,scope=Namespaced
 type KafkaUser struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

@@ -303,7 +303,8 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 				allTopicConfigs,
 				&request,
 				r.manager,
-				r.scheme)
+				r.scheme,
+				kafkaTLS)
 			if err != nil {
 				msg := "Failed to create data connector reconciler"
 				reqLogger.Error(err, msg)

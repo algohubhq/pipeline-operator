@@ -185,7 +185,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment(labels map[str
 	endpointLogger.Info("Reconciling Endpoint")
 
 	// Creat the Kafka Topics
-	log.Info("Reconciling Kakfa Topics for Data Connector outputs")
+	log.Info("Reconciling Kakfa Topics for Endpoint Path Outputs")
 	for _, path := range pipelineDeployment.Spec.Endpoint.Paths {
 		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
 			topicReconciler := NewTopicReconciler(endpointReconciler.pipelineDeployment,
