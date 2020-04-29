@@ -7,6 +7,7 @@ import (
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	kafkav1beta1 "pipeline-operator/pkg/apis/kafka/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
+	"sort"
 
 	"github.com/go-test/deep"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -127,9 +128,17 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 
 func buildKafkaUserSpec(pipelineSpec *algov1beta1.PipelineDeploymentSpecV1beta1, allTopicConfigs map[string]*v1beta1.TopicConfigModel) kafkav1beta1.KafkaUserSpec {
 
+	// Sort the topics as the order will matter when reconciling differences
+	var keys []string
+	for k := range allTopicConfigs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	// Create the acl list based on all of the Topic configs for this deployment
 	resources := make([]kafkav1beta1.KakfaUserAcl, 0)
-	for _, topicConfig := range allTopicConfigs {
+	for _, k := range keys {
+		topicConfig := allTopicConfigs[k]
 		topicName := utils.GetTopicName(topicConfig.TopicName, pipelineSpec)
 		resource := kafkav1beta1.KakfaUserAcl{
 			Operation: "All",

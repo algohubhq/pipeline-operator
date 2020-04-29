@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
+	ambv2 "pipeline-operator/pkg/apis/getambassador/v2"
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalev2beta2 "k8s.io/api/autoscaling/v2beta2"
@@ -349,6 +350,26 @@ func (d *KubeUtil) CheckForUnstructured(listOptions []client.ListOption, groupVe
 
 	if len(unstructuredList.Items) > 0 {
 		return &unstructuredList.Items[0], nil
+	}
+
+	return nil, nil
+
+}
+
+func (d *KubeUtil) CheckForAmbassadorMapping(listOptions []client.ListOption) (*ambv2.Mapping, error) {
+
+	list := &ambv2.MappingList{}
+	ctx := context.TODO()
+	err := d.manager.GetClient().List(ctx, list, listOptions...)
+
+	if err != nil && errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	if len(list.Items) > 0 {
+		return &list.Items[0], nil
 	}
 
 	return nil, nil

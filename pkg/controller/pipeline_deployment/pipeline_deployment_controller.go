@@ -7,10 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
+	kafkav1beta1 "pipeline-operator/pkg/apis/kafka/v1beta1"
 	recon "pipeline-operator/pkg/reconciler"
 	utils "pipeline-operator/pkg/utilities"
 
@@ -417,7 +416,7 @@ func (r *ReconcilePipelineDeployment) getPipelineDeploymentCount(request *reconc
 		},
 	}
 
-	list := &unstructured.UnstructuredList{}
+	list := &v1beta1.PipelineDeploymentList{}
 	ctx := context.TODO()
 	err := r.client.List(ctx, list, opts...)
 
@@ -465,7 +464,7 @@ func (r *ReconcilePipelineDeployment) getDataConnectorCount(request *reconcile.R
 		},
 	}
 
-	list := &unstructured.UnstructuredList{}
+	list := &kafkav1beta1.KafkaConnectList{}
 	ctx := context.TODO()
 	err := r.client.List(ctx, list, opts...)
 
@@ -489,7 +488,7 @@ func (r *ReconcilePipelineDeployment) getTopicCount(request *reconcile.Request) 
 		},
 	}
 
-	list := &unstructured.UnstructuredList{}
+	list := &kafkav1beta1.KafkaTopicList{}
 	ctx := context.TODO()
 	err := r.client.List(ctx, list, opts...)
 

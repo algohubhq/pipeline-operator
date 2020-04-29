@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 
+	ambv2 "pipeline-operator/pkg/apis/getambassador/v2"
+
 	"github.com/go-test/deep"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -20,9 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -364,13 +364,6 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 		},
 	}
 
-	kubeUtil := utils.NewKubeUtil(endpointReconciler.manager, endpointReconciler.request)
-	existingMapping, err := kubeUtil.CheckForUnstructured(opts, schema.GroupVersionKind{
-		Group:   "getambassador.io",
-		Kind:    "Mapping",
-		Version: "v1",
-	})
-
 	var prefix string
 	if protocol == "grpc" {
 		prefix = fmt.Sprintf("/run/grpc/%s/%s/", pipelineDeployment.Spec.DeploymentOwner,
@@ -379,13 +372,20 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 		prefix = fmt.Sprintf("/run/http/%s/%s/", pipelineDeployment.Spec.DeploymentOwner,
 			pipelineDeployment.Spec.DeploymentName)
 	}
-
 	rewrite := fmt.Sprintf("/%s/%s/", pipelineDeployment.Spec.DeploymentOwner,
 		pipelineDeployment.Spec.DeploymentName)
 
+	mappingSpec := ambv2.MappingSpec{
+		Prefix:  prefix,
+		Rewrite: rewrite,
+		Grpc:    protocol == "grpc",
+		Service: serviceName,
+	}
+
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.manager, endpointReconciler.request)
+	existingMapping, err := kubeUtil.CheckForAmbassadorMapping(opts)
+
 	if (err == nil && existingMapping == nil) || (err != nil && errors.IsNotFound(err)) {
-		// Create the topic
-		// Using a unstructured object to submit a ambassador mapping.
 
 		labels := map[string]string{
 			"app.kubernetes.io/part-of":    "algo.run",
@@ -398,24 +398,11 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 				pipelineDeployment.Spec.PipelineName),
 		}
 
-		newMapping := &unstructured.Unstructured{}
-		newMapping.Object = map[string]interface{}{
-			"namespace": pipelineDeployment.Spec.DeploymentNamespace,
-			"spec": map[string]interface{}{
-				"prefix":  prefix,
-				"rewrite": rewrite,
-				"grpc":    protocol == "grpc",
-				"service": serviceName,
-			},
-		}
+		newMapping := &ambv2.Mapping{}
+		newMapping.Spec = mappingSpec
 		newMapping.SetGenerateName("endpoint-mapping-")
 		newMapping.SetNamespace(endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace)
 		newMapping.SetLabels(labels)
-		newMapping.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "getambassador.io",
-			Kind:    "Mapping",
-			Version: "v1",
-		})
 
 		// Set PipelineDeployment instance as the owner and controller
 		if err := controllerutil.SetControllerReference(endpointReconciler.pipelineDeployment, newMapping, endpointReconciler.scheme); err != nil {
@@ -429,27 +416,20 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 	} else if err != nil {
 		log.Error(err, "Failed to check if pipeline deployment endpoint mapping exists.")
 	} else {
+
 		// Update the endpoint mapping if changed
-		var prefixCurrent, serviceCurrent string
-		spec, ok := existingMapping.Object["spec"].(map[string]interface{})
-		if ok {
-			prefixCurrent = spec["prefix"].(string)
-			serviceCurrent = spec["service"].(string)
-		}
+		if !reflect.DeepEqual(existingMapping.Spec, mappingSpec) {
 
-		if prefixCurrent != prefix ||
-			serviceCurrent != serviceName {
-
-			spec["prefix"] = prefix
-			spec["service"] = serviceName
-
-			existingMapping.Object["spec"] = spec
+			// Update the existing spec
+			existingMapping.Spec = mappingSpec
 
 			err := endpointReconciler.manager.GetClient().Update(context.TODO(), existingMapping)
 			if err != nil {
 				log.Error(err, "Failed updating pipeline deployment endpoint mapping")
 			}
+
 		}
+
 	}
 
 	return nil

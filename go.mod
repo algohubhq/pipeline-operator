@@ -3,7 +3,7 @@ module pipeline-operator
 go 1.13
 
 require (
-	github.com/go-kafka/connect v0.9.0
+	github.com/go-kafka/connect v0.9.0 // indirect
 	github.com/go-test/deep v1.0.1
 	github.com/minio/minio-go/v6 v6.0.37
 	github.com/operator-framework/operator-sdk v0.15.0
