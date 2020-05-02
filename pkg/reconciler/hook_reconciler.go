@@ -272,6 +272,67 @@ func (hookReconciler *EventHookReconciler) createDeploymentSpec(name string, lab
 
 	volumes := []corev1.Volume{}
 	volumeMounts := []corev1.VolumeMount{}
+
+	// Create kafka tls volumes and mounts if tls enabled
+	kafkaUtil := hookReconciler.kafkaUtil
+	if hookReconciler.kafkaUtil.TLS != nil {
+
+		kafkaTLSVolumes := []corev1.Volume{
+			{
+				Name: "kafka-ca-certs",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  kafkaUtil.TLS.TrustedCertificates[0].SecretName,
+						DefaultMode: utils.Int32p(0444),
+					},
+				},
+			},
+		}
+		volumes = append(volumes, kafkaTLSVolumes...)
+
+		kafkaTLSMounts := []corev1.VolumeMount{
+			{
+				Name:      "kafka-ca-certs",
+				SubPath:   kafkaUtil.TLS.TrustedCertificates[0].Certificate,
+				MountPath: "/etc/ssl/certs/kafka-ca.crt",
+				ReadOnly:  true,
+			},
+		}
+		volumeMounts = append(volumeMounts, kafkaTLSMounts...)
+	}
+
+	if kafkaUtil.Authentication != nil {
+
+		kafkaAuthVolumes := []corev1.Volume{
+			{
+				Name: "kafka-certs",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  kafkaUtil.Authentication.CertificateAndKey.SecretName,
+						DefaultMode: utils.Int32p(0444),
+					},
+				},
+			},
+		}
+		volumes = append(volumes, kafkaAuthVolumes...)
+
+		kafkaAuthMounts := []corev1.VolumeMount{
+			{
+				Name:      "kafka-certs",
+				SubPath:   kafkaUtil.Authentication.CertificateAndKey.Certificate,
+				MountPath: "/etc/ssl/certs/kafka-user.crt",
+				ReadOnly:  true,
+			},
+			{
+				Name:      "kafka-certs",
+				SubPath:   kafkaUtil.Authentication.CertificateAndKey.Key,
+				MountPath: "/etc/ssl/certs/kafka-user.key",
+				ReadOnly:  true,
+			},
+		}
+		volumeMounts = append(volumeMounts, kafkaAuthMounts...)
+	}
+
 	configMapVolume := corev1.Volume{
 		Name: "hook-config-volume",
 		VolumeSource: corev1.VolumeSource{

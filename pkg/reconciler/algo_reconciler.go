@@ -41,6 +41,30 @@ type AlgoReconciler struct {
 	scheme             *runtime.Scheme
 }
 
+// algoRunnerConfig struct for AlgoRunnerConfig
+type algoRunnerConfig struct {
+	DeploymentOwner string                              `json:"deploymentOwner"`
+	DeploymentName  string                              `json:"deploymentName"`
+	PipelineOwner   string                              `json:"pipelineOwner"`
+	PipelineName    string                              `json:"pipelineName"`
+	Owner           string                              `json:"owner"`
+	Name            string                              `json:"name"`
+	Version         string                              `json:"version"`
+	Index           int32                               `json:"index"`
+	Entrypoint      string                              `json:"entrypoint,omitempty"`
+	Executor        *v1beta1.Executors                  `json:"executor,omitempty"`
+	Parameters      []v1beta1.AlgoParamSpec             `json:"parameters,omitempty"`
+	Inputs          []v1beta1.AlgoInputSpec             `json:"inputs,omitempty"`
+	Outputs         []v1beta1.AlgoOutputSpec            `json:"outputs,omitempty"`
+	WriteAllOutputs bool                                `json:"writeAllOutputs,omitempty"`
+	Pipes           []v1beta1.PipeModel                 `json:"pipes,omitempty"`
+	Topics          map[string]v1beta1.TopicConfigModel `json:"topics,omitempty"`
+	RetryEnabled    bool                                `json:"retryEnabled,omitempty"`
+	RetryStrategy   *v1beta1.TopicRetryStrategyModel    `json:"retryStrategy,omitempty"`
+	GpuEnabled      bool                                `json:"gpuEnabled,omitempty"`
+	TimeoutSeconds  int32                               `json:"timeoutSeconds,omitempty"`
+}
+
 var log = logf.Log.WithName("reconciler")
 
 // NewAlgoReconciler returns a new AlgoReconciler
@@ -358,7 +382,7 @@ func (algoReconciler *AlgoReconciler) createMetricServiceSpec(pipelineDeployment
 }
 
 // CreateDeploymentSpec generates the k8s spec for the algo deployment
-func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, existingDeploymentName string, labels map[string]string, runnerConfig *v1beta1.AlgoRunnerConfig, configMapName string, update bool) (*appsv1.Deployment, error) {
+func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, existingDeploymentName string, labels map[string]string, runnerConfig *algoRunnerConfig, configMapName string, update bool) (*appsv1.Deployment, error) {
 
 	pipelineDeployment := algoReconciler.pipelineDeployment
 	algoDepl := algoReconciler.algoDeployment
@@ -464,7 +488,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, existing
 		kafkaTLSMounts := []corev1.VolumeMount{
 			{
 				Name:      "kafka-ca-certs",
-				SubPath:   "ca.crt",
+				SubPath:   kafkaUtil.TLS.TrustedCertificates[0].Certificate,
 				MountPath: "/etc/ssl/certs/kafka-ca.crt",
 				ReadOnly:  true,
 			},
@@ -759,7 +783,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, existing
 }
 
 func (algoReconciler *AlgoReconciler) createConfigMap(algoDepl *v1beta1.AlgoDeploymentV1beta1,
-	runnerConfig *v1beta1.AlgoRunnerConfig, labels map[string]string) (configMapName string, err error) {
+	runnerConfig *algoRunnerConfig, labels map[string]string) (configMapName string, err error) {
 
 	kubeUtil := utils.NewKubeUtil(algoReconciler.manager, algoReconciler.request)
 	// Create all config mounts
@@ -830,7 +854,7 @@ func (algoReconciler *AlgoReconciler) createConfigMap(algoDepl *v1beta1.AlgoDepl
 }
 
 func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDeployment,
-	runnerConfig *v1beta1.AlgoRunnerConfig,
+	runnerConfig *algoRunnerConfig,
 	algoDepl *v1beta1.AlgoDeploymentV1beta1) []corev1.EnvVar {
 
 	envVars := []corev1.EnvVar{}
@@ -938,14 +962,14 @@ func (algoReconciler *AlgoReconciler) createSelector(constraints []string) map[s
 
 // CreateRunnerConfig creates the config struct to be sent to the runner
 func (algoReconciler *AlgoReconciler) createRunnerConfig(pipelineDeploymentSpec *algov1beta1.PipelineDeploymentSpecV1beta1,
-	algoDepl *v1beta1.AlgoDeploymentV1beta1) *v1beta1.AlgoRunnerConfig {
+	algoDepl *v1beta1.AlgoDeploymentV1beta1) *algoRunnerConfig {
 
 	topics := make(map[string]algov1beta1.TopicConfigModel)
 	for key, value := range algoReconciler.allTopicConfigs {
 		topics[key] = *value
 	}
 
-	runnerConfig := &v1beta1.AlgoRunnerConfig{
+	runnerConfig := &algoRunnerConfig{
 		DeploymentOwner: pipelineDeploymentSpec.DeploymentOwner,
 		DeploymentName:  pipelineDeploymentSpec.DeploymentName,
 		PipelineOwner:   pipelineDeploymentSpec.PipelineOwner,

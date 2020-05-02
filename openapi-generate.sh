@@ -24,7 +24,6 @@ cp ./algorun-go-client/model_algo_input_http_model.go ./pkg/apis/algorun/v1beta1
 cp ./algorun-go-client/model_algo_input_grpc_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_algo_input_file_model.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_algo_output_spec.go ./pkg/apis/algorun/v1beta1/
-cp ./algorun-go-client/model_algo_runner_config.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_event_hook_spec.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_component_status.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_resource_requirements_v1.go ./pkg/apis/algorun/v1beta1/
