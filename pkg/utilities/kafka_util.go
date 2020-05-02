@@ -6,6 +6,9 @@ import (
 	"os"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	"strconv"
+	"strings"
+
+	kafkav1beta1 "pipeline-operator/pkg/apis/kafka/v1beta1"
 
 	"github.com/go-test/deep"
 	corev1 "k8s.io/api/core/v1"
@@ -19,12 +22,18 @@ import (
 // NewKafkaUtil returns a new KafkaUtil
 func NewKafkaUtil(pipelineDeployment *algov1beta1.PipelineDeployment,
 	manager manager.Manager,
-	scheme *runtime.Scheme) KafkaUtil {
-	return KafkaUtil{
+	scheme *runtime.Scheme) *KafkaUtil {
+
+	kafkaUtil := &KafkaUtil{
 		pipelineDeployment: pipelineDeployment,
 		manager:            manager,
 		scheme:             scheme,
 	}
+
+	kafkaUtil.TLS = kafkaUtil.getKafkaTLS()
+	kafkaUtil.Authentication = kafkaUtil.getKafkaAuth()
+
+	return kafkaUtil
 }
 
 // KafkaUtil some helper methods for managing kafka configuration
@@ -32,10 +41,67 @@ type KafkaUtil struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
 	manager            manager.Manager
 	scheme             *runtime.Scheme
+	TLS                *kafkav1beta1.KafkaTLS
+	Authentication     *kafkav1beta1.KafkaClientAuthentication
+}
+
+func (k *KafkaUtil) getKafkaTLS() (tls *kafkav1beta1.KafkaTLS) {
+
+	if k.CheckForKafkaTLS() {
+		tls = &kafkav1beta1.KafkaTLS{
+			TrustedCertificates: []kafkav1beta1.SecretSource{
+				{
+					SecretName:  k.getKafkaCASecretName(),
+					Certificate: os.Getenv("KAFKA_TLS_CA_KEY"),
+				},
+			},
+		}
+
+		// Copy the cert secret from the kafka namespace (if necessary)
+		k.CopyKafkaCASecret()
+	}
+
+	return tls
+}
+
+func (k *KafkaUtil) getKafkaAuth() (auth *kafkav1beta1.KafkaClientAuthentication) {
+
+	authType := os.Getenv("KAFKA_AUTH_TYPE")
+
+	if authType != "" {
+		auth = &kafkav1beta1.KafkaClientAuthentication{
+			Type: kafkav1beta1.KafkaClientAuthenticationTypes(os.Getenv("KAFKA_AUTH_TYPE")),
+		}
+
+		if auth.Type == kafkav1beta1.KAFKA_AUTH_TYPE_TLS {
+			auth.CertificateAndKey = &kafkav1beta1.SecretSource{
+				SecretName: k.getKafkaUserSecretName(os.Getenv("KAFKA_AUTH_SECRETNAME"), k.pipelineDeployment.Spec.DeploymentOwner,
+					k.pipelineDeployment.Spec.DeploymentName),
+				Certificate: os.Getenv("KAFKA_AUTH_CERTIFICATE_KEY"),
+				Key:         os.Getenv("KAFKA_AUTH_KEY_KEY"),
+			}
+
+			// Copy the cert secret from the kafka namespace (if necessary)
+			k.CopyKafkaUserSecret()
+		}
+
+		if auth.Type == kafkav1beta1.KAFKA_AUTH_TYPE_SCRAMSHA512 ||
+			auth.Type == kafkav1beta1.KAFKA_AUTH_TYPE_PLAIN {
+			auth.Username = os.Getenv("KAFKA_AUTH_USERNAME")
+			auth.PasswordSecret = &kafkav1beta1.SecretSource{
+				SecretName: k.getKafkaUserSecretName(os.Getenv("KAFKA_AUTH_SECRETNAME"), k.pipelineDeployment.Spec.DeploymentOwner,
+					k.pipelineDeployment.Spec.DeploymentName),
+				Password: os.Getenv("KAFKA_AUTH_PASSWORD_KEY"),
+			}
+		}
+
+	}
+
+	return auth
 }
 
 // GetKafkaClusterName gets the KAFKA_CLUSTER_NAME
-func GetKafkaClusterName() string {
+func (k *KafkaUtil) GetKafkaClusterName() string {
 
 	// Try to load from environment variable
 	return os.Getenv("KAFKA_CLUSTER_NAME")
@@ -43,30 +109,40 @@ func GetKafkaClusterName() string {
 }
 
 // GetKafkaNamespace gets the KAFKA_NAMESPACE
-func GetKafkaNamespace() string {
+func (k *KafkaUtil) GetKafkaNamespace() string {
 
 	// Try to load from environment variable
 	return os.Getenv("KAFKA_NAMESPACE")
 
 }
 
-// GetKafkaCaSecretName gets the name of the ca cert secret
-func GetKafkaCaSecretName() string {
+// GetKafkaAuthType gets the KAFKA_AUTH_TYPE
+func (k *KafkaUtil) GetKafkaAuthType() string {
 
-	return fmt.Sprintf("%s-cluster-ca-cert", GetKafkaClusterName())
+	// Try to load from environment variable
+	return os.Getenv("KAFKA_AUTH_TYPE")
 
 }
 
-// GetKafkaUserSecretName gets the name of the user cert secret
-func GetKafkaUserSecretName(deploymentOwner string, deploymentName string) string {
+// getKafkaCASecretName gets the name of the kafka ca cert secret
+func (k *KafkaUtil) getKafkaCASecretName() string {
 
-	return fmt.Sprintf("kafka-%s-%s", deploymentOwner,
-		deploymentName)
+	// Try to load from environment variable
+	return os.Getenv("KAFKA_TLS_CA_SECRETNAME")
+
+}
+
+// getKafkaUserSecretName gets the name of the user cert secret
+func (k *KafkaUtil) getKafkaUserSecretName(secretName string, deploymentOwner string, deploymentName string) string {
+
+	secretName = strings.Replace(secretName, "{deploymentowner}", deploymentOwner, -1)
+	secretName = strings.Replace(secretName, "{deploymentname}", deploymentName, -1)
+	return strings.ToLower(secretName)
 
 }
 
 // CheckForKafkaTLS checks for the KAFKA_TLS envar and certs
-func CheckForKafkaTLS() bool {
+func (k *KafkaUtil) CheckForKafkaTLS() bool {
 
 	// Try to load from environment variable
 	kafkaTLSEnv := os.Getenv("KAFKA_TLS")
@@ -83,15 +159,33 @@ func CheckForKafkaTLS() bool {
 
 }
 
-func (k *KafkaUtil) CopyKafkaSecrets() {
+// CheckForKafkaAuth checks for the KAFKA_TLS envar and certs
+func (k *KafkaUtil) CheckForKafkaAuth() bool {
 
-	kafkaUserSecretName := GetKafkaUserSecretName(k.pipelineDeployment.Spec.DeploymentOwner, k.pipelineDeployment.Spec.DeploymentName)
-	kafkaCaSecretName := GetKafkaCaSecretName()
+	// Try to load from environment variable
+	kafkaAuthEnv := os.Getenv("KAFKA_AUTH_TYPE")
+	if kafkaAuthEnv == "" {
+		return false
+	}
+
+	return true
+
+}
+
+func (k *KafkaUtil) CopyKafkaCASecret() {
+
+	kafkaCaSecretName := k.getKafkaCASecretName()
+	// Copy the ca cert secret
+	k.copySecret(k.GetKafkaNamespace(), kafkaCaSecretName)
+
+}
+
+func (k *KafkaUtil) CopyKafkaUserSecret() {
+
+	kafkaUserSecretName := k.getKafkaUserSecretName(os.Getenv("KAFKA_AUTH_SECRETNAME"), k.pipelineDeployment.Spec.DeploymentOwner, k.pipelineDeployment.Spec.DeploymentName)
 
 	// Copy the user cert secret
-	k.copySecret(GetKafkaNamespace(), kafkaUserSecretName)
-	// Copy the ca cert secret
-	k.copySecret(GetKafkaNamespace(), kafkaCaSecretName)
+	k.copySecret(k.GetKafkaNamespace(), kafkaUserSecretName)
 
 }
 

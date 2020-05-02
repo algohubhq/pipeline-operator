@@ -33,10 +33,10 @@ import (
 
 // NewEndpointReconciler returns a new EndpointReconciler
 func NewEndpointReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
+	kafkaUtil *utils.KafkaUtil,
 	request *reconcile.Request,
 	manager manager.Manager,
-	scheme *runtime.Scheme,
-	kafkaTLS bool) EndpointReconciler {
+	scheme *runtime.Scheme) EndpointReconciler {
 	endpointConfig := &endpointConfig{
 		DeploymentOwner: pipelineDeployment.Spec.DeploymentOwner,
 		DeploymentName:  pipelineDeployment.Spec.DeploymentName,
@@ -47,10 +47,10 @@ func NewEndpointReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	return EndpointReconciler{
 		pipelineDeployment: pipelineDeployment,
 		endpointConfig:     endpointConfig,
+		kafkaUtil:          kafkaUtil,
 		request:            request,
 		manager:            manager,
 		scheme:             scheme,
-		kafkaTLS:           kafkaTLS,
 	}
 }
 
@@ -58,11 +58,11 @@ func NewEndpointReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 type EndpointReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
 	endpointConfig     *endpointConfig
+	kafkaUtil          *utils.KafkaUtil
 	request            *reconcile.Request
 	manager            manager.Manager
 	scheme             *runtime.Scheme
 	serviceConfig      *serviceConfig
-	kafkaTLS           bool
 }
 
 // endpointConfig holds the config sent to the endpoint container
@@ -191,6 +191,7 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment(labels map[str
 			topicReconciler := NewTopicReconciler(endpointReconciler.pipelineDeployment,
 				"Endpoint",
 				&currentTopicConfig,
+				endpointReconciler.kafkaUtil,
 				endpointReconciler.request,
 				endpointReconciler.manager,
 				endpointReconciler.scheme)
@@ -480,35 +481,24 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 
 	volumes := []corev1.Volume{}
 	volumeMounts := []corev1.VolumeMount{}
-	if endpointReconciler.kafkaTLS {
 
-		kafkaParams := map[string]string{
-			"security.protocol":        "ssl",
-			"ssl.ca.location":          "/etc/ssl/certs/kafka-ca.crt",
-			"ssl.certificate.location": "/etc/ssl/certs/kafka-user.crt",
-			"ssl.key.location":         "/etc/ssl/certs/kafka-user.key",
+	kafkaUtil := endpointReconciler.kafkaUtil
+
+	if endpointReconciler.kafkaUtil.TLS != nil {
+
+		if endpointConfig.Kafka.Params == nil {
+			endpointConfig.Kafka.Params = make(map[string]string, 0)
 		}
-		endpointConfig.Kafka.Params = kafkaParams
 
-		kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeployment.Spec.DeploymentOwner,
-			pipelineDeployment.Spec.DeploymentName)
-		kafkaCaSecretName := fmt.Sprintf("%s-cluster-ca-cert", utils.GetKafkaClusterName())
+		endpointConfig.Kafka.Params["security.protocol"] = "ssl"
+		endpointConfig.Kafka.Params["ssl.ca.location"] = "/etc/ssl/certs/kafka-ca.crt"
 
 		kafkaTLSVolumes := []corev1.Volume{
-			{
-				Name: "kafka-certs",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName:  kafkaUsername,
-						DefaultMode: utils.Int32p(0444),
-					},
-				},
-			},
 			{
 				Name: "kafka-ca-certs",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName:  kafkaCaSecretName,
+						SecretName:  kafkaUtil.TLS.TrustedCertificates[0].SecretName,
 						DefaultMode: utils.Int32p(0444),
 					},
 				},
@@ -523,20 +513,47 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 				MountPath: "/etc/ssl/certs/kafka-ca.crt",
 				ReadOnly:  true,
 			},
+		}
+		volumeMounts = append(volumeMounts, kafkaTLSMounts...)
+	}
+
+	if kafkaUtil.Authentication != nil {
+
+		if endpointConfig.Kafka.Params == nil {
+			endpointConfig.Kafka.Params = make(map[string]string, 0)
+		}
+
+		endpointConfig.Kafka.Params["ssl.certificate.location"] = "ssl"
+		endpointConfig.Kafka.Params["ssl.key.location"] = "/etc/ssl/certs/kafka-ca.crt"
+
+		kafkaAuthVolumes := []corev1.Volume{
+			{
+				Name: "kafka-certs",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  kafkaUtil.Authentication.CertificateAndKey.SecretName,
+						DefaultMode: utils.Int32p(0444),
+					},
+				},
+			},
+		}
+		volumes = append(volumes, kafkaAuthVolumes...)
+
+		kafkaAuthMounts := []corev1.VolumeMount{
 			{
 				Name:      "kafka-certs",
-				SubPath:   "user.crt",
+				SubPath:   kafkaUtil.Authentication.CertificateAndKey.Certificate,
 				MountPath: "/etc/ssl/certs/kafka-user.crt",
 				ReadOnly:  true,
 			},
 			{
 				Name:      "kafka-certs",
-				SubPath:   "user.key",
+				SubPath:   kafkaUtil.Authentication.CertificateAndKey.Key,
 				MountPath: "/etc/ssl/certs/kafka-user.key",
 				ReadOnly:  true,
 			},
 		}
-		volumeMounts = append(volumeMounts, kafkaTLSMounts...)
+		volumeMounts = append(volumeMounts, kafkaAuthMounts...)
 	}
 
 	configMapVolume := corev1.Volume{

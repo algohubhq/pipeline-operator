@@ -27,10 +27,10 @@ import (
 func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	dataConnectorSpec *v1beta1.DataConnectorDeploymentV1beta1,
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
+	kafkaUtil *utils.KafkaUtil,
 	request *reconcile.Request,
 	manager manager.Manager,
-	scheme *runtime.Scheme,
-	kafkaTLS bool) (*DataConnectorReconciler, error) {
+	scheme *runtime.Scheme) (*DataConnectorReconciler, error) {
 
 	// Ensure the algo has a matching version defined
 	var activeDcVersion *v1beta1.DataConnectorVersionModel
@@ -50,10 +50,10 @@ func NewDataConnectorReconciler(pipelineDeployment *algov1beta1.PipelineDeployme
 		dataConnectorSpec:          dataConnectorSpec,
 		activeDataConnectorVersion: activeDcVersion,
 		allTopicConfigs:            allTopicConfigs,
+		kafkaUtil:                  kafkaUtil,
 		request:                    request,
 		manager:                    manager,
 		scheme:                     scheme,
-		kafkaTLS:                   kafkaTLS,
 	}, nil
 }
 
@@ -63,10 +63,10 @@ type DataConnectorReconciler struct {
 	dataConnectorSpec          *v1beta1.DataConnectorDeploymentV1beta1
 	activeDataConnectorVersion *v1beta1.DataConnectorVersionModel
 	allTopicConfigs            map[string]*v1beta1.TopicConfigModel
+	kafkaUtil                  *utils.KafkaUtil
 	request                    *reconcile.Request
 	manager                    manager.Manager
 	scheme                     *runtime.Scheme
-	kafkaTLS                   bool
 }
 
 // Reconcile creates or updates the data connector for the pipelineDeployment
@@ -83,6 +83,7 @@ func (dataConnectorReconciler *DataConnectorReconciler) Reconcile() error {
 				topicReconciler := NewTopicReconciler(dataConnectorReconciler.pipelineDeployment,
 					dcName,
 					&currentTopicConfig,
+					dataConnectorReconciler.kafkaUtil,
 					dataConnectorReconciler.request,
 					dataConnectorReconciler.manager,
 					dataConnectorReconciler.scheme)
@@ -253,24 +254,12 @@ func (dataConnectorReconciler *DataConnectorReconciler) buildKafkaConnectSpec() 
 		},
 	}
 
-	if dataConnectorReconciler.kafkaTLS {
-		spec.TLS = &kafkav1beta1.KafkaConnectTLS{
-			TrustedCertificates: []kafkav1beta1.CertSecretSource{
-				{
-					SecretName:  utils.GetKafkaCaSecretName(),
-					Certificate: "ca.crt",
-				},
-			},
-		}
-		spec.Authentication = &kafkav1beta1.KafkaClientAuthentication{
-			Type: kafkav1beta1.KAFKA_AUTH_TYPE_TLS,
-			CertificateAndKey: &kafkav1beta1.CertAndKeySecretSource{
-				SecretName: utils.GetKafkaUserSecretName(dataConnectorReconciler.pipelineDeployment.Spec.DeploymentOwner,
-					dataConnectorReconciler.pipelineDeployment.Spec.DeploymentName),
-				Certificate: "user.crt",
-				Key:         "user.key",
-			},
-		}
+	if dataConnectorReconciler.kafkaUtil.TLS != nil {
+		spec.TLS = dataConnectorReconciler.kafkaUtil.TLS
+	}
+
+	if dataConnectorReconciler.kafkaUtil.Authentication != nil {
+		spec.Authentication = dataConnectorReconciler.kafkaUtil.Authentication
 	}
 
 	return &spec, nil

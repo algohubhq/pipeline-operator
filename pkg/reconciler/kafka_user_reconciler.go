@@ -21,6 +21,7 @@ import (
 // NewKafkaUserReconciler returns a new KafkaUserReconciler
 func NewKafkaUserReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	topicConfigs map[string]*v1beta1.TopicConfigModel,
+	kafkaUtil *utils.KafkaUtil,
 	request *reconcile.Request,
 	apiReader client.Reader,
 	client client.Client,
@@ -28,6 +29,7 @@ func NewKafkaUserReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	return KafkaUserReconciler{
 		pipelineDeployment: pipelineDeployment,
 		topicConfigs:       topicConfigs,
+		kafkaUtil:          kafkaUtil,
 		request:            request,
 		apiReader:          apiReader,
 		client:             client,
@@ -39,6 +41,7 @@ func NewKafkaUserReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 type KafkaUserReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
 	topicConfigs       map[string]*v1beta1.TopicConfigModel
+	kafkaUtil          *utils.KafkaUtil
 	request            *reconcile.Request
 	apiReader          client.Reader
 	client             client.Client
@@ -48,7 +51,7 @@ type KafkaUserReconciler struct {
 // Reconcile reconciles the Kakfa user for a pipeline
 func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 
-	kafkaNamespace := utils.GetKafkaNamespace()
+	kafkaNamespace := kafkaUserReconciler.kafkaUtil.GetKafkaNamespace()
 	pipelineDeploymentSpec := kafkaUserReconciler.pipelineDeployment.Spec
 
 	kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeploymentSpec.DeploymentOwner,
@@ -68,7 +71,7 @@ func (kafkaUserReconciler *KafkaUserReconciler) Reconcile() {
 	if err != nil && errors.IsNotFound(err) {
 		// Create the topic
 		labels := map[string]string{
-			"strimzi.io/cluster":           utils.GetKafkaClusterName(),
+			"strimzi.io/cluster":           kafkaUserReconciler.kafkaUtil.GetKafkaClusterName(),
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "kafka-user",
 			"app.kubernetes.io/managed-by": "pipeline-operator",

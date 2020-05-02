@@ -11,7 +11,7 @@ type KafkaConnectSpec struct {
 	Version          string                       `json:"version,omitempty"`
 	Image            string                       `json:"image,omitempty"`
 	BootstrapServers string                       `json:"bootstrapServers,omitempty"`
-	TLS              *KafkaConnectTLS             `json:"tls,omitempty"`
+	TLS              *KafkaTLS                    `json:"tls,omitempty"`
 	Authentication   *KafkaClientAuthentication   `json:"authentication,omitempty"`
 	Config           map[string]string            `json:"config,omitempty"`
 	Resources        *corev1.ResourceRequirements `json:"resources,omitempty"`
@@ -64,65 +64,9 @@ type PodDisruptionBudgetTemplate struct {
 	MaxUnavailable int              `json:"maxUnavailable,omitempty"`
 }
 
-// KafkaConnectTLS defines the desired state of KafkaConnectTls
-type KafkaConnectTLS struct {
-	TrustedCertificates []CertSecretSource `json:"trustedCertificates,omitempty"`
-}
-
-// KafkaClientAuthentication defines the desired state of KafkaClientAuthentication
-type KafkaClientAuthentication struct {
-	Type KafkaClientAuthenticationTypes `json:"type,omitempty"`
-
-	CertificateAndKey *CertAndKeySecretSource `json:"certificateAndKey,omitempty"`
-
-	Username       string                `json:"username,omitempty"`
-	PasswordSecret *PasswordSecretSource `json:"passwordSecret,omitempty"`
-
-	ClientID                       string               `json:"clientId,omitempty"`
-	TokenEndpointURI               string               `json:"tokenEndpointUri,omitempty"`
-	ClientSecret                   *GenericSecretSource `json:"clientSecret,omitempty"`
-	AccessToken                    *GenericSecretSource `json:"accessToken,omitempty"`
-	RefreshToken                   *GenericSecretSource `json:"refreshToken,omitempty"`
-	TLSTrustedCertificates         []CertSecretSource   `json:"tlsTrustedCertificates,omitempty"`
-	DisableTLSHostnameVerification bool                 `json:"disableTlsHostnameVerification,omitempty"`
-	MaxTokenExpirySeconds          int                  `json:"maxTokenExpirySeconds,omitempty"`
-	AccessTokenIsJwt               bool                 `json:"accessTokenIsJwt,omitempty"`
-}
-
-// KafkaClientAuthenticationTypes
-type KafkaClientAuthenticationTypes string
-
-// List of ComponentTypes
-const (
-	KAFKA_AUTH_TYPE_TLS         KafkaClientAuthenticationTypes = "tls"
-	KAFKA_AUTH_TYPE_SCRAMSHA512 KafkaClientAuthenticationTypes = "scram-sha-512"
-	KAFKA_AUTH_TYPE_PLAIN       KafkaClientAuthenticationTypes = "plain"
-	KAFKA_AUTH_TYPE_OAUTH       KafkaClientAuthenticationTypes = "oauth"
-)
-
-// CertSecretSource defines the desired state of CertSecretSource
-type CertSecretSource struct {
-	SecretName  string `json:"secretName,omitempty"`
-	Certificate string `json:"certificate,omitempty"`
-}
-
-// CertAndKeySecretSource defines the desired state of CertAndKeySecretSource
-type CertAndKeySecretSource struct {
-	SecretName  string `json:"secretName,omitempty"`
-	Certificate string `json:"certificate,omitempty"`
-	Key         string `json:"key,omitempty"`
-}
-
-// PasswordSecretSource defines the desired state of PasswordSecretSource
-type PasswordSecretSource struct {
-	SecretName string `json:"secretName,omitempty"`
-	Password   string `json:"password,omitempty"`
-}
-
-// GenericSecretSource defines the desired state of GenericSecretSource
-type GenericSecretSource struct {
-	Key        string `json:"key,omitempty"`
-	SecretName string `json:"secretName,omitempty"`
+// KafkaTLS defines the desired state of KafkaTLS
+type KafkaTLS struct {
+	TrustedCertificates []SecretSource `json:"trustedCertificates,omitempty"`
 }
 
 // JvmOptions defines the desired state of JvmOptions

@@ -35,10 +35,10 @@ type AlgoReconciler struct {
 	algoDeployment     *v1beta1.AlgoDeploymentV1beta1
 	activeAlgoVersion  *v1beta1.AlgoVersionModel
 	allTopicConfigs    map[string]*v1beta1.TopicConfigModel
+	kafkaUtil          *utils.KafkaUtil
 	request            *reconcile.Request
 	manager            manager.Manager
 	scheme             *runtime.Scheme
-	kafkaTLS           bool
 }
 
 var log = logf.Log.WithName("reconciler")
@@ -47,10 +47,10 @@ var log = logf.Log.WithName("reconciler")
 func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	algoDeployment *v1beta1.AlgoDeploymentV1beta1,
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
+	kafkaUtil *utils.KafkaUtil,
 	request *reconcile.Request,
 	manager manager.Manager,
-	scheme *runtime.Scheme,
-	kafkaTLS bool) (*AlgoReconciler, error) {
+	scheme *runtime.Scheme) (*AlgoReconciler, error) {
 
 	// Ensure the algo has a matching version defined
 	var activeAlgoVersion *v1beta1.AlgoVersionModel
@@ -70,10 +70,10 @@ func NewAlgoReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 		algoDeployment:     algoDeployment,
 		activeAlgoVersion:  activeAlgoVersion,
 		allTopicConfigs:    allTopicConfigs,
+		kafkaUtil:          kafkaUtil,
 		request:            request,
 		manager:            manager,
 		scheme:             scheme,
-		kafkaTLS:           kafkaTLS,
 	}, nil
 }
 
@@ -82,8 +82,7 @@ func NewAlgoServiceReconciler(pipelineDeployment *algov1beta1.PipelineDeployment
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
 	request *reconcile.Request,
 	manager manager.Manager,
-	scheme *runtime.Scheme,
-	kafkaTLS bool) (*AlgoReconciler, error) {
+	scheme *runtime.Scheme) (*AlgoReconciler, error) {
 
 	return &AlgoReconciler{
 		pipelineDeployment: pipelineDeployment,
@@ -91,7 +90,6 @@ func NewAlgoServiceReconciler(pipelineDeployment *algov1beta1.PipelineDeployment
 		request:            request,
 		manager:            manager,
 		scheme:             scheme,
-		kafkaTLS:           kafkaTLS,
 	}, nil
 }
 
@@ -275,6 +273,7 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 			topicReconciler := NewTopicReconciler(algoReconciler.pipelineDeployment,
 				algoName,
 				&currentTopicConfig,
+				algoReconciler.kafkaUtil,
 				algoReconciler.request,
 				algoReconciler.manager,
 				algoReconciler.scheme)
@@ -444,30 +443,17 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, existing
 	}
 
 	// Create kafka tls volumes and mounts if tls enabled
-
+	kafkaUtil := algoReconciler.kafkaUtil
 	volumes := []corev1.Volume{}
 	volumeMounts := []corev1.VolumeMount{}
-	if algoReconciler.kafkaTLS {
-
-		kafkaUsername := fmt.Sprintf("kafka-%s-%s", pipelineDeployment.Spec.DeploymentOwner,
-			pipelineDeployment.Spec.DeploymentName)
-		kafkaCaSecretName := fmt.Sprintf("%s-cluster-ca-cert", utils.GetKafkaClusterName())
+	if algoReconciler.kafkaUtil.TLS != nil {
 
 		kafkaTLSVolumes := []corev1.Volume{
-			{
-				Name: "kafka-certs",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName:  kafkaUsername,
-						DefaultMode: utils.Int32p(0444),
-					},
-				},
-			},
 			{
 				Name: "kafka-ca-certs",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName:  kafkaCaSecretName,
+						SecretName:  kafkaUtil.TLS.TrustedCertificates[0].SecretName,
 						DefaultMode: utils.Int32p(0444),
 					},
 				},
@@ -482,20 +468,40 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, existing
 				MountPath: "/etc/ssl/certs/kafka-ca.crt",
 				ReadOnly:  true,
 			},
+		}
+		volumeMounts = append(volumeMounts, kafkaTLSMounts...)
+	}
+
+	if kafkaUtil.Authentication != nil {
+
+		kafkaAuthVolumes := []corev1.Volume{
+			{
+				Name: "kafka-certs",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  kafkaUtil.Authentication.CertificateAndKey.SecretName,
+						DefaultMode: utils.Int32p(0444),
+					},
+				},
+			},
+		}
+		volumes = append(volumes, kafkaAuthVolumes...)
+
+		kafkaAuthMounts := []corev1.VolumeMount{
 			{
 				Name:      "kafka-certs",
-				SubPath:   "user.crt",
+				SubPath:   kafkaUtil.Authentication.CertificateAndKey.Certificate,
 				MountPath: "/etc/ssl/certs/kafka-user.crt",
 				ReadOnly:  true,
 			},
 			{
 				Name:      "kafka-certs",
-				SubPath:   "user.key",
+				SubPath:   kafkaUtil.Authentication.CertificateAndKey.Key,
 				MountPath: "/etc/ssl/certs/kafka-user.key",
 				ReadOnly:  true,
 			},
 		}
-		volumeMounts = append(volumeMounts, kafkaTLSMounts...)
+		volumeMounts = append(volumeMounts, kafkaAuthMounts...)
 	}
 
 	configMapVolume := corev1.Volume{
@@ -849,7 +855,7 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 	// Append kafka tls indicator
 	envVars = append(envVars, corev1.EnvVar{
 		Name:  "KAFKA_TLS",
-		Value: strconv.FormatBool(algoReconciler.kafkaTLS),
+		Value: strconv.FormatBool(algoReconciler.kafkaUtil.CheckForKafkaTLS()),
 	})
 
 	// Append the storage server connection

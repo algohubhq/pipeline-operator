@@ -202,13 +202,6 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	kubeUtil := utils.NewKubeUtil(r.manager, &request)
 	kafkaUtil := utils.NewKafkaUtil(deployment, r.manager, r.scheme)
 
-	// Check for the KAFKA_TLS env variable and certs
-	kafkaTLS := utils.CheckForKafkaTLS()
-
-	if kafkaTLS {
-		kafkaUtil.CopyKafkaSecrets()
-	}
-
 	var wg sync.WaitGroup
 
 	// Populate all algoRefs
@@ -262,6 +255,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
 		kafkaUserReconciler := recon.NewKafkaUserReconciler(deployment,
 			allTopicConfigs,
+			kafkaUtil,
 			&request,
 			r.manager.GetAPIReader(),
 			r.client,
@@ -279,10 +273,10 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 			algoReconciler, err := recon.NewAlgoReconciler(deployment,
 				&currentAlgoDepl,
 				allTopicConfigs,
+				kafkaUtil,
 				&request,
 				r.manager,
-				r.scheme,
-				kafkaTLS)
+				r.scheme)
 
 			if err != nil {
 				msg := "Failed to create algo reconciler"
@@ -306,8 +300,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 			allTopicConfigs,
 			&request,
 			r.manager,
-			r.scheme,
-			kafkaTLS)
+			r.scheme)
 		if err != nil {
 			msg := "Failed to create algo metric service reconciler"
 			reqLogger.Error(err, msg)
@@ -326,10 +319,10 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 			dcReconciler, err := recon.NewDataConnectorReconciler(deployment,
 				&currentDcDepl,
 				allTopicConfigs,
+				kafkaUtil,
 				&request,
 				r.manager,
-				r.scheme,
-				kafkaTLS)
+				r.scheme)
 			if err != nil {
 				msg := "Failed to create data connector reconciler"
 				reqLogger.Error(err, msg)
@@ -350,7 +343,12 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		reqLogger.Info("Reconciling Event Hooks")
 		wg.Add(1)
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
-			hookReconciler := recon.NewEventHookReconciler(deployment, allTopicConfigs, &request, r.manager, r.scheme, kafkaTLS)
+			hookReconciler := recon.NewEventHookReconciler(deployment,
+				allTopicConfigs,
+				kafkaUtil,
+				&request,
+				r.manager,
+				r.scheme)
 			err = hookReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in Hook reconcile.")
@@ -365,10 +363,10 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		wg.Add(1)
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
 			endpointReconciler := recon.NewEndpointReconciler(deployment,
+				kafkaUtil,
 				&request,
 				r.manager,
-				r.scheme,
-				kafkaTLS)
+				r.scheme)
 			err = endpointReconciler.Reconcile()
 			if err != nil {
 				reqLogger.Error(err, "Error in Endpoint reconcile.")

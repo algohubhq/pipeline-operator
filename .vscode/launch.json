@@ -21,7 +21,13 @@
                 "HOOK_IMAGE":"algohub/event-hook-runner:5ae767f855bf45a102a5327f7685cc89d4a45d8d",
                 "KAFKA_NAMESPACE": "kafka",
                 "KAFKA_CLUSTER_NAME": "kafka",
-                "KAFKA_TLS": "true"
+                "KAFKA_TLS": "true",
+                "KAFKA_TLS_CA_SECRETNAME": "kafka-cluster-ca-cert",
+                "KAFKA_TLS_CA_KEY": "ca.crt",
+                "KAFKA_AUTH_TYPE": "tls",
+                "KAFKA_AUTH_SECRETNAME": "kafka-{deploymentowner}-{deploymentname}",
+                "KAFKA_AUTH_CERTIFICATE_KEY": "user.crt",
+                "KAFKA_AUTH_KEY_KEY": "user.key",
             }, 
             "args": [],
             "dlvLoadConfig": {

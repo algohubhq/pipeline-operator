@@ -30,10 +30,10 @@ import (
 // NewEventHookReconciler returns a new NewEventHookReconciler
 func NewEventHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	allTopicConfigs map[string]*v1beta1.TopicConfigModel,
+	kafkaUtil *utils.KafkaUtil,
 	request *reconcile.Request,
 	manager manager.Manager,
-	scheme *runtime.Scheme,
-	kafkaTLS bool) EventHookReconciler {
+	scheme *runtime.Scheme) EventHookReconciler {
 
 	hookConfig := &eventHookConfig{
 		DeploymentOwner: pipelineDeployment.Spec.DeploymentOwner,
@@ -49,10 +49,10 @@ func NewEventHookReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 		pipelineDeployment: pipelineDeployment,
 		hookConfig:         hookConfig,
 		allTopics:          allTopicConfigs,
+		kafkaUtil:          kafkaUtil,
 		request:            request,
 		manager:            manager,
 		scheme:             scheme,
-		kafkaTLS:           kafkaTLS,
 	}
 }
 
@@ -61,10 +61,10 @@ type EventHookReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
 	hookConfig         *eventHookConfig
 	allTopics          map[string]*v1beta1.TopicConfigModel
+	kafkaUtil          *utils.KafkaUtil
 	request            *reconcile.Request
 	manager            manager.Manager
 	scheme             *runtime.Scheme
-	kafkaTLS           bool
 }
 
 // hookConfig holds the config sent to the hook container

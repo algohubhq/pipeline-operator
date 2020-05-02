@@ -23,6 +23,7 @@ import (
 func NewTopicReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 	componentName string,
 	topicConfig *v1beta1.TopicConfigModel,
+	kafkaUtil *utils.KafkaUtil,
 	request *reconcile.Request,
 	manager manager.Manager,
 	scheme *runtime.Scheme) TopicReconciler {
@@ -31,6 +32,7 @@ func NewTopicReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 		pipelineDeployment: pipelineDeployment,
 		componentName:      componentName,
 		topicConfig:        topicConfig,
+		kafkaUtil:          kafkaUtil,
 		request:            request,
 		manager:            manager,
 		scheme:             scheme,
@@ -42,6 +44,7 @@ type TopicReconciler struct {
 	pipelineDeployment *algov1beta1.PipelineDeployment
 	componentName      string
 	topicConfig        *v1beta1.TopicConfigModel
+	kafkaUtil          *utils.KafkaUtil
 	request            *reconcile.Request
 	manager            manager.Manager
 	scheme             *runtime.Scheme
@@ -50,7 +53,7 @@ type TopicReconciler struct {
 // Reconcile executes the Kafka Topic reconciliation process
 func (topicReconciler *TopicReconciler) Reconcile() {
 
-	kafkaNamespace := utils.GetKafkaNamespace()
+	kafkaNamespace := topicReconciler.kafkaUtil.GetKafkaNamespace()
 	pipelineDeploymentSpec := topicReconciler.pipelineDeployment.Spec
 
 	// Replace the pipelineDeployment username and name in the topic string
@@ -82,7 +85,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 	if err != nil && errors.IsNotFound(err) {
 		// Create the topic
 		labels := map[string]string{
-			"strimzi.io/cluster":           utils.GetKafkaClusterName(),
+			"strimzi.io/cluster":           topicReconciler.kafkaUtil.GetKafkaClusterName(),
 			"app.kubernetes.io/part-of":    "algo.run",
 			"app.kubernetes.io/component":  "topic",
 			"app.kubernetes.io/managed-by": "pipeline-operator",
