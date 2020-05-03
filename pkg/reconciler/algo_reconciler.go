@@ -12,6 +12,7 @@ import (
 
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
+	kafkav1beta1 "pipeline-operator/pkg/apis/kafka/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
 
 	"github.com/go-test/deep"
@@ -496,7 +497,9 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, existing
 		volumeMounts = append(volumeMounts, kafkaTLSMounts...)
 	}
 
-	if kafkaUtil.Authentication != nil {
+	// If TLS authentication, mount the certs to the container
+	if kafkaUtil.Authentication != nil &&
+		kafkaUtil.Authentication.Type == kafkav1beta1.KAFKA_AUTH_TYPE_TLS {
 
 		kafkaAuthVolumes := []corev1.Volume{
 			{
@@ -877,10 +880,52 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 	})
 
 	// Append kafka tls indicator
-	envVars = append(envVars, corev1.EnvVar{
-		Name:  "KAFKA_TLS",
-		Value: strconv.FormatBool(algoReconciler.kafkaUtil.CheckForKafkaTLS()),
-	})
+	if algoReconciler.kafkaUtil.TLS != nil {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "KAFKA_TLS",
+			Value: strconv.FormatBool(algoReconciler.kafkaUtil.CheckForKafkaTLS()),
+		})
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "KAFKA_TLS_CA_LOCATION",
+			Value: "/etc/ssl/certs/kafka-ca.crt",
+		})
+	}
+
+	// Append kafka auth variables
+	if algoReconciler.kafkaUtil.Authentication != nil {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "KAFKA_AUTH_TYPE",
+			Value: string(algoReconciler.kafkaUtil.Authentication.Type),
+		})
+		if algoReconciler.kafkaUtil.Authentication.Type == kafkav1beta1.KAFKA_AUTH_TYPE_TLS {
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  "KAFKA_AUTH_TLS_USER_LOCATION",
+				Value: "/etc/ssl/certs/kafka-user.crt",
+			})
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  "KAFKA_AUTH_TLS_KEY_LOCATION",
+				Value: "/etc/ssl/certs/kafka-user.key",
+			})
+		}
+		if algoReconciler.kafkaUtil.Authentication.Type == kafkav1beta1.KAFKA_AUTH_TYPE_SCRAMSHA512 ||
+			algoReconciler.kafkaUtil.Authentication.Type == kafkav1beta1.KAFKA_AUTH_TYPE_PLAIN {
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  "KAFKA_AUTH_USERNAME",
+				Value: algoReconciler.kafkaUtil.Authentication.Username,
+			})
+			envVars = append(envVars, corev1.EnvVar{
+				Name: "KAFKA_AUTH_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: algoReconciler.kafkaUtil.Authentication.PasswordSecret.SecretName,
+						},
+						Key: algoReconciler.kafkaUtil.Authentication.PasswordSecret.Password,
+					},
+				},
+			})
+		}
+	}
 
 	// Append the storage server connection
 	kubeUtil := utils.NewKubeUtil(algoReconciler.manager, algoReconciler.request)

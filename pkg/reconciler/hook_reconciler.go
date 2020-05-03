@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
+	kafkav1beta1 "pipeline-operator/pkg/apis/kafka/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
 
 	"github.com/go-test/deep"
@@ -553,12 +555,53 @@ func (hookReconciler *EventHookReconciler) createEnvVars(cr *algov1beta1.Pipelin
 		Value: cr.Spec.KafkaBrokers,
 	})
 
-	// for k, v := range algoConfig.EnvVars {
-	// 	envVars = append(envVars, corev1.EnvVar{
-	// 		Name:  k,
-	// 		Value: v,
-	// 	})
-	// }
+	// Append kafka tls indicator
+	if hookReconciler.kafkaUtil.TLS != nil {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "KAFKA_TLS",
+			Value: strconv.FormatBool(hookReconciler.kafkaUtil.CheckForKafkaTLS()),
+		})
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "KAFKA_TLS_CA_LOCATION",
+			Value: "/etc/ssl/certs/kafka-ca.crt",
+		})
+	}
+
+	// Append kafka auth variables
+	if hookReconciler.kafkaUtil.Authentication != nil {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "KAFKA_AUTH_TYPE",
+			Value: string(hookReconciler.kafkaUtil.Authentication.Type),
+		})
+		if hookReconciler.kafkaUtil.Authentication.Type == kafkav1beta1.KAFKA_AUTH_TYPE_TLS {
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  "KAFKA_AUTH_TLS_USER_LOCATION",
+				Value: "/etc/ssl/certs/kafka-user.crt",
+			})
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  "KAFKA_AUTH_TLS_KEY_LOCATION",
+				Value: "/etc/ssl/certs/kafka-user.key",
+			})
+		}
+		if hookReconciler.kafkaUtil.Authentication.Type == kafkav1beta1.KAFKA_AUTH_TYPE_SCRAMSHA512 ||
+			hookReconciler.kafkaUtil.Authentication.Type == kafkav1beta1.KAFKA_AUTH_TYPE_PLAIN {
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  "KAFKA_AUTH_USERNAME",
+				Value: hookReconciler.kafkaUtil.Authentication.Username,
+			})
+			envVars = append(envVars, corev1.EnvVar{
+				Name: "KAFKA_AUTH_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: hookReconciler.kafkaUtil.Authentication.PasswordSecret.SecretName,
+						},
+						Key: hookReconciler.kafkaUtil.Authentication.PasswordSecret.Password,
+					},
+				},
+			})
+		}
+	}
 
 	return envVars
 }
