@@ -29,6 +29,8 @@
                 "KAFKA_AUTH_SECRETNAME": "kafka-{deploymentowner}-{deploymentname}",
                 "KAFKA_AUTH_CERTIFICATE_KEY": "user.crt",
                 "KAFKA_AUTH_KEY_SECRET_KEY": "user.key",
+                "STORAGE_SECRET_NAME": "storage-{deploymentowner}-{deploymentname}",
+                "STORAGE_SECRET_KEY": "connection-string",
             }, 
             "args": [],
             "dlvLoadConfig": {

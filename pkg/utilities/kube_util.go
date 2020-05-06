@@ -3,6 +3,7 @@ package utilities
 import (
 	"context"
 	"fmt"
+	"os"
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	"strings"
 
@@ -593,8 +594,25 @@ func (d *KubeUtil) CreateHpaSpec(targetName string, labels map[string]string, pi
 
 func (d *KubeUtil) GetStorageSecretName(pipelineSpec *v1beta1.PipelineDeploymentSpecV1beta1) (storageSecretName string, err error) {
 
-	// Check for the specific deployment storage secret
+	// Set the default to "storage-{deploymentowner}-{deploymentname}"
 	secretName := fmt.Sprintf("storage-%s-%s", pipelineSpec.DeploymentOwner, pipelineSpec.DeploymentName)
+	secretKey := "connection-string"
+
+	// Use env var if set
+	secretNameEnv := os.Getenv("STORAGE_SECRET_NAME")
+	if secretNameEnv != "" {
+		secretName = strings.Replace(secretNameEnv, "{deploymentowner}", pipelineSpec.DeploymentOwner, -1)
+		secretName = strings.Replace(secretName, "{deploymentname}", pipelineSpec.DeploymentName, -1)
+		secretName = strings.ToLower(secretName)
+	}
+
+	// Use env var if set
+	secretNameKeyEnv := os.Getenv("STORAGE_SECRET_KEY")
+	if secretNameKeyEnv != "" {
+		secretKey = secretNameKeyEnv
+	}
+
+	// Check for the specific deployment storage secret
 	secret := &corev1.Secret{}
 	namespacedName := types.NamespacedName{
 		Name:      secretName,
@@ -618,14 +636,14 @@ func (d *KubeUtil) GetStorageSecretName(pipelineSpec *v1beta1.PipelineDeployment
 				return "", err
 			}
 
-			if secret.Data["connection-string"] != nil {
+			if secret.Data[secretKey] != nil {
 				return secretName, nil
 			}
 
 		}
 	}
 
-	if secret.Data["connection-string"] != nil {
+	if secret.Data[secretKey] != nil {
 		return secretName, nil
 	}
 
