@@ -17,7 +17,7 @@
                 "NOTIF_URL":"", 
                 // "NOTIF_URL":"http://localhost:5050/api/v1/notify", 
                 "ALGORUNNER_IMAGE":"algohub/algo-runner:240153868a5b21207b61270762bffc978615964a",
-                "ENDPOINT_IMAGE":"algohub/deployment-endpoint:7f2acda823d48893838d03f2b706684cf84b7d7a",
+                "ENDPOINT_IMAGE":"algohub/pipeline-endpoint:7f2acda823d48893838d03f2b706684cf84b7d7a",
                 "HOOK_IMAGE":"algohub/event-hook-runner:5ae767f855bf45a102a5327f7685cc89d4a45d8d",
                 "KAFKA_OPERATOR_TYPE": "strimzi",
                 "KAFKA_NAMESPACE": "kafka",

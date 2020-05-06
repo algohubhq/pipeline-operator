@@ -448,7 +448,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	imageName := os.Getenv("ENDPOINT_IMAGE")
 	if imageName == "" {
 		if endpointConfig.Image == nil {
-			imageName = "algohub/deployment-endpoint:latest"
+			imageName = "algohub/pipeline-endpoint:latest"
 		} else {
 			if endpointConfig.Image.Tag == "" {
 				imageName = fmt.Sprintf("%s:latest", endpointConfig.Image.Repository)
@@ -580,7 +580,7 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 		MountPath: "/data/wal",
 	})
 
-	endpointCommand := []string{"/bin/deployment-endpoint"}
+	endpointCommand := []string{"/bin/pipeline-endpoint"}
 	endpointEnvVars := endpointReconciler.createEnvVars(pipelineDeployment, endpointConfig)
 
 	readinessProbe := &corev1.Probe{
