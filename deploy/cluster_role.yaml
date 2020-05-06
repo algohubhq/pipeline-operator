@@ -4,40 +4,11 @@ metadata:
   name: pipeline-operator-cr
 rules:
 - apiGroups:
-  - algo.run
+  - ""
   resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - daemonsets
-  - replicasets
-  - statefulsets
-  verbs:
-  - '*'
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - servicemonitors
+  - namespaces
   verbs:
   - get
-  - create
-- apiGroups:
-  - kafka.strimzi.io
-  resources:
-  - kafkatopics
-  - kafkausers
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - patch
-  - update
-  - delete
 - apiGroups:
   - ""
   resources:
@@ -49,13 +20,25 @@ rules:
   - configmaps
   - secrets
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - create
+  - patch
+  - update
+  - delete
 - apiGroups:
-  - ""
+  - algo.run
   resources:
-  - namespaces
+  - '*'
   verbs:
   - get
+  - list
+  - watch
+  - create
+  - patch
+  - update
+  - delete
 - apiGroups:
   - apps
   resources:
@@ -63,8 +46,15 @@ rules:
   - daemonsets
   - replicasets
   - statefulsets
+  - deployments/finalizers
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - create
+  - patch
+  - update
+  - delete
 - apiGroups:
   - monitoring.coreos.com
   resources:
@@ -73,18 +63,12 @@ rules:
   - get
   - create
 - apiGroups:
-  - apps
-  resourceNames:
-  - pipeline-operator
-  resources:
-  - deployments/finalizers
-  verbs:
-  - update
-- apiGroups:
   - kafka.strimzi.io
   resources:
   - kafkatopics
   - kafkausers
+  - kafkaconnects
+  - kafkaconnectors
   verbs:
   - get
   - list

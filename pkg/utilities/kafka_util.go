@@ -78,7 +78,7 @@ func (k *KafkaUtil) getKafkaAuth() (auth *kafkav1beta1.KafkaClientAuthentication
 				SecretName: k.getKafkaUserSecretName(os.Getenv("KAFKA_AUTH_SECRETNAME"), k.pipelineDeployment.Spec.DeploymentOwner,
 					k.pipelineDeployment.Spec.DeploymentName),
 				Certificate: os.Getenv("KAFKA_AUTH_CERTIFICATE_KEY"),
-				Key:         os.Getenv("KAFKA_AUTH_KEY_KEY"),
+				Key:         os.Getenv("KAFKA_AUTH_KEY_SECRET_KEY"),
 			}
 
 			// Copy the cert secret from the kafka namespace (if necessary)
@@ -91,7 +91,7 @@ func (k *KafkaUtil) getKafkaAuth() (auth *kafkav1beta1.KafkaClientAuthentication
 			auth.PasswordSecret = &kafkav1beta1.SecretSource{
 				SecretName: k.getKafkaUserSecretName(os.Getenv("KAFKA_AUTH_SECRETNAME"), k.pipelineDeployment.Spec.DeploymentOwner,
 					k.pipelineDeployment.Spec.DeploymentName),
-				Password: os.Getenv("KAFKA_AUTH_PASSWORD_KEY"),
+				Password: os.Getenv("KAFKA_AUTH_PASSWORD_SECRET_KEY"),
 			}
 		}
 
