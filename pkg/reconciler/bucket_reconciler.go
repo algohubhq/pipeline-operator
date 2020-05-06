@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
 	"regexp"
@@ -68,9 +69,26 @@ func (bucketReconciler *BucketReconciler) Reconcile() error {
 			return err
 		}
 
+		// default bucket name
 		bucketName := fmt.Sprintf("%s.%s",
 			strings.ToLower(bucketReconciler.pipelineDeployment.Spec.DeploymentOwner),
 			strings.ToLower(bucketReconciler.pipelineDeployment.Spec.DeploymentName))
+
+		// Use env var if set
+		bucketNameEnv := os.Getenv("STORAGE_BUCKET_NAME")
+		if bucketNameEnv != "" {
+			bucketName = strings.Replace(bucketNameEnv, "{deploymentowner}", bucketReconciler.pipelineDeployment.Spec.DeploymentOwner, -1)
+			bucketName = strings.Replace(bucketName, "{deploymentname}", bucketReconciler.pipelineDeployment.Spec.DeploymentName, -1)
+			bucketName = strings.ToLower(bucketName)
+		}
+
+		// default region
+		regionName := "us-east-1"
+		// Use env var if set
+		regionNameEnv := os.Getenv("STORAGE_REGION")
+		if regionNameEnv != "" {
+			regionName = regionNameEnv
+		}
 
 		exists, err := minioClient.BucketExists(bucketName)
 		if err != nil {
@@ -78,7 +96,7 @@ func (bucketReconciler *BucketReconciler) Reconcile() error {
 		}
 
 		if !exists {
-			err = minioClient.MakeBucket(bucketName, "us-east-1")
+			err = minioClient.MakeBucket(bucketName, regionName)
 			if err != nil {
 				return err
 			}

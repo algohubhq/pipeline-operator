@@ -31,6 +31,8 @@
                 "KAFKA_AUTH_KEY_SECRET_KEY": "user.key",
                 "STORAGE_SECRET_NAME": "storage-{deploymentowner}-{deploymentname}",
                 "STORAGE_SECRET_KEY": "connection-string",
+                "STORAGE_REGION": "us-east-1",
+                "STORAGE_BUCKET_NAME": "{deploymentowner}.{deploymentname}",
             }, 
             "args": [],
             "dlvLoadConfig": {
