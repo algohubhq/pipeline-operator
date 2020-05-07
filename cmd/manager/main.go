@@ -10,6 +10,7 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -171,10 +172,27 @@ func addMetrics(ctx context.Context, cfg *rest.Config, namespace string) {
 func serveCRMetrics(cfg *rest.Config) error {
 	// Below function returns filtered operator/CustomResource specific GVKs.
 	// For more control override the below GVK list with your own custom logic.
-	filteredGVK, err := k8sutil.GetGVKsFromAddToScheme(apis.AddToScheme)
-	if err != nil {
-		return err
+	filteredGVK := []schema.GroupVersionKind{
+		{
+			Group:   "algo.run",
+			Version: "v1beta1",
+			Kind:    "PipelineDeployment",
+		},
+		{
+			Group:   "algo.run",
+			Version: "v1beta1",
+			Kind:    "Algo",
+		},
+		{
+			Group:   "algo.run",
+			Version: "v1beta1",
+			Kind:    "DataConnector",
+		},
 	}
+	// filteredGVK, err := k8sutil.GetGVKsFromAddToScheme(apis.AddToScheme)
+	// if err != nil {
+	// 	return err
+	// }
 	// Get the namespace the operator is currently deployed in.
 	operatorNs, err := k8sutil.GetOperatorNamespace()
 	if err != nil {

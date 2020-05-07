@@ -12,7 +12,7 @@
             "program": "${workspaceFolder}/cmd/manager/main.go",
             "env": { 
                 "OPERATOR_NAME":"pipeline-operator",
-                "WATCH_NAMESPACE":"algorun",
+                "WATCH_NAMESPACE":"",
                 "KUBERNETES_CONFIG": "$HOME/.kube/config",
                 "NOTIF_URL":"", 
                 // "NOTIF_URL":"http://localhost:5050/api/v1/notify", 
