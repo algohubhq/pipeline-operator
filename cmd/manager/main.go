@@ -178,16 +178,6 @@ func serveCRMetrics(cfg *rest.Config) error {
 			Version: "v1beta1",
 			Kind:    "PipelineDeployment",
 		},
-		{
-			Group:   "algo.run",
-			Version: "v1beta1",
-			Kind:    "Algo",
-		},
-		{
-			Group:   "algo.run",
-			Version: "v1beta1",
-			Kind:    "DataConnector",
-		},
 	}
 	// filteredGVK, err := k8sutil.GetGVKsFromAddToScheme(apis.AddToScheme)
 	// if err != nil {
