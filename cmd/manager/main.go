@@ -208,7 +208,7 @@ func serveCRMetrics(cfg *rest.Config, operatorNs string) error {
 		{
 			Group:   "kafka.strimzi.io",
 			Version: "v1alpha1",
-			Kind:    "KafkaConnectors",
+			Kind:    "KafkaConnector",
 		},
 	}
 
