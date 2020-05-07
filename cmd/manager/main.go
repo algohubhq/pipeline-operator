@@ -190,6 +190,26 @@ func serveCRMetrics(cfg *rest.Config, operatorNs string) error {
 			Version: "v1beta1",
 			Kind:    "PipelineDeployment",
 		},
+		{
+			Group:   "kafka.strimzi.io",
+			Version: "v1beta1",
+			Kind:    "KafkaTopic",
+		},
+		{
+			Group:   "kafka.strimzi.io",
+			Version: "v1beta1",
+			Kind:    "KafkaUser",
+		},
+		{
+			Group:   "kafka.strimzi.io",
+			Version: "v1beta1",
+			Kind:    "KafkaConnect",
+		},
+		{
+			Group:   "kafka.strimzi.io",
+			Version: "v1alpha1",
+			Kind:    "KafkaConnectors",
+		},
 	}
 
 	// filteredGVK, err := k8sutil.GetGVKsFromAddToScheme(apis.AddToScheme)
