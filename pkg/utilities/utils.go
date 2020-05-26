@@ -28,17 +28,23 @@ func GetAllTopicConfigs(pipelineSpec *v1beta1.PipelineDeploymentSpecV1beta1) map
 	for _, algo := range pipelineSpec.Algos {
 		for _, topicConfig := range algo.Topics {
 			source := fmt.Sprintf("%s|%s", GetAlgoFullName(&algo), topicConfig.OutputName)
+			// Do all topic name string replacements
+			topicConfig.TopicName = GetTopicName(topicConfig.TopicName, pipelineSpec)
 			allTopics[source] = &topicConfig
 		}
 	}
 	for _, dc := range pipelineSpec.DataConnectors {
 		for _, topicConfig := range dc.Topics {
 			source := fmt.Sprintf("%s|%s", GetDcFullName(&dc), topicConfig.OutputName)
+			// Do all topic name string replacements
+			topicConfig.TopicName = GetTopicName(topicConfig.TopicName, pipelineSpec)
 			allTopics[source] = &topicConfig
 		}
 	}
 	for _, path := range pipelineSpec.Endpoint.Paths {
 		source := fmt.Sprintf("Endpoint|%s", path.Name)
+		// Do all topic name string replacements
+		path.Topic.TopicName = GetTopicName(path.Topic.TopicName, pipelineSpec)
 		allTopics[source] = path.Topic
 	}
 
