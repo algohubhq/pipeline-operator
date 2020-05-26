@@ -1,5 +1,6 @@
 ## Introduction
-The Algo.Run Pipeline Operator facilitates versioned, portable and easily deployable automation pipelines on any Kubernetes cluster. Processing nodes (algos) can be created with any script, executable or server that can be containerized. 
+
+The Algo.Run Pipeline Operator facilitates versioned, portable and easily deployable automation pipelines on any Kubernetes cluster. Your processing nodes (Algos) can be created with any script, executable or server that can be containerized. 
 This provides some powerful capabilities:
 
 * **Integration** - Easy integration with existing code. No need to throw away existing work or rewrite for yet another framework.
