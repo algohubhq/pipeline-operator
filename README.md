@@ -59,7 +59,7 @@ We recommend [Minio](https://min.io/) for storage within the kubernetes cluster,
 ## Installation
 
 The easiest way to deploy the pipeline operator into your k8s environment is helm. 
-For detailed information, check out the [helm chart](https://github.com/algohubhq/helm-charts/pipeline-operator).
+For detailed information, check out the [helm chart](https://github.com/algohubhq/helm-charts/tree/master/pipeline-operator).
 
 #### Install helm
 https://github.com/helm/helm#install
@@ -79,4 +79,4 @@ $ kubectl create namespace algorun
 $ helm install algorun-pipeline-operator algohub/algorun-pipeline-operator --namespace algorun
 ```
 
-For detailed information on the available helm values, check out the [helm chart readme](https://github.com/algohubhq/helm-charts/pipeline-operator).
+For detailed information on the available helm values, check out the [helm chart readme](https://github.com/algohubhq/helm-charts/tree/master/pipeline-operator).
