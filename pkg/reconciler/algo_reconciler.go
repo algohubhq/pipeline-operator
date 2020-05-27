@@ -573,13 +573,13 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, existing
 
 		labels["algo.run/create-algo-service"] = "true"
 
-		algoCommand = []string{"/algo-runner/algo-runner"}
+		algoCommand = []string{"/bin/algo-runner"}
 		algoArgs = []string{"--config=/algo-runner/algo-runner-config.json"}
 
 		initCommand := []string{"/bin/sh", "-c"}
 		initArgs := []string{
-			"cp /algo-runner/algo-runner /algo-runner-dest/algo-runner && " +
-				"cp /algo-runner/mc /algo-runner-dest/mc && " +
+			"cp /bin/algo-runner /algo-runner-dest/algo-runner && " +
+				"cp /bin/mc /algo-runner-dest/mc && " +
 				"chmod +x /algo-runner-dest/algo-runner && " +
 				"chmod +x /algo-runner-dest/mc",
 		}
@@ -627,7 +627,7 @@ func (algoReconciler *AlgoReconciler) createDeploymentSpec(name string, existing
 		algoCommand = []string{entrypoint[0]}
 		algoArgs = entrypoint[1:]
 
-		sidecarCommand := []string{"/algo-runner/algo-runner"}
+		sidecarCommand := []string{"/bin/algo-runner"}
 		sidecarArgs := []string{"--config=/algo-runner/algo-runner-config.json"}
 
 		sidecarEnvVars = algoReconciler.createEnvVars(pipelineDeployment, runnerConfig, algoDepl)
@@ -945,7 +945,7 @@ func (algoReconciler *AlgoReconciler) createEnvVars(cr *algov1beta1.PipelineDepl
 	// Append the path to mc
 	envVars = append(envVars, corev1.EnvVar{
 		Name:  "MC_PATH",
-		Value: "/algo-runner/mc",
+		Value: "/bin/mc",
 	})
 
 	// Append all KafkaTopic Inputs
