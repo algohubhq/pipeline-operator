@@ -137,6 +137,7 @@ func (k *KafkaUtil) getKafkaUserSecretName(secretName string, deploymentOwner st
 
 	secretName = strings.Replace(secretName, "{deploymentowner}", deploymentOwner, -1)
 	secretName = strings.Replace(secretName, "{deploymentname}", deploymentName, -1)
+	secretName = strings.Replace(secretName, "{kafkaclustername}", k.GetKafkaClusterName(), -1)
 	return strings.ToLower(secretName)
 
 }
