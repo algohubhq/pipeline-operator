@@ -9,7 +9,6 @@ import (
 
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
-	kafkav1beta1 "pipeline-operator/pkg/apis/kafka/v1beta1"
 	recon "pipeline-operator/pkg/reconciler"
 	utils "pipeline-operator/pkg/utilities"
 
@@ -137,8 +136,6 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	// We only want this operator to handle requests for it's own namespace
 
 	if err != nil {
-
-		r.updateMetrics(&request)
 
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -281,7 +278,6 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 			if err != nil {
 				msg := "Failed to create algo reconciler"
 				reqLogger.Error(err, msg)
-				wg.Done()
 				return
 			}
 
@@ -296,6 +292,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("Reconciling Algo Metrics Service")
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		algoReconciler, err := recon.NewAlgoServiceReconciler(deployment,
 			allTopicConfigs,
 			&request,
@@ -304,11 +301,9 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		if err != nil {
 			msg := "Failed to create algo metric service reconciler"
 			reqLogger.Error(err, msg)
-			wg.Done()
 			return
 		}
 		algoReconciler.ReconcileService()
-		wg.Done()
 	}()
 
 	// // Reconcile all data connectors
@@ -316,6 +311,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 	for _, dcDepl := range deployment.Spec.DataConnectors {
 		wg.Add(1)
 		go func(currentDcDepl algov1beta1.DataConnectorDeploymentV1beta1) {
+			defer wg.Done()
 			dcReconciler, err := recon.NewDataConnectorReconciler(deployment,
 				&currentDcDepl,
 				allTopicConfigs,
@@ -326,7 +322,6 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 			if err != nil {
 				msg := "Failed to create data connector reconciler"
 				reqLogger.Error(err, msg)
-				wg.Done()
 				return
 			}
 
@@ -334,7 +329,6 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 			if err != nil {
 				reqLogger.Error(err, "Error in DataConnectorConfigs reconcile loop.")
 			}
-			wg.Done()
 		}(dcDepl)
 	}
 
@@ -343,6 +337,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		reqLogger.Info("Reconciling Event Hooks")
 		wg.Add(1)
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
+			defer wg.Done()
 			hookReconciler := recon.NewEventHookReconciler(deployment,
 				allTopicConfigs,
 				kafkaUtil,
@@ -353,7 +348,6 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 			if err != nil {
 				reqLogger.Error(err, "Error in Hook reconcile.")
 			}
-			wg.Done()
 		}(deployment)
 	}
 
@@ -362,6 +356,7 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 		reqLogger.Info("Reconciling Endpoints")
 		wg.Add(1)
 		go func(pipelineDeployment *algov1beta1.PipelineDeployment) {
+			defer wg.Done()
 			endpointReconciler := recon.NewEndpointReconciler(deployment,
 				kafkaUtil,
 				&request,
@@ -371,14 +366,11 @@ func (r *ReconcilePipelineDeployment) Reconcile(request reconcile.Request) (reco
 			if err != nil {
 				reqLogger.Error(err, "Error in Endpoint reconcile.")
 			}
-			wg.Done()
 		}(deployment)
 	}
 
 	// Wait for algo, data connector and topic reconciliation to complete
 	wg.Wait()
-
-	r.updateMetrics(&request)
 
 	// Run status reconciler
 	statusReconciler := recon.NewStatusReconciler(deployment, &request, r.client, r.scheme)
@@ -406,122 +398,4 @@ func (r *ReconcilePipelineDeployment) addFinalizer(pipelineDeployment *algov1bet
 		}
 	}
 	return nil
-}
-
-func (r *ReconcilePipelineDeployment) updateMetrics(request *reconcile.Request) error {
-
-	pipelineDeploymentCount, err := r.getPipelineDeploymentCount(request)
-	utils.PipelineDeploymentCountGuage.Set(float64(pipelineDeploymentCount))
-
-	algoCount, err := r.getAlgoCount(request)
-	utils.AlgoCountGuage.Set(float64(algoCount))
-
-	dcCount, err := r.getDataConnectorCount(request)
-	utils.DataConnectorCountGuage.Set(float64(dcCount))
-
-	topicCount, err := r.getTopicCount(request)
-	utils.TopicCountGuage.Set(float64(topicCount))
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
-func (r *ReconcilePipelineDeployment) getPipelineDeploymentCount(request *reconcile.Request) (int, error) {
-
-	opts := []client.ListOption{
-		client.InNamespace(request.Namespace),
-		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algo.run",
-			"app.kubernetes.io/component": "pipeline-deployment",
-		},
-	}
-
-	list := &v1beta1.PipelineDeploymentList{}
-	ctx := context.TODO()
-	err := r.client.List(ctx, list, opts...)
-
-	if err != nil && errors.IsNotFound(err) {
-		return 0, nil
-	} else if err != nil {
-		return 0, err
-	}
-
-	return len(list.Items), nil
-
-}
-
-func (r *ReconcilePipelineDeployment) getAlgoCount(request *reconcile.Request) (int, error) {
-
-	opts := []client.ListOption{
-		client.InNamespace(request.Namespace),
-		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algo.run",
-			"app.kubernetes.io/component": "algo",
-		},
-	}
-
-	deploymentList := &appsv1.DeploymentList{}
-	ctx := context.TODO()
-	err := r.client.List(ctx, deploymentList, opts...)
-
-	if err != nil && errors.IsNotFound(err) {
-		return 0, nil
-	} else if err != nil {
-		return 0, err
-	}
-
-	return len(deploymentList.Items), nil
-
-}
-
-func (r *ReconcilePipelineDeployment) getDataConnectorCount(request *reconcile.Request) (int, error) {
-
-	opts := []client.ListOption{
-		client.InNamespace(request.Namespace),
-		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algo.run",
-			"app.kubernetes.io/component": "dataconnector",
-		},
-	}
-
-	list := &kafkav1beta1.KafkaConnectList{}
-	ctx := context.TODO()
-	err := r.client.List(ctx, list, opts...)
-
-	if err != nil && errors.IsNotFound(err) {
-		return 0, nil
-	} else if err != nil {
-		return 0, err
-	}
-
-	return len(list.Items), nil
-
-}
-
-func (r *ReconcilePipelineDeployment) getTopicCount(request *reconcile.Request) (int, error) {
-
-	opts := []client.ListOption{
-		client.InNamespace(request.Namespace),
-		client.MatchingLabels{
-			"app.kubernetes.io/part-of":   "algo.run",
-			"app.kubernetes.io/component": "topic",
-		},
-	}
-
-	list := &kafkav1beta1.KafkaTopicList{}
-	ctx := context.TODO()
-	err := r.client.List(ctx, list, opts...)
-
-	if err != nil && errors.IsNotFound(err) {
-		return 0, nil
-	} else if err != nil {
-		return 0, err
-	}
-
-	return len(list.Items), nil
-
 }

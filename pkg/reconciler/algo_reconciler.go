@@ -6,7 +6,6 @@ import (
 	e "errors"
 	"fmt"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -16,6 +15,7 @@ import (
 	utils "pipeline-operator/pkg/utilities"
 
 	"github.com/go-test/deep"
+	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -292,11 +292,11 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 	// Creat the Kafka Topics
 	algoLogger.Info("Reconciling Kakfa Topics for Algo outputs")
+	compName := utils.GetAlgoFullName(algoDepl)
 	for _, topic := range algoDepl.Topics {
-		algoName := utils.GetAlgoFullName(algoDepl)
 		go func(currentTopicConfig algov1beta1.TopicConfigModel) {
 			topicReconciler := NewTopicReconciler(algoReconciler.pipelineDeployment,
-				algoName,
+				compName,
 				&currentTopicConfig,
 				algoReconciler.kafkaUtil,
 				algoReconciler.request,
@@ -841,7 +841,7 @@ func (algoReconciler *AlgoReconciler) createConfigMap(algoDepl *v1beta1.AlgoDepl
 		log.Error(err, "Failed to check if algo ConfigMap exists.")
 	} else {
 
-		if !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) {
+		if !cmp.Equal(existingConfigMap.Data, configMap.Data) {
 			// Update configmap
 			name, err = kubeUtil.UpdateConfigMap(configMap)
 			if err != nil {

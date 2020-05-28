@@ -8,9 +8,9 @@ import (
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	kafkav1beta1 "pipeline-operator/pkg/apis/kafka/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
-	"reflect"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -131,7 +131,7 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 			newTopicSpec.Partitions = existingTopic.Spec.Partitions
 		}
 
-		if !reflect.DeepEqual(existingTopic.Spec, newTopicSpec) {
+		if !cmp.Equal(existingTopic.Spec, newTopicSpec) {
 
 			// Update the existing spec
 			existingTopic.Spec = newTopicSpec

@@ -9,13 +9,13 @@ import (
 	"pipeline-operator/pkg/apis/algorun/v1beta1"
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
-	"reflect"
 	"strconv"
 	"strings"
 
 	ambv2 "pipeline-operator/pkg/apis/getambassador/v2"
 
-	"github.com/go-test/deep"
+	patch "github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -240,30 +240,17 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment(labels map[str
 			return err
 		}
 	} else {
-		var deplChanged bool
 
-		// Set some values that are defaulted by k8s but shouldn't trigger a change
-		endpointSf.Spec.Template.Spec.TerminationGracePeriodSeconds = existingSf.Spec.Template.Spec.TerminationGracePeriodSeconds
-		endpointSf.Spec.Template.Spec.SecurityContext = existingSf.Spec.Template.Spec.SecurityContext
-		endpointSf.Spec.Template.Spec.SchedulerName = existingSf.Spec.Template.Spec.SchedulerName
-
-		if *existingSf.Spec.Replicas != *endpointSf.Spec.Replicas {
-			endpointLogger.Info("Endpoint Replica Count Changed. Updating deployment.",
-				"Old Replicas", existingSf.Spec.Replicas,
-				"New Replicas", endpointSf.Spec.Replicas)
-			deplChanged = true
-		} else if diff := deep.Equal(existingSf.Spec.Template.Spec, endpointSf.Spec.Template.Spec); diff != nil {
-			endpointLogger.Info("Endpoint Changed. Updating deployment.", "Differences", diff)
-			deplChanged = true
-
+		patchResult, err := patch.DefaultPatchMaker.Calculate(existingSf, endpointSf)
+		if err != nil {
+			endpointLogger.Error(err, "Failed to calculate endpoint resource changes")
 		}
-		if deplChanged {
+
+		if !patchResult.IsEmpty() {
+			endpointLogger.Info("Endpoint Changed. Updating StatefulSet.")
 			endpointName, err = kubeUtil.UpdateStatefulSet(endpointSf)
-			if err != nil {
-				endpointLogger.Error(err, "Failed to update endpoint deployment")
-				return err
-			}
 		}
+
 	}
 
 	// Setup the horizontal pod autoscaler
@@ -308,8 +295,8 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment(labels map[str
 			var deplChanged bool
 
 			if existingHpa.Spec.Metrics != nil && hpaSpec.Spec.Metrics != nil {
-				if diff := deep.Equal(existingHpa.Spec, hpaSpec.Spec); diff != nil {
-					endpointLogger.Info("Endpoint Horizontal Pod Autoscaler Changed. Updating...", "Differences", diff)
+				if !cmp.Equal(existingHpa.Spec, hpaSpec.Spec) {
+					endpointLogger.Info("Endpoint Horizontal Pod Autoscaler Changed. Updating...")
 					deplChanged = true
 				}
 			}
@@ -419,7 +406,7 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 	} else {
 
 		// Update the endpoint mapping if changed
-		if !reflect.DeepEqual(existingMapping.Spec, mappingSpec) {
+		if !cmp.Equal(existingMapping.Spec, mappingSpec) {
 
 			// Update the existing spec
 			existingMapping.Spec = mappingSpec
@@ -442,6 +429,22 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 
 	pipelineDeployment := endpointReconciler.pipelineDeployment
 	endpointConfig := endpointReconciler.endpointConfig
+
+	sfSpec := &appsv1.StatefulSet{}
+	// If this is an update, need to set the existing deployment name
+	var nameMeta metav1.ObjectMeta
+	if existingSf != nil {
+		sfSpec = existingSf.DeepCopy()
+		nameMeta = existingSf.Spec.Template.ObjectMeta
+	} else {
+		nameMeta = metav1.ObjectMeta{
+			Namespace: pipelineDeployment.Spec.DeploymentNamespace,
+			Name:      name,
+			Labels:    labels,
+			// Annotations: annotations,
+		}
+		sfSpec.ObjectMeta = nameMeta
+	}
 
 	// Set the image name
 	imagePullPolicy := corev1.PullIfNotPresent
@@ -612,40 +615,20 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 
 	// Endpoint container
 	endpointContainer := corev1.Container{
-		Name:                     name,
-		Image:                    imageName,
-		Command:                  endpointCommand,
-		Args:                     configArgs,
-		Env:                      endpointEnvVars,
-		Resources:                *resources,
-		ImagePullPolicy:          imagePullPolicy,
-		LivenessProbe:            livenessProbe,
-		ReadinessProbe:           readinessProbe,
-		TerminationMessagePath:   "/dev/termination-log",
-		TerminationMessagePolicy: "File",
-		VolumeMounts:             volumeMounts,
+		Name:            name,
+		Image:           imageName,
+		Command:         endpointCommand,
+		Args:            configArgs,
+		Env:             endpointEnvVars,
+		Resources:       *resources,
+		ImagePullPolicy: imagePullPolicy,
+		LivenessProbe:   livenessProbe,
+		ReadinessProbe:  readinessProbe,
+		VolumeMounts:    volumeMounts,
 	}
 	containers = append(containers, endpointContainer)
 
 	// nodeSelector := createSelector(request.Constraints)
-
-	// If this is an update, need to set the existing deployment name
-	var nameMeta metav1.ObjectMeta
-	if existingSf != nil {
-		nameMeta = metav1.ObjectMeta{
-			Namespace: pipelineDeployment.Spec.DeploymentNamespace,
-			Name:      existingSf.Name,
-			Labels:    labels,
-			// Annotations: annotations,
-		}
-	} else {
-		nameMeta = metav1.ObjectMeta{
-			Namespace: pipelineDeployment.Spec.DeploymentNamespace,
-			Name:      name,
-			Labels:    labels,
-			// Annotations: annotations,
-		}
-	}
 
 	walSize := resource.MustParse("1Gi")
 	if endpointConfig.Producer != nil &&
@@ -659,49 +642,51 @@ func (endpointReconciler *EndpointReconciler) createSpec(name string, labels map
 	}
 
 	// annotations := buildAnnotations(request)
-	sfSpec := &appsv1.StatefulSet{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Deployment",
-			APIVersion: "apps/v1",
+
+	sfSpec.TypeMeta = metav1.TypeMeta{
+		Kind:       "StatefulSet",
+		APIVersion: "apps/v1",
+	}
+	sfSpec.Spec = appsv1.StatefulSetSpec{
+		Selector: &metav1.LabelSelector{
+			MatchLabels: labels,
 		},
-		ObjectMeta: nameMeta,
-		Spec: appsv1.StatefulSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Replicas:             &endpointConfig.Replicas,
-			RevisionHistoryLimit: utils.Int32p(10),
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: nameMeta,
-				Spec: corev1.PodSpec{
-					// SecurityContext: &corev1.PodSecurityContext{
-					//	FSGroup: int64p(1431),
-					// },
-					// NodeSelector: nodeSelector,
-					Containers:    containers,
-					Volumes:       volumes,
-					RestartPolicy: corev1.RestartPolicyAlways,
-					DNSPolicy:     corev1.DNSClusterFirst,
-				},
-			},
-			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: fmt.Sprintf("%s-wal-data", name),
-					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes: []corev1.PersistentVolumeAccessMode{
-							"ReadWriteOnce",
-						},
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: walSize,
-							},
-						},
-					},
-				},
+		Replicas:             &endpointConfig.Replicas,
+		RevisionHistoryLimit: utils.Int32p(10),
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: nameMeta,
+			Spec: corev1.PodSpec{
+				// SecurityContext: &corev1.PodSecurityContext{
+				//	FSGroup: int64p(1431),
+				// },
+				// NodeSelector: nodeSelector,
+				Containers: containers,
+				Volumes:    volumes,
 			},
 		},
+	}
+
+	// Only set the volume claim template on first created (cannot modify volume claim templates)
+	if existingSf == nil {
+		sfSpec.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: fmt.Sprintf("%s-wal-data", name),
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{
+						"ReadWriteOnce",
+					},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: walSize,
+						},
+					},
+				},
+			},
+		}
+	} else {
+		sfSpec.Spec.VolumeClaimTemplates = existingSf.Spec.VolumeClaimTemplates
 	}
 
 	// if err := UpdateSecrets(request, deploymentSpec, existingSecrets); err != nil {
@@ -760,7 +745,7 @@ func (endpointReconciler *EndpointReconciler) createConfigMap(labels map[string]
 		log.Error(err, "Failed to check if endpoint ConfigMap exists.")
 	} else {
 
-		if !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) {
+		if !cmp.Equal(existingConfigMap.Data, configMap.Data) {
 			// Update configmap
 			name, err = kubeUtil.UpdateConfigMap(configMap)
 			if err != nil {

@@ -37,8 +37,8 @@ cp ./algorun-go-client/model_http_get_action_v1.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_http_header_v1.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_tcp_socket_action_v1.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_int32_or_string_v1.go ./pkg/apis/algorun/v1beta1/
-# uncomment if algo pod status is updated but there will be manual edits
-# cp ./algorun-go-client/model_component_pod_status.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_component_pod_status.go ./pkg/apis/algorun/v1beta1/
+cp ./algorun-go-client/model_component_container_status.go ./pkg/apis/algorun/v1beta1/
 
 cp ./algorun-go-client/model_endpoint_spec.go ./pkg/apis/algorun/v1beta1/
 cp ./algorun-go-client/model_endpoint_path_spec.go ./pkg/apis/algorun/v1beta1/

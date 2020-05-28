@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-test/deep"
+	"github.com/google/go-cmp/cmp"
 
 	utils "pipeline-operator/pkg/utilities"
 
@@ -30,6 +30,7 @@ func NewStatusReconciler(pipelineDeployment *algov1beta1.PipelineDeployment,
 		request:            request,
 		client:             client,
 		scheme:             scheme,
+		context:            context.TODO(),
 	}
 }
 
@@ -39,6 +40,7 @@ type StatusReconciler struct {
 	request            *reconcile.Request
 	client             client.Client
 	scheme             *runtime.Scheme
+	context            context.Context
 }
 
 // Reconcile creates or updates the hook deployment for the pipelineDeployment
@@ -83,9 +85,9 @@ func (r *StatusReconciler) Reconcile() error {
 		for _, newDeplStatus := range pipelineDeploymentStatus.ComponentStatuses {
 			if newDeplStatus.DeploymentName == deplStatus.DeploymentName {
 
-				if diff := deep.Equal(deplStatus, newDeplStatus); diff != nil {
+				if !cmp.Equal(deplStatus, newDeplStatus) {
 					deplStatus = newDeplStatus
-					reqLogger.Info("Deployment Status Differences", "Differences", diff)
+					//reqLogger.Info("Deployment Status Differences", "Differences", diff)
 					loglevel := v1beta1.LOGLEVELS_INFO
 					notifType := v1beta1.NOTIFTYPES_PIPELINE_DEPLOYMENT
 					notifMessage := &algov1beta1.NotifMessage{
@@ -111,7 +113,7 @@ func (r *StatusReconciler) Reconcile() error {
 		for _, newPodStatus := range pipelineDeploymentStatus.PodStatuses {
 			if newPodStatus.PodName == podStatus.PodName {
 
-				if diff := deep.Equal(podStatus, newPodStatus); diff != nil {
+				if !cmp.Equal(podStatus, newPodStatus) {
 					podStatus = newPodStatus
 
 					// reqLogger.Info("Deployment Pod Status Differences", "Differences", diff)
@@ -135,15 +137,18 @@ func (r *StatusReconciler) Reconcile() error {
 		}
 	}
 
-	if diff := deep.Equal(r.pipelineDeployment.Status, *pipelineDeploymentStatus); diff != nil {
+	if !cmp.Equal(r.pipelineDeployment.Status, *pipelineDeploymentStatus) {
 		// reqLogger.Info("Pipeline Deployment Status Differences", "Differences", diff)
 
+		//r.pipelineDeployment.Status = *pipelineDeploymentStatus
+		patch := client.MergeFrom(r.pipelineDeployment.DeepCopy())
 		r.pipelineDeployment.Status = *pipelineDeploymentStatus
+		err := r.client.Patch(r.context, r.pipelineDeployment, patch)
 
-		err = r.client.Status().Update(context.TODO(), r.pipelineDeployment)
+		//err = r.client.Status().Update(r.context, r.pipelineDeployment)
 
 		if err != nil {
-			reqLogger.Error(err, "Failed to update PipelineDeployment status.")
+			reqLogger.Error(err, "Failed to patch PipelineDeployment status.")
 			return err
 		}
 
@@ -221,7 +226,7 @@ func (r *StatusReconciler) getDeploymentStatuses(cr *algov1beta1.PipelineDeploym
 	}
 
 	deploymentList := &appsv1.DeploymentList{}
-	ctx := context.TODO()
+	ctx := r.context
 	err = r.client.List(ctx, deploymentList, opts...)
 
 	if err != nil {
@@ -302,7 +307,7 @@ func (r *StatusReconciler) getStatefulSetStatuses(cr *algov1beta1.PipelineDeploy
 	}
 
 	sfList := &appsv1.StatefulSetList{}
-	ctx := context.TODO()
+	ctx := r.context
 	err = r.client.List(ctx, sfList, opts...)
 
 	if err != nil {
@@ -369,7 +374,7 @@ func (r *StatusReconciler) getPodStatuses(cr *algov1beta1.PipelineDeployment, re
 	}
 
 	podList := &corev1.PodList{}
-	ctx := context.TODO()
+	ctx := r.context
 	err := r.client.List(ctx, podList, opts...)
 
 	if err != nil {
@@ -382,48 +387,71 @@ func (r *StatusReconciler) getPodStatuses(cr *algov1beta1.PipelineDeployment, re
 	for _, pod := range podList.Items {
 
 		index, _ := strconv.Atoi(pod.Labels["algo.run/index"])
-		var status string
-		var restarts int32
-		if pod.Status.ContainerStatuses != nil {
-			restarts = pod.Status.ContainerStatuses[0].RestartCount
-		}
 
-		if pod.Status.Phase == "Pending" {
-			status = "Pending"
-		} else if pod.Status.ContainerStatuses[0].State.Terminated != nil {
-			status = pod.Status.ContainerStatuses[0].State.Terminated.Reason
-		} else if pod.Status.ContainerStatuses[0].State.Waiting != nil {
-			status = pod.Status.ContainerStatuses[0].State.Waiting.Reason
-		} else if pod.Status.ContainerStatuses[0].State.Running != nil {
-			status = "Running"
-		}
+		status := string(pod.Status.Phase)
 
 		// Create the pod status data
 		podStatus := algov1beta1.ComponentPodStatus{
-			Index:             int32(index),
-			PodName:           pod.GetName(),
-			Status:            status,
-			Restarts:          restarts,
-			CreatedTimestamp:  pod.CreationTimestamp.String(),
-			Ip:                pod.Status.PodIP,
-			Node:              pod.Spec.NodeName,
-			ContainerStatuses: append([]corev1.ContainerStatus(nil), pod.Status.ContainerStatuses...),
+			Index:            int32(index),
+			PodName:          pod.GetName(),
+			Status:           status,
+			CreatedTimestamp: pod.CreationTimestamp.String(),
+			Ip:               pod.Status.PodIP,
+			Node:             pod.Spec.NodeName,
 		}
+
+		var restarts int32
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+
+			var cStatus string
+			var messages []string
+			if containerStatus.State.Terminated != nil {
+				cStatus = containerStatus.State.Terminated.Reason
+			} else if containerStatus.State.Waiting != nil {
+				status = containerStatus.State.Waiting.Reason
+			} else if containerStatus.State.Running != nil {
+				status = "Running"
+			}
+
+			restarts = restarts + containerStatus.RestartCount
+
+			if containerStatus.State.Terminated != nil && containerStatus.State.Terminated.Message != "" {
+				messages = append(messages, containerStatus.State.Terminated.Message)
+			}
+			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Message != "" {
+				messages = append(messages, containerStatus.State.Waiting.Message)
+			}
+
+			componentContainerStatus := algov1beta1.ComponentContainerStatus{
+				Name:     containerStatus.Name,
+				Status:   cStatus,
+				Messages: messages,
+			}
+
+			podStatus.ContainerStatuses = append(podStatus.ContainerStatuses, componentContainerStatus)
+
+		}
+
+		podStatus.Restarts = restarts
 
 		switch pod.Labels["app.kubernetes.io/component"] {
 		case "algo":
-			podStatus.ComponentType = "Algo"
+			compType := algov1beta1.COMPONENTTYPES_ALGO
+			podStatus.ComponentType = &compType
 			podStatus.Name = strings.Replace(pod.Labels["algo.run/algo"], ".", "/", 1)
-			podStatus.VersionTag = pod.Labels["algo.run/algo-version"]
+			podStatus.Version = pod.Labels["algo.run/algo-version"]
 		case "dataconnector":
-			podStatus.ComponentType = "DataConnector"
+			compType := algov1beta1.COMPONENTTYPES_DATA_CONNECTOR
+			podStatus.ComponentType = &compType
 			podStatus.Name = strings.Replace(pod.Labels["algo.run/dataconnector"], ".", "/", 1)
-			podStatus.VersionTag = pod.Labels["algo.run/dataconnector-version"]
+			podStatus.Version = pod.Labels["algo.run/dataconnector-version"]
 		case "endpoint":
-			podStatus.ComponentType = "Endpoint"
+			compType := algov1beta1.COMPONENTTYPES_ENDPOINT
+			podStatus.ComponentType = &compType
 			podStatus.Name = pod.Labels["app.kubernetes.io/component"]
 		case "hook":
-			podStatus.ComponentType = "Hook"
+			compType := algov1beta1.COMPONENTTYPES_EVENT_HOOK
+			podStatus.ComponentType = &compType
 			podStatus.Name = pod.Labels["app.kubernetes.io/component"]
 		}
 

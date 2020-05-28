@@ -17,7 +17,6 @@ import (
 
 	"pipeline-operator/pkg/apis"
 	"pipeline-operator/pkg/controller"
-	utils "pipeline-operator/pkg/utilities"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
@@ -114,9 +113,6 @@ func main() {
 		log.Error(err, "")
 		os.Exit(1)
 	}
-
-	log.Info("Registering custom metrics")
-	utils.RegisterCustomMetrics()
 
 	// Add the Metrics Service
 	addMetrics(ctx, cfg)

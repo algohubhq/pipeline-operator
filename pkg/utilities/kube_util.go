@@ -10,6 +10,7 @@ import (
 	algov1beta1 "pipeline-operator/pkg/apis/algorun/v1beta1"
 	ambv2 "pipeline-operator/pkg/apis/getambassador/v2"
 
+	patch "github.com/banzaicloud/k8s-objectmatcher/patch"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalev2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -248,6 +249,10 @@ func (d *KubeUtil) CreateStatefulSet(statefulSet *appsv1.StatefulSet) (sfName st
 		"labels": statefulSet.Labels,
 	}
 
+	if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(statefulSet); err != nil {
+		log.Error(err, "Failed to set the StatefulSet LastApplied annotation")
+	}
+
 	if err := d.manager.GetClient().Create(context.TODO(), statefulSet); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed creating the StatefulSet")
@@ -266,6 +271,10 @@ func (d *KubeUtil) UpdateStatefulSet(statefulSet *appsv1.StatefulSet) (sfName st
 
 	logData := map[string]interface{}{
 		"labels": statefulSet.Labels,
+	}
+
+	if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(statefulSet); err != nil {
+		log.Error(err, "Failed to set the StatefulSet LastApplied annotation")
 	}
 
 	if err := d.manager.GetClient().Update(context.TODO(), statefulSet); err != nil {

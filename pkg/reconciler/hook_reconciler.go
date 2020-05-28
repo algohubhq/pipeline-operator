@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -15,6 +14,7 @@ import (
 	utils "pipeline-operator/pkg/utilities"
 
 	"github.com/go-test/deep"
+	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -519,7 +519,7 @@ func (hookReconciler *EventHookReconciler) createConfigMap(labels map[string]str
 		log.Error(err, "Failed to check if hook ConfigMap exists.")
 	} else {
 
-		if !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) {
+		if !cmp.Equal(existingConfigMap.Data, configMap.Data) {
 			// Update configmap
 			name, err = kubeUtil.UpdateConfigMap(configMap)
 			if err != nil {

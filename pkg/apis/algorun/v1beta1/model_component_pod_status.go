@@ -9,22 +9,17 @@
  */
 
 package v1beta1
-
-import (
-	corev1 "k8s.io/api/core/v1"
-)
-
 // ComponentPodStatus struct for ComponentPodStatus
 type ComponentPodStatus struct {
-	ComponentType     ComponentTypes           `json:"componentType,omitempty"`
-	Name              string                   `json:"name,omitempty"`
-	VersionTag        string                   `json:"versionTag,omitempty"`
-	Index             int32                    `json:"index,omitempty"`
-	PodName           string                   `json:"podName,omitempty"`
-	Status            string                   `json:"status,omitempty"`
-	Restarts          int32                    `json:"restarts,omitempty"`
-	Ip                string                   `json:"ip,omitempty"`
-	Node              string                   `json:"node,omitempty"`
-	ContainerStatuses []corev1.ContainerStatus `json:"containerStatuses,omitempty"`
-	CreatedTimestamp  string                   `json:"createdTimestamp,omitempty"`
+	ComponentType *ComponentTypes `json:"componentType,omitempty"`
+	Name string `json:"name,omitempty"`
+	Version string `json:"version,omitempty"`
+	Index int32 `json:"index,omitempty"`
+	PodName string `json:"podName,omitempty"`
+	Status string `json:"status,omitempty"`
+	ContainerStatuses []ComponentContainerStatus `json:"containerStatuses,omitempty"`
+	Restarts int32 `json:"restarts,omitempty"`
+	Ip string `json:"ip,omitempty"`
+	Node string `json:"node,omitempty"`
+	CreatedTimestamp string `json:"createdTimestamp,omitempty"`
 }
