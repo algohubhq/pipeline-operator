@@ -15,7 +15,7 @@ import (
 	ambv2 "pipeline-operator/pkg/apis/getambassador/v2"
 
 	patch "github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/google/go-cmp/cmp"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -241,7 +241,8 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment(labels map[str
 		}
 	} else {
 
-		patchResult, err := patch.DefaultPatchMaker.Calculate(existingSf, endpointSf)
+		patchMaker := patch.NewPatchMaker(patch.NewAnnotator("algo.run/last-applied"))
+		patchResult, err := patchMaker.Calculate(existingSf, endpointSf)
 		if err != nil {
 			endpointLogger.Error(err, "Failed to calculate endpoint resource changes")
 		}
@@ -249,6 +250,9 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment(labels map[str
 		if !patchResult.IsEmpty() {
 			endpointLogger.Info("Endpoint Changed. Updating StatefulSet.")
 			endpointName, err = kubeUtil.UpdateStatefulSet(endpointSf)
+			if err != nil {
+				log.Error(err, "Failed updating Endpoint StatefulSet")
+			}
 		}
 
 	}
@@ -292,21 +296,21 @@ func (endpointReconciler *EndpointReconciler) reconcileDeployment(labels map[str
 				return err
 			}
 		} else {
-			var deplChanged bool
 
-			if existingHpa.Spec.Metrics != nil && hpaSpec.Spec.Metrics != nil {
-				if !cmp.Equal(existingHpa.Spec, hpaSpec.Spec) {
-					endpointLogger.Info("Endpoint Horizontal Pod Autoscaler Changed. Updating...")
-					deplChanged = true
-				}
+			patchMaker := patch.NewPatchMaker(patch.NewAnnotator("algo.run/last-applied"))
+			patchResult, err := patchMaker.Calculate(existingHpa, hpaSpec)
+			if err != nil {
+				endpointLogger.Error(err, "Failed to calculate endpoint HPA resource changes")
 			}
-			if deplChanged {
-				_, err := kubeUtil.UpdateHorizontalPodAutoscaler(hpaSpec)
+
+			if !patchResult.IsEmpty() {
+				endpointLogger.Info("Endpoint Horizontal Pod Autoscaler Changed. Updating...")
+				_, err = kubeUtil.UpdateHorizontalPodAutoscaler(hpaSpec)
 				if err != nil {
-					endpointLogger.Error(err, "Failed to update horizontal pod autoscaler")
-					return err
+					log.Error(err, "Failed updating Endpoint Horizontal Pod Autoscaler")
 				}
 			}
+
 		}
 
 	}
@@ -363,41 +367,45 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 	rewrite := fmt.Sprintf("/%s/%s/", pipelineDeployment.Spec.DeploymentOwner,
 		pipelineDeployment.Spec.DeploymentName)
 
+	labels := map[string]string{
+		"app.kubernetes.io/part-of":    "algo.run",
+		"app.kubernetes.io/component":  "mapping",
+		"app.kubernetes.io/managed-by": "pipeline-operator",
+		"algo.run/mapping-protocol":    protocol,
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
+			pipelineDeployment.Spec.DeploymentName),
+		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
+			pipelineDeployment.Spec.PipelineName),
+	}
+
+	kubeUtil := utils.NewKubeUtil(endpointReconciler.manager, endpointReconciler.request)
+	existingMapping, err := kubeUtil.CheckForAmbassadorMapping(opts)
+
+	mapping := &ambv2.Mapping{}
+	// If this is an update, need to set the existing deployment name
+	if existingMapping != nil {
+		mapping = existingMapping.DeepCopy()
+	} else {
+		mapping.SetGenerateName("endpoint-mapping-")
+		mapping.SetNamespace(endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace)
+		mapping.SetLabels(labels)
+	}
+
 	mappingSpec := ambv2.MappingSpec{
 		Prefix:  prefix,
 		Rewrite: rewrite,
 		Grpc:    protocol == "grpc",
 		Service: serviceName,
 	}
+	mapping.Spec = mappingSpec
 
-	kubeUtil := utils.NewKubeUtil(endpointReconciler.manager, endpointReconciler.request)
-	existingMapping, err := kubeUtil.CheckForAmbassadorMapping(opts)
+	// Set PipelineDeployment instance as the owner and controller
+	if err := controllerutil.SetControllerReference(endpointReconciler.pipelineDeployment, mapping, endpointReconciler.scheme); err != nil {
+		log.Error(err, "Failed setting the pipeline deployment endpoint mapping controller owner")
+	}
 
 	if (err == nil && existingMapping == nil) || (err != nil && errors.IsNotFound(err)) {
-
-		labels := map[string]string{
-			"app.kubernetes.io/part-of":    "algo.run",
-			"app.kubernetes.io/component":  "mapping",
-			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/mapping-protocol":    protocol,
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
-				pipelineDeployment.Spec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
-				pipelineDeployment.Spec.PipelineName),
-		}
-
-		newMapping := &ambv2.Mapping{}
-		newMapping.Spec = mappingSpec
-		newMapping.SetGenerateName("endpoint-mapping-")
-		newMapping.SetNamespace(endpointReconciler.pipelineDeployment.Spec.DeploymentNamespace)
-		newMapping.SetLabels(labels)
-
-		// Set PipelineDeployment instance as the owner and controller
-		if err := controllerutil.SetControllerReference(endpointReconciler.pipelineDeployment, newMapping, endpointReconciler.scheme); err != nil {
-			log.Error(err, "Failed setting the pipeline deployment endpoint mapping controller owner")
-		}
-
-		err := endpointReconciler.manager.GetClient().Create(context.TODO(), newMapping)
+		err := endpointReconciler.manager.GetClient().Create(context.TODO(), mapping)
 		if err != nil {
 			log.Error(err, "Failed creating pipeline deployment endpoint mapping")
 		}
@@ -405,17 +413,18 @@ func (endpointReconciler *EndpointReconciler) reconcileMapping(serviceName strin
 		log.Error(err, "Failed to check if pipeline deployment endpoint mapping exists.")
 	} else {
 
-		// Update the endpoint mapping if changed
-		if !cmp.Equal(existingMapping.Spec, mappingSpec) {
+		patchMaker := patch.NewPatchMaker(patch.NewAnnotator("algo.run/last-applied"))
+		patchResult, err := patchMaker.Calculate(existingMapping, mapping)
+		if err != nil {
+			log.Error(err, "Failed to calculate Endpoint Ambassador Mapping resource changes")
+		}
 
-			// Update the existing spec
-			existingMapping.Spec = mappingSpec
-
-			err := endpointReconciler.manager.GetClient().Update(context.TODO(), existingMapping)
+		if !patchResult.IsEmpty() {
+			log.Info("Endpoint Ambassador Mapping Changed. Updating...")
+			err := endpointReconciler.manager.GetClient().Update(context.TODO(), mapping)
 			if err != nil {
-				log.Error(err, "Failed updating pipeline deployment endpoint mapping")
+				log.Error(err, "Failed updating Endpoint Ambassador Mapping")
 			}
-
 		}
 
 	}
@@ -745,12 +754,17 @@ func (endpointReconciler *EndpointReconciler) createConfigMap(labels map[string]
 		log.Error(err, "Failed to check if endpoint ConfigMap exists.")
 	} else {
 
-		if !cmp.Equal(existingConfigMap.Data, configMap.Data) {
-			// Update configmap
-			name, err = kubeUtil.UpdateConfigMap(configMap)
+		patchMaker := patch.NewPatchMaker(patch.NewAnnotator("algo.run/last-applied"))
+		patchResult, err := patchMaker.Calculate(existingConfigMap, configMap)
+		if err != nil {
+			log.Error(err, "Failed to calculate endpoint configmap resource changes")
+		}
+
+		if !patchResult.IsEmpty() {
+			log.Info("Endpoint ConfigMap Changed. Updating...")
+			_, err = kubeUtil.UpdateConfigMap(configMap)
 			if err != nil {
-				log.Error(err, "Failed to update endpoint configmap")
-				return name, err
+				log.Error(err, "Failed updating Endpoint ConfigMap")
 			}
 		}
 

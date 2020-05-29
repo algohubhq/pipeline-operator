@@ -14,8 +14,7 @@ import (
 	kafkav1beta1 "pipeline-operator/pkg/apis/kafka/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
 
-	"github.com/go-test/deep"
-	"github.com/google/go-cmp/cmp"
+	patch "github.com/banzaicloud/k8s-objectmatcher/patch"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -204,29 +203,21 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 			return err
 		}
 	} else {
-		var deplChanged bool
 
-		// Set some values that are defaulted by k8s but shouldn't trigger a change
-		algoDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds = existingDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds
-		algoDeployment.Spec.Template.Spec.SecurityContext = existingDeployment.Spec.Template.Spec.SecurityContext
-		algoDeployment.Spec.Template.Spec.SchedulerName = existingDeployment.Spec.Template.Spec.SchedulerName
-
-		if *existingDeployment.Spec.Replicas != *algoDeployment.Spec.Replicas {
-			algoLogger.Info("Algo Replica Count Changed. Updating deployment.",
-				"Old Replicas", existingDeployment.Spec.Replicas,
-				"New Replicas", algoDeployment.Spec.Replicas)
-			deplChanged = true
-		} else if diff := deep.Equal(existingDeployment.Spec.Template.Spec, algoDeployment.Spec.Template.Spec); diff != nil {
-			algoLogger.Info("Algo Changed. Updating deployment.", "Differences", diff)
-			deplChanged = true
+		patchMaker := patch.NewPatchMaker(patch.NewAnnotator("algo.run/last-applied"))
+		patchResult, err := patchMaker.Calculate(existingDeployment, algoDeployment)
+		if err != nil {
+			algoLogger.Error(err, "Failed to calculate Algo resource changes")
 		}
-		if deplChanged {
+
+		if !patchResult.IsEmpty() {
+			algoLogger.Info("Algo Changed. Updating Deployment...")
 			algoName, err = kubeUtil.UpdateDeployment(algoDeployment)
 			if err != nil {
-				algoLogger.Error(err, "Failed to update algo deployment")
-				return err
+				log.Error(err, "Failed updating Algo Deployment")
 			}
 		}
+
 	}
 
 	// Setup the horizontal pod autoscaler
@@ -253,39 +244,39 @@ func (algoReconciler *AlgoReconciler) Reconcile() error {
 
 		existingHpa, err := kubeUtil.CheckForHorizontalPodAutoscaler(opts)
 
-		hpaSpec, err := kubeUtil.CreateHpaSpec(algoName, labels, pipelineDeployment, algoDepl.Autoscaling)
+		hpa, err := kubeUtil.CreateHpaSpec(algoName, labels, pipelineDeployment, algoDepl.Autoscaling)
 		if err != nil {
 			algoLogger.Error(err, "Failed to create Algo horizontal pod autoscaler spec")
 			return err
 		}
 
 		// Set PipelineDeployment instance as the owner and controller
-		if err := controllerutil.SetControllerReference(pipelineDeployment, hpaSpec, algoReconciler.scheme); err != nil {
+		if err := controllerutil.SetControllerReference(pipelineDeployment, hpa, algoReconciler.scheme); err != nil {
 			return err
 		}
 
 		if existingHpa == nil {
-			_, err = kubeUtil.CreateHorizontalPodAutoscaler(hpaSpec)
+			_, err = kubeUtil.CreateHorizontalPodAutoscaler(hpa)
 			if err != nil {
 				algoLogger.Error(err, "Failed to create Algo horizontal pod autoscaler")
 				return err
 			}
 		} else {
-			var deplChanged bool
 
-			if existingHpa.Spec.Metrics != nil && hpaSpec.Spec.Metrics != nil {
-				if diff := deep.Equal(existingHpa.Spec, hpaSpec.Spec); diff != nil {
-					algoLogger.Info("Algo Horizontal Pod Autoscaler Changed. Updating...", "Differences", diff)
-					deplChanged = true
-				}
+			patchMaker := patch.NewPatchMaker(patch.NewAnnotator("algo.run/last-applied"))
+			patchResult, err := patchMaker.Calculate(existingHpa, hpa)
+			if err != nil {
+				algoLogger.Error(err, "Failed to calculate Algo HPA resource changes")
 			}
-			if deplChanged {
-				_, err := kubeUtil.UpdateHorizontalPodAutoscaler(hpaSpec)
+
+			if !patchResult.IsEmpty() {
+				algoLogger.Info("Algo Horizontal Pod Autoscaler Changed. Updating...")
+				_, err = kubeUtil.UpdateHorizontalPodAutoscaler(hpa)
 				if err != nil {
-					algoLogger.Error(err, "Failed to update horizontal pod autoscaler")
-					return err
+					log.Error(err, "Failed updating Algo Horizontal Pod Autoscaler")
 				}
 			}
+
 		}
 
 	}
@@ -841,7 +832,14 @@ func (algoReconciler *AlgoReconciler) createConfigMap(algoDepl *v1beta1.AlgoDepl
 		log.Error(err, "Failed to check if algo ConfigMap exists.")
 	} else {
 
-		if !cmp.Equal(existingConfigMap.Data, configMap.Data) {
+		patchMaker := patch.NewPatchMaker(patch.NewAnnotator("algo.run/last-applied"))
+		patchResult, err := patchMaker.Calculate(existingConfigMap, configMap)
+		if err != nil {
+			log.Error(err, "Failed to calculate Algo ConfigMap resource changes")
+		}
+
+		if !patchResult.IsEmpty() {
+			log.Info("Algo ConfigMap Changed. Updating...")
 			// Update configmap
 			name, err = kubeUtil.UpdateConfigMap(configMap)
 			if err != nil {

@@ -10,10 +10,9 @@ import (
 	utils "pipeline-operator/pkg/utilities"
 	"strings"
 
-	"github.com/google/go-cmp/cmp"
+	patch "github.com/banzaicloud/k8s-objectmatcher/patch"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -62,6 +61,18 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 	resourceName := strings.Replace(topicName, ".", "-", -1)
 	resourceName = strings.Replace(resourceName, "_", "-", -1)
 
+	// Create the topic
+	labels := map[string]string{
+		"strimzi.io/cluster":           topicReconciler.kafkaUtil.GetKafkaClusterName(),
+		"app.kubernetes.io/part-of":    "algo.run",
+		"app.kubernetes.io/component":  "topic",
+		"app.kubernetes.io/managed-by": "pipeline-operator",
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.DeploymentOwner,
+			pipelineDeploymentSpec.DeploymentName),
+		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineOwner,
+			pipelineDeploymentSpec.PipelineName),
+	}
+
 	newTopicSpec, err := topicReconciler.buildTopicSpec(pipelineDeploymentSpec, topicReconciler.topicConfig)
 	if err != nil {
 		log.Error(err, "Error creating new topic config")
@@ -69,11 +80,6 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 
 	// check to see if topic already exists
 	existingTopic := &kafkav1beta1.KafkaTopic{}
-	existingTopic.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "kafka.strimzi.io",
-		Kind:    "KafkaTopic",
-		Version: "v1beta1",
-	})
 	// Use the APIReader to query across namespaces
 	err = topicReconciler.manager.GetAPIReader().Get(context.TODO(),
 		types.NamespacedName{
@@ -82,37 +88,25 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 		},
 		existingTopic)
 
+	topic := &kafkav1beta1.KafkaTopic{}
+	// If this is an update, need to set the existing deployment name
+	if existingTopic != nil {
+		topic = existingTopic.DeepCopy()
+	} else {
+		topic.SetName(resourceName)
+		topic.SetNamespace(kafkaNamespace)
+		topic.SetLabels(labels)
+	}
+	topic.Spec = newTopicSpec
+	topic.Spec.TopicName = topicName
+
 	if err != nil && errors.IsNotFound(err) {
-		// Create the topic
-		labels := map[string]string{
-			"strimzi.io/cluster":           topicReconciler.kafkaUtil.GetKafkaClusterName(),
-			"app.kubernetes.io/part-of":    "algo.run",
-			"app.kubernetes.io/component":  "topic",
-			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.DeploymentOwner,
-				pipelineDeploymentSpec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeploymentSpec.PipelineOwner,
-				pipelineDeploymentSpec.PipelineName),
-		}
-
-		newTopic := &kafkav1beta1.KafkaTopic{}
-		newTopic.Spec = newTopicSpec
-		newTopic.Spec.TopicName = topicName
-		newTopic.SetName(resourceName)
-		newTopic.SetNamespace(kafkaNamespace)
-		newTopic.SetLabels(labels)
-		newTopic.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "kafka.strimzi.io",
-			Kind:    "KafkaTopic",
-			Version: "v1beta1",
-		})
-
 		// Set PipelineDeployment instance as the owner and controller
 		// if err := controllerutil.SetControllerReference(topicReconciler.pipelineDeployment, newTopic, topicReconciler.scheme); err != nil {
 		// 	log.Error(err, "Failed setting the topic controller owner")
 		// }
 
-		err := topicReconciler.manager.GetClient().Create(context.TODO(), newTopic)
+		err := topicReconciler.manager.GetClient().Create(context.TODO(), topic)
 		if err != nil {
 			log.Error(err, "Failed creating topic")
 		}
@@ -131,16 +125,18 @@ func (topicReconciler *TopicReconciler) Reconcile() {
 			newTopicSpec.Partitions = existingTopic.Spec.Partitions
 		}
 
-		if !cmp.Equal(existingTopic.Spec, newTopicSpec) {
+		patchMaker := patch.NewPatchMaker(patch.NewAnnotator("algo.run/last-applied"))
+		patchResult, err := patchMaker.Calculate(existingTopic, topic)
+		if err != nil {
+			log.Error(err, "Failed to calculate Kafka Topic resource changes")
+		}
 
-			// Update the existing spec
-			existingTopic.Spec = newTopicSpec
-
-			err := topicReconciler.manager.GetClient().Update(context.TODO(), existingTopic)
+		if !patchResult.IsEmpty() {
+			log.Info("Kafka Topic Changed. Updating...")
+			err := topicReconciler.manager.GetClient().Update(context.TODO(), topic)
 			if err != nil {
 				log.Error(err, "Failed updating topic")
 			}
-
 		}
 
 	}

@@ -13,8 +13,7 @@ import (
 	kafkav1beta1 "pipeline-operator/pkg/apis/kafka/v1beta1"
 	utils "pipeline-operator/pkg/utilities"
 
-	"github.com/go-test/deep"
-	"github.com/google/go-cmp/cmp"
+	patch "github.com/banzaicloud/k8s-objectmatcher/patch"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -144,30 +143,21 @@ func (hookReconciler *EventHookReconciler) Reconcile() error {
 			return err
 		}
 	} else {
-		var deplChanged bool
 
-		// Set some values that are defaulted by k8s but shouldn't trigger a change
-		hookDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds = existingDeployment.Spec.Template.Spec.TerminationGracePeriodSeconds
-		hookDeployment.Spec.Template.Spec.SecurityContext = existingDeployment.Spec.Template.Spec.SecurityContext
-		hookDeployment.Spec.Template.Spec.SchedulerName = existingDeployment.Spec.Template.Spec.SchedulerName
-
-		if *existingDeployment.Spec.Replicas != *hookDeployment.Spec.Replicas {
-			hookLogger.Info("Hook Replica Count Changed. Updating deployment.",
-				"Old Replicas", existingDeployment.Spec.Replicas,
-				"New Replicas", hookDeployment.Spec.Replicas)
-			deplChanged = true
-		} else if diff := deep.Equal(existingDeployment.Spec.Template.Spec, hookDeployment.Spec.Template.Spec); diff != nil {
-			hookLogger.Info("Hook Changed. Updating deployment.", "Differences", diff)
-			deplChanged = true
-
+		patchMaker := patch.NewPatchMaker(patch.NewAnnotator("algo.run/last-applied"))
+		patchResult, err := patchMaker.Calculate(existingDeployment, hookDeployment)
+		if err != nil {
+			log.Error(err, "Failed to calculate Event Hook Deployment resource changes")
 		}
-		if deplChanged {
-			hookName, err = kubeUtil.UpdateDeployment(hookDeployment)
+
+		if !patchResult.IsEmpty() {
+			log.Info("Event Hook Deployment Changed. Updating...")
+			_, err = kubeUtil.UpdateDeployment(hookDeployment)
 			if err != nil {
-				hookLogger.Error(err, "Failed to update hook deployment")
-				return err
+				log.Error(err, "Failed updating Event Hook Deployment")
 			}
 		}
+
 	}
 
 	// Setup the horizontal pod autoscaler
@@ -209,21 +199,21 @@ func (hookReconciler *EventHookReconciler) Reconcile() error {
 				return err
 			}
 		} else {
-			var deplChanged bool
 
-			if existingHpa.Spec.Metrics != nil && hpaSpec.Spec.Metrics != nil {
-				if diff := deep.Equal(existingHpa.Spec, hpaSpec.Spec); diff != nil {
-					hookLogger.Info("Hook Horizontal Pod Autoscaler Changed. Updating...", "Differences", diff)
-					deplChanged = true
-				}
+			patchMaker := patch.NewPatchMaker(patch.NewAnnotator("algo.run/last-applied"))
+			patchResult, err := patchMaker.Calculate(existingHpa, hpaSpec)
+			if err != nil {
+				hookLogger.Error(err, "Failed to calculate Event Hook HPA resource changes")
 			}
-			if deplChanged {
-				_, err := kubeUtil.UpdateHorizontalPodAutoscaler(hpaSpec)
+
+			if !patchResult.IsEmpty() {
+				hookLogger.Info("Event Hook Horizontal Pod Autoscaler Changed. Updating...")
+				_, err = kubeUtil.UpdateHorizontalPodAutoscaler(hpaSpec)
 				if err != nil {
-					hookLogger.Error(err, "Failed to update hook horizontal pod autoscaler")
-					return err
+					log.Error(err, "Failed updating Endpoint Horizontal Pod Autoscaler")
 				}
 			}
+
 		}
 
 	}
@@ -519,12 +509,17 @@ func (hookReconciler *EventHookReconciler) createConfigMap(labels map[string]str
 		log.Error(err, "Failed to check if hook ConfigMap exists.")
 	} else {
 
-		if !cmp.Equal(existingConfigMap.Data, configMap.Data) {
-			// Update configmap
-			name, err = kubeUtil.UpdateConfigMap(configMap)
+		patchMaker := patch.NewPatchMaker(patch.NewAnnotator("algo.run/last-applied"))
+		patchResult, err := patchMaker.Calculate(existingConfigMap, configMap)
+		if err != nil {
+			log.Error(err, "Failed to calculate Event Hook ConfigMap resource changes")
+		}
+
+		if !patchResult.IsEmpty() {
+			log.Info("Event Hook ConfigMap Changed. Updating...")
+			_, err = kubeUtil.UpdateConfigMap(configMap)
 			if err != nil {
-				log.Error(err, "Failed to update hook configmap")
-				return name, err
+				log.Error(err, "Failed updating Event Hook ConfigMap")
 			}
 		}
 

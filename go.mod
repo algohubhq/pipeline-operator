@@ -4,7 +4,6 @@ go 1.13
 
 require (
 	github.com/banzaicloud/k8s-objectmatcher v1.3.2
-	github.com/go-test/deep v1.0.6
 	github.com/google/go-cmp v0.4.0
 	github.com/minio/minio-go/v6 v6.0.49
 	github.com/operator-framework/operator-sdk v0.17.0

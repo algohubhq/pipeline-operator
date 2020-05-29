@@ -12,11 +12,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-test/deep"
-
+	patch "github.com/banzaicloud/k8s-objectmatcher/patch"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -111,6 +109,24 @@ func (dataConnectorReconciler *DataConnectorReconciler) reconcileConnectCluster(
 	pipelineDeployment := dataConnectorReconciler.pipelineDeployment
 	kcName := strings.ToLower(fmt.Sprintf("%s-%s", dataConnectorReconciler.pipelineDeployment.Spec.DeploymentName, dcSpec.Spec.Name))
 
+	// Create the connector cluster
+	labels := map[string]string{
+		"app.kubernetes.io/part-of":    "algo.run",
+		"app.kubernetes.io/component":  "dataconnector",
+		"app.kubernetes.io/managed-by": "pipeline-operator",
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
+			pipelineDeployment.Spec.DeploymentName),
+		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
+			pipelineDeployment.Spec.PipelineName),
+		"algo.run/dataconnector":         dcSpec.Spec.Name,
+		"algo.run/dataconnector-version": dcSpec.Version,
+		"algo.run/index":                 strconv.Itoa(int(dcSpec.Index)),
+	}
+
+	annotations := map[string]string{
+		"strimzi.io/use-connector-resources": "true",
+	}
+
 	newDcSpec, err := dataConnectorReconciler.buildKafkaConnectSpec()
 	if err != nil {
 		log.Error(err, "Error creating new Kafka Connect Cluster Spec")
@@ -119,11 +135,6 @@ func (dataConnectorReconciler *DataConnectorReconciler) reconcileConnectCluster(
 
 	// check to see if data connector already exists
 	existingDc := &kafkav1beta1.KafkaConnect{}
-	existingDc.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "kafka.strimzi.io",
-		Kind:    "KafkaConnect",
-		Version: "v1beta1",
-	})
 	err = dataConnectorReconciler.manager.GetClient().Get(context.TODO(),
 		types.NamespacedName{
 			Name:      kcName,
@@ -131,72 +142,47 @@ func (dataConnectorReconciler *DataConnectorReconciler) reconcileConnectCluster(
 		},
 		existingDc)
 
+	dc := &kafkav1beta1.KafkaConnect{}
+	// If this is an update, need to set the existing deployment name
+	if existingDc != nil {
+		dc = existingDc.DeepCopy()
+	} else {
+		dc.SetName(kcName)
+		dc.SetNamespace(dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace)
+		dc.SetLabels(labels)
+		dc.SetAnnotations(annotations)
+	}
+	dc.Spec = *newDcSpec
+
+	// Set PipelineDeployment instance as the owner and controller
+	if err := controllerutil.SetControllerReference(pipelineDeployment, dc, dataConnectorReconciler.scheme); err != nil {
+		log.Error(err, "Failed setting the kafka connect cluster controller owner")
+	}
+
 	if err != nil && errors.IsNotFound(err) {
-		// Create the connector cluster
-		labels := map[string]string{
-			"app.kubernetes.io/part-of":    "algo.run",
-			"app.kubernetes.io/component":  "dataconnector",
-			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
-				pipelineDeployment.Spec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
-				pipelineDeployment.Spec.PipelineName),
-			"algo.run/dataconnector":         dcSpec.Spec.Name,
-			"algo.run/dataconnector-version": dcSpec.Version,
-			"algo.run/index":                 strconv.Itoa(int(dcSpec.Index)),
-		}
 
-		annotations := map[string]string{
-			"strimzi.io/use-connector-resources": "true",
-		}
-
-		newDc := &kafkav1beta1.KafkaConnect{}
-		newDc.Spec = *newDcSpec
-
-		newDc.SetName(kcName)
-		newDc.SetNamespace(dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace)
-		newDc.SetLabels(labels)
-		newDc.SetAnnotations(annotations)
-		newDc.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "kafka.strimzi.io",
-			Kind:    "KafkaConnect",
-			Version: "v1beta1",
-		})
-
-		// Set PipelineDeployment instance as the owner and controller
-		if err := controllerutil.SetControllerReference(pipelineDeployment, newDc, dataConnectorReconciler.scheme); err != nil {
-			log.Error(err, "Failed setting the kafka connect cluster controller owner")
-		}
-
-		err := dataConnectorReconciler.manager.GetClient().Create(context.TODO(), newDc)
+		err := dataConnectorReconciler.manager.GetClient().Create(context.TODO(), dc)
 		if err != nil {
-			log.Error(err, "Failed creating kafka connect cluster")
+			log.Error(err, "Failed creating Data Connector Cluster")
 			return kcName, err
 		}
 
 	} else if err != nil {
-		log.Error(err, "Failed to check if kafka connect cluster exists.")
+		log.Error(err, "Failed to check if exists.")
 		return kcName, err
 	} else {
 
-		var dcChanged bool
-
-		if existingDc.Spec.Replicas != newDcSpec.Replicas {
-			log.Info("Data Connector Replica Count Changed. Updating...",
-				"Old Replicas", existingDc.Spec.Replicas,
-				"New Replicas", newDcSpec.Replicas)
-			dcChanged = true
-		} else if diff := deep.Equal(&existingDc.Spec, newDcSpec); diff != nil {
-			log.Info("Data Connector Kafka Connect Spec Changed. Updating...", "Differences", diff)
-			dcChanged = true
+		patchMaker := patch.NewPatchMaker(patch.NewAnnotator("algo.run/last-applied"))
+		patchResult, err := patchMaker.Calculate(existingDc, dc)
+		if err != nil {
+			log.Error(err, "Failed to calculate Data Connector Cluster resource changes")
 		}
-		if dcChanged {
-			// Update the existing spec
-			existingDc.Spec = *newDcSpec
 
+		if !patchResult.IsEmpty() {
+			log.Info("Data Connector Cluster Changed. Updating...")
 			err := dataConnectorReconciler.manager.GetClient().Update(context.TODO(), existingDc)
 			if err != nil {
-				log.Error(err, "Failed updating Data Connector Kafka Connect Cluster")
+				log.Error(err, "Failed updating Data Connector Cluster")
 				return kcName, err
 			}
 		}
@@ -280,13 +266,23 @@ func (dataConnectorReconciler *DataConnectorReconciler) reconcileConnector(conne
 		return err
 	}
 
+	// Create the connector cluster
+	labels := map[string]string{
+		"app.kubernetes.io/part-of":    "algo.run",
+		"app.kubernetes.io/component":  "dataconnector",
+		"app.kubernetes.io/managed-by": "pipeline-operator",
+		"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
+			pipelineDeployment.Spec.DeploymentName),
+		"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
+			pipelineDeployment.Spec.PipelineName),
+		"algo.run/dataconnector":         dcSpec.Spec.Name,
+		"algo.run/dataconnector-version": dcSpec.Version,
+		"algo.run/index":                 strconv.Itoa(int(dcSpec.Index)),
+		"strimzi.io/cluster":             connectClusterName,
+	}
+
 	// check to see if data connector already exists
 	existingConnector := &kafkav1alpha1.KafkaConnector{}
-	existingConnector.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "kafka.strimzi.io",
-		Kind:    "KafkaConnector",
-		Version: "v1alpha1",
-	})
 	err = dataConnectorReconciler.manager.GetClient().Get(context.TODO(),
 		types.NamespacedName{
 			Name:      dcName,
@@ -294,57 +290,44 @@ func (dataConnectorReconciler *DataConnectorReconciler) reconcileConnector(conne
 		},
 		existingConnector)
 
+	connector := &kafkav1alpha1.KafkaConnector{}
+	// If this is an update, need to set the existing name
+	if existingConnector != nil {
+		connector = existingConnector.DeepCopy()
+	} else {
+		connector.SetName(dcName)
+		connector.SetNamespace(dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace)
+		connector.SetLabels(labels)
+	}
+	connector.Spec = *newConnectorSpec
+
+	// Set PipelineDeployment instance as the owner and controller
+	if err := controllerutil.SetControllerReference(pipelineDeployment, connector, dataConnectorReconciler.scheme); err != nil {
+		log.Error(err, "Failed setting the kafka connector cluster controller owner")
+	}
+
 	if err != nil && errors.IsNotFound(err) {
-		// Create the connector cluster
-		labels := map[string]string{
-			"app.kubernetes.io/part-of":    "algo.run",
-			"app.kubernetes.io/component":  "dataconnector",
-			"app.kubernetes.io/managed-by": "pipeline-operator",
-			"algo.run/pipeline-deployment": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.DeploymentOwner,
-				pipelineDeployment.Spec.DeploymentName),
-			"algo.run/pipeline": fmt.Sprintf("%s.%s", pipelineDeployment.Spec.PipelineOwner,
-				pipelineDeployment.Spec.PipelineName),
-			"algo.run/dataconnector":         dcSpec.Spec.Name,
-			"algo.run/dataconnector-version": dcSpec.Version,
-			"algo.run/index":                 strconv.Itoa(int(dcSpec.Index)),
-			"strimzi.io/cluster":             connectClusterName,
-		}
-
-		newConnector := &kafkav1alpha1.KafkaConnector{}
-		newConnector.Spec = *newConnectorSpec
-
-		newConnector.SetName(dcName)
-		newConnector.SetNamespace(dataConnectorReconciler.pipelineDeployment.Spec.DeploymentNamespace)
-		newConnector.SetLabels(labels)
-		newConnector.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "kafka.strimzi.io",
-			Kind:    "KafkaConnector",
-			Version: "v1alpha1",
-		})
-
-		// Set PipelineDeployment instance as the owner and controller
-		if err := controllerutil.SetControllerReference(pipelineDeployment, newConnector, dataConnectorReconciler.scheme); err != nil {
-			log.Error(err, "Failed setting the kafka connector cluster controller owner")
-		}
-
-		err := dataConnectorReconciler.manager.GetClient().Create(context.TODO(), newConnector)
+		err := dataConnectorReconciler.manager.GetClient().Create(context.TODO(), connector)
 		if err != nil {
 			log.Error(err, "Failed creating kafka connector")
 			return err
 		}
-
 	} else if err != nil {
 		log.Error(err, "Failed to check if kafka connector exists.")
 		return err
 	} else {
 
-		if diff := deep.Equal(&existingConnector.Spec, newConnectorSpec); diff != nil {
-			log.Info("Data Connector Kafka Connector Spec Changed. Updating...", "Differences", diff)
-			existingConnector.Spec = *newConnectorSpec
+		patchMaker := patch.NewPatchMaker(patch.NewAnnotator("algo.run/last-applied"))
+		patchResult, err := patchMaker.Calculate(existingConnector, connector)
+		if err != nil {
+			log.Error(err, "Failed to calculate Data Connector resource changes")
+		}
 
-			err := dataConnectorReconciler.manager.GetClient().Update(context.TODO(), existingConnector)
+		if !patchResult.IsEmpty() {
+			log.Info("Data Connector Changed. Updating...")
+			err := dataConnectorReconciler.manager.GetClient().Update(context.TODO(), connector)
 			if err != nil {
-				log.Error(err, "Failed updating Data Connector Kafka Connector")
+				log.Error(err, "Failed updating Data Connector")
 				return err
 			}
 		}

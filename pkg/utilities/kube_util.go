@@ -69,6 +69,11 @@ func (d *KubeUtil) CreateDeployment(deployment *appsv1.Deployment) (deploymentNa
 		"labels": deployment.Labels,
 	}
 
+	annotator := patch.NewAnnotator("algo.run/last-applied")
+	if err := annotator.SetLastAppliedAnnotation(deployment); err != nil {
+		log.Error(err, "Failed to set the Deployment LastApplied annotation")
+	}
+
 	if err := d.manager.GetClient().Create(context.TODO(), deployment); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed creating the deployment")
@@ -87,6 +92,11 @@ func (d *KubeUtil) UpdateDeployment(deployment *appsv1.Deployment) (deploymentNa
 
 	logData := map[string]interface{}{
 		"labels": deployment.Labels,
+	}
+
+	annotator := patch.NewAnnotator("algo.run/last-applied")
+	if err := annotator.SetLastAppliedAnnotation(deployment); err != nil {
+		log.Error(err, "Failed to set the Deployment LastApplied annotation")
 	}
 
 	if err := d.manager.GetClient().Update(context.TODO(), deployment); err != nil {
@@ -149,6 +159,11 @@ func (d *KubeUtil) CreateService(service *corev1.Service) (serviceName string, e
 		"labels": service.Labels,
 	}
 
+	annotator := patch.NewAnnotator("algo.run/last-applied")
+	if err := annotator.SetLastAppliedAnnotation(service); err != nil {
+		log.Error(err, "Failed to set the Service LastApplied annotation")
+	}
+
 	if err := d.manager.GetClient().Create(context.TODO(), service); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed creating the service")
@@ -189,6 +204,11 @@ func (d *KubeUtil) CreateConfigMap(configMap *corev1.ConfigMap) (configMapName s
 		"labels": configMap.Labels,
 	}
 
+	annotator := patch.NewAnnotator("algo.run/last-applied")
+	if err := annotator.SetLastAppliedAnnotation(configMap); err != nil {
+		log.Error(err, "Failed to set the ConfigMap LastApplied annotation")
+	}
+
 	if err := d.manager.GetClient().Create(context.TODO(), configMap); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed creating the ConfigMap")
@@ -207,6 +227,11 @@ func (d *KubeUtil) UpdateConfigMap(configMap *corev1.ConfigMap) (configMapName s
 
 	logData := map[string]interface{}{
 		"labels": configMap.Labels,
+	}
+
+	annotator := patch.NewAnnotator("algo.run/last-applied")
+	if err := annotator.SetLastAppliedAnnotation(configMap); err != nil {
+		log.Error(err, "Failed to set the ConfigMap LastApplied annotation")
 	}
 
 	if err := d.manager.GetClient().Update(context.TODO(), configMap); err != nil {
@@ -249,7 +274,8 @@ func (d *KubeUtil) CreateStatefulSet(statefulSet *appsv1.StatefulSet) (sfName st
 		"labels": statefulSet.Labels,
 	}
 
-	if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(statefulSet); err != nil {
+	annotator := patch.NewAnnotator("algo.run/last-applied")
+	if err := annotator.SetLastAppliedAnnotation(statefulSet); err != nil {
 		log.Error(err, "Failed to set the StatefulSet LastApplied annotation")
 	}
 
@@ -273,7 +299,8 @@ func (d *KubeUtil) UpdateStatefulSet(statefulSet *appsv1.StatefulSet) (sfName st
 		"labels": statefulSet.Labels,
 	}
 
-	if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(statefulSet); err != nil {
+	annotator := patch.NewAnnotator("algo.run/last-applied")
+	if err := annotator.SetLastAppliedAnnotation(statefulSet); err != nil {
 		log.Error(err, "Failed to set the StatefulSet LastApplied annotation")
 	}
 
@@ -386,6 +413,52 @@ func (d *KubeUtil) CheckForAmbassadorMapping(listOptions []client.ListOption) (*
 
 }
 
+func (d *KubeUtil) CreateAmbassadorMapping(mapping *ambv2.Mapping) (sfName string, error error) {
+
+	logData := map[string]interface{}{
+		"labels": mapping.Labels,
+	}
+
+	annotator := patch.NewAnnotator("algo.run/last-applied")
+	if err := annotator.SetLastAppliedAnnotation(mapping); err != nil {
+		log.Error(err, "Failed to set the Mapping LastApplied annotation")
+	}
+
+	if err := d.manager.GetClient().Create(context.TODO(), mapping); err != nil {
+		log.WithValues("data", logData)
+		log.Error(err, "Failed creating the Mapping")
+		return "", err
+	}
+
+	return mapping.GetName(), nil
+
+}
+
+func (d *KubeUtil) UpdateAmbassadorMapping(mapping *ambv2.Mapping) (sfName string, error error) {
+
+	logData := map[string]interface{}{
+		"labels": mapping.Labels,
+	}
+
+	annotator := patch.NewAnnotator("algo.run/last-applied")
+	if err := annotator.SetLastAppliedAnnotation(mapping); err != nil {
+		log.Error(err, "Failed to set the Mapping LastApplied annotation")
+	}
+
+	if err := d.manager.GetClient().Update(context.TODO(), mapping); err != nil {
+		log.WithValues("data", logData)
+		log.Error(err, "Failed updating the Mapping")
+		return "", err
+	}
+
+	logData["name"] = mapping.GetName()
+	log.WithValues("data", logData)
+	log.Info("Updated Ambassador Mapping")
+
+	return mapping.GetName(), nil
+
+}
+
 func (d *KubeUtil) CreateResourceReqs(r *v1beta1.ResourceRequirementsV1) (*corev1.ResourceRequirements, error) {
 
 	resources := &corev1.ResourceRequirements{}
@@ -467,6 +540,11 @@ func (d *KubeUtil) CreateHorizontalPodAutoscaler(hpa *autoscalev2beta2.Horizonta
 		"labels": hpa.Labels,
 	}
 
+	annotator := patch.NewAnnotator("algo.run/last-applied")
+	if err := annotator.SetLastAppliedAnnotation(hpa); err != nil {
+		log.Error(err, "Failed to set the HPA LastApplied annotation")
+	}
+
 	if err := d.manager.GetClient().Create(context.TODO(), hpa); err != nil {
 		log.WithValues("data", logData)
 		log.Error(err, "Failed creating the HorizontalPodAutoscaler")
@@ -485,6 +563,11 @@ func (d *KubeUtil) UpdateHorizontalPodAutoscaler(hpa *autoscalev2beta2.Horizonta
 
 	logData := map[string]interface{}{
 		"labels": hpa.Labels,
+	}
+
+	annotator := patch.NewAnnotator("algo.run/last-applied")
+	if err := annotator.SetLastAppliedAnnotation(hpa); err != nil {
+		log.Error(err, "Failed to set the HPA LastApplied annotation")
 	}
 
 	if err := d.manager.GetClient().Update(context.TODO(), hpa); err != nil {

@@ -10,7 +10,7 @@ import (
 
 	kafkav1beta1 "pipeline-operator/pkg/apis/kafka/v1beta1"
 
-	"github.com/go-test/deep"
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -240,7 +240,7 @@ func (k *KafkaUtil) copySecret(kafkaNamespace string, kafkaSecretName string) {
 		log.Error(err, "Failed to check if Kafka TLS Deployment Secret exists.")
 	} else {
 
-		if diff := deep.Equal(kafkaExistingSecret.Data, kafkaDeplSecret.Data); diff != nil {
+		if !cmp.Equal(kafkaExistingSecret.Data, kafkaDeplSecret.Data) {
 			log.Info("Kafka TLS Cert Secret changed. Updating...")
 			// Update the secret data
 			kafkaDeplSecret.Data = kafkaExistingSecret.Data
